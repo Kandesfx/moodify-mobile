@@ -2,13 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 abstract final class AppColors {
-  static const background = Color(0xFF08090D);
-  static const surface = Color(0xFF121319);
-  static const surfaceRaised = Color(0xFF1B1C25);
-  static const border = Color(0xFF2B2D39);
-  static const text = Color(0xFFF4F2ED);
-  static const secondary = Color(0xFFB7B5C0);
-  static const primary = Color(0xFF7A5CFF);
+  static const background = Color(0xFF0C0C10);
+  static const surface = Color(0xFF171720);
+  static const surfaceRaised = Color(0xFF1F1F2E);
+  static const border = Color(0xFF303043);
+  static const text = Color(0xFFFAFAFC);
+  static const secondary = Color(0xFFA2A3B2);
+  static const primary = Color(0xFF8B5CF6);
+  static const lavender = Color(0xFFC4B5FD);
+  static const liked = Color(0xFFEC4899);
   static const error = Color(0xFFFF8796);
 }
 
@@ -36,7 +38,7 @@ ThemeData buildAppTheme() {
         letterSpacing: -0.7,
       ),
       titleLarge: TextStyle(
-        fontSize: 22,
+        fontSize: 20,
         height: 1.4,
         fontWeight: FontWeight.w600,
       ),
@@ -54,6 +56,12 @@ ThemeData buildAppTheme() {
       ),
     ).apply(bodyColor: AppColors.text, displayColor: AppColors.text),
     appBarTheme: const AppBarThemeData(
+      titleTextStyle: TextStyle(
+        fontFamily: 'BeVietnamPro',
+        fontSize: 22,
+        fontWeight: FontWeight.w700,
+        color: AppColors.text,
+      ),
       backgroundColor: AppColors.background,
       surfaceTintColor: Colors.transparent,
       scrolledUnderElevation: 0,
@@ -104,5 +112,36 @@ ThemeData buildAppTheme() {
       ),
     ),
     dividerTheme: const DividerThemeData(color: AppColors.border, thickness: 1),
+    navigationBarTheme: NavigationBarThemeData(
+      labelTextStyle: WidgetStateProperty.resolveWith(
+        (states) => TextStyle(
+          fontFamily: 'BeVietnamPro',
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: states.contains(WidgetState.selected)
+              ? AppColors.lavender
+              : AppColors.secondary,
+        ),
+      ),
+      iconTheme: WidgetStateProperty.resolveWith(
+        (states) => IconThemeData(
+          size: 22,
+          color: states.contains(WidgetState.selected)
+              ? AppColors.primary
+              : AppColors.secondary,
+        ),
+      ),
+      overlayColor: WidgetStatePropertyAll(
+        AppColors.primary.withValues(alpha: .08),
+      ),
+    ),
+    bottomSheetTheme: const BottomSheetThemeData(
+      backgroundColor: AppColors.surface,
+      surfaceTintColor: Colors.transparent,
+      dragHandleColor: AppColors.secondary,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+    ),
   );
 }

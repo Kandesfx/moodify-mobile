@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
+import '../../offline/presentation/offline_controller.dart';
 
 import '../../../app/theme/app_theme.dart';
 import '../../../core/widgets/feedback_panel.dart';
+import '../../../core/widgets/app_motion.dart';
 import '../../auth/presentation/session_controller.dart';
 import '../../library/presentation/library_controller.dart';
+import '../../library/presentation/playlist_dialog.dart';
 import '../../player/presentation/player_controller.dart';
 import '../data/catalog_repository.dart';
 import '../domain/catalog_models.dart';
@@ -16,10 +20,12 @@ class MusicArtwork extends ConsumerWidget {
     this.image,
     this.size = 52,
     this.round = false,
+    this.radius = 8,
   });
   final String? image;
   final double size;
   final bool round;
+  final double radius;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final uri = ref.watch(catalogRepositoryProvider).artwork(image);
@@ -34,7 +40,7 @@ class MusicArtwork extends ConsumerWidget {
       ),
     );
     return ClipRRect(
-      borderRadius: BorderRadius.circular(round ? size / 2 : 8),
+      borderRadius: BorderRadius.circular(round ? size / 2 : radius),
       child: SizedBox.square(
         dimension: size,
         child: uri == null
@@ -59,21 +65,17 @@ class TrackTile extends ConsumerWidget {
     required this.track,
     required this.queue,
     required this.index,
+    this.remove,
   });
   final Track track;
   final List<Track> queue;
   final int index;
+  final VoidCallback? remove;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final active = ref.watch(
       playerControllerProvider.select((s) => s.track?.id == track.id),
     );
-    final userId = ref.watch(
-      sessionControllerProvider.select((s) => s.session?.user.id),
-    );
-    final library = userId == null
-        ? null
-        : ref.watch(libraryControllerProvider);
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       leading: MusicArtwork(image: track.image),
@@ -91,82 +93,163 @@ class TrackTile extends ConsumerWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      onTap: () =>
-          ref.read(playerControllerProvider.notifier).select(queue, index),
-      trailing: PopupMenuButton<String>(
-        tooltip: 'Tùy chọn cho ${track.displayName}',
-        onSelected: (action) => _action(context, ref, action),
-        itemBuilder: (_) => [
-          PopupMenuItem(
-            value: 'like',
-            enabled:
-                library == null ||
-                (!library.loading && !library.busy && library.failure == null),
-            child: Text(
-              library?.likedIds.contains(track.spotifyId) == true
-                  ? 'Bỏ lưu yêu thích'
-                  : 'Lưu vào yêu thích',
-            ),
-          ),
-          const PopupMenuItem(
-            value: 'playlist',
-            child: Text('Thêm vào playlist'),
-          ),
-          if (track.artistId != null)
-            const PopupMenuItem(value: 'artist', child: Text('Xem nghệ sĩ')),
-        ],
-      ),
+      onTap: () {
+        final path = GoRouterState.of(context).uri.path;
+        final source = path.startsWith('/album/')
+            ? 'ALBUM'
+            : path.startsWith('/artist/')
+            ? 'ARTIST'
+            : path.startsWith('/playlist/')
+            ? 'PLAYLIST'
+            : path == '/search'
+            ? 'SEARCH'
+            : path == '/library'
+            ? 'LIBRARY'
+            : path == '/home'
+            ? 'HOME'
+            : 'OTHER';
+        ref
+            .read(playerControllerProvider.notifier)
+            .select(queue, index, source: source);
+      },
+      selected: active,
+      selectedTileColor: AppColors.primary.withValues(alpha: .07),
+      trailing: TrackOptionsButton(track: track, remove: remove),
     );
   }
+}
 
-  Future<void> _action(
-    BuildContext context,
-    WidgetRef ref,
-    String action,
-  ) async {
-    if (action == 'artist') {
-      context.push(
-        Uri(
-          path: '/artist/${segment(track.artistId!)}',
-          queryParameters: {'name': track.artist},
-        ).toString(),
+class TrackOptionsButton extends ConsumerWidget {
+  const TrackOptionsButton({super.key, required this.track, this.remove});
+  final Track track;
+  final VoidCallback? remove;
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userId = ref.watch(
+      sessionControllerProvider.select((s) => s.session?.user.id),
+    );
+    final library = userId == null
+        ? null
+        : ref.watch(libraryControllerProvider);
+    return PopupMenuButton<String>(
+      tooltip: 'Tùy chọn cho ${track.displayName}',
+      onSelected: (action) => action == 'remove'
+          ? remove?.call()
+          : performTrackAction(context, ref, track, action),
+      itemBuilder: (_) => [
+        PopupMenuItem(
+          value: 'like',
+          enabled:
+              library == null ||
+              (!library.loading && !library.busy && library.failure == null),
+          child: Text(
+            library?.likedIds.contains(track.spotifyId) == true
+                ? 'Bỏ lưu yêu thích'
+                : 'Lưu vào yêu thích',
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'playlist',
+          child: Text('Thêm vào playlist'),
+        ),
+        const PopupMenuItem(
+          value: 'download',
+          child: Text('Tải để nghe offline'),
+        ),
+        const PopupMenuItem(value: 'share', child: Text('Chia sẻ bài hát')),
+        if (remove != null)
+          const PopupMenuItem(value: 'remove', child: Text('Bỏ khỏi playlist')),
+        if (track.artistId != null)
+          const PopupMenuItem(value: 'artist', child: Text('Xem nghệ sĩ')),
+      ],
+    );
+  }
+}
+
+Future<void> performTrackAction(
+  BuildContext context,
+  WidgetRef ref,
+  Track track,
+  String action,
+) async {
+  if (action == 'share') {
+    try {
+      final box = context.findRenderObject() as RenderBox?;
+      await SharePlus.instance.share(
+        ShareParams(
+          text: '${track.displayName} — ${track.artist}',
+          title: 'Moodify',
+          sharePositionOrigin: box == null
+              ? null
+              : box.localToGlobal(Offset.zero) & box.size,
+        ),
       );
-      return;
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Chưa mở được bảng chia sẻ.')),
+        );
+      }
     }
-    if (ref.read(sessionControllerProvider).session == null) {
-      context.push(
-        Uri(
-          path: '/sign-in',
-          queryParameters: {'from': GoRouterState.of(context).uri.toString()},
-        ).toString(),
-      );
-      return;
-    }
-    if (action == 'playlist') {
-      await showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        builder: (_) => _PlaylistPicker(track: track),
-      );
-      return;
-    }
-    final controller = ref.read(libraryControllerProvider.notifier);
-    final success = await controller.toggleLike(track);
+    return;
+  }
+  if (action == 'artist') {
+    context.push(
+      Uri(
+        path: '/artist/${segment(track.artistId!)}',
+        queryParameters: {'name': track.artist},
+      ).toString(),
+    );
+    return;
+  }
+  if (ref.read(sessionControllerProvider).session == null) {
+    context.push(
+      Uri(
+        path: '/sign-in',
+        queryParameters: {'from': GoRouterState.of(context).uri.toString()},
+      ).toString(),
+    );
+    return;
+  }
+  if (action == 'playlist') {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _PlaylistPicker(track: track),
+    );
+    return;
+  }
+  if (action == 'download') {
+    final controller = ref.read(offlineControllerProvider.notifier);
+    final success = await controller.download(track);
     if (!context.mounted) return;
-    final state = ref.read(libraryControllerProvider);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
           success
-              ? (state.likedIds.contains(track.spotifyId)
-                    ? 'Đã lưu vào bài hát yêu thích.'
-                    : 'Đã bỏ lưu bài hát.')
-              : state.failure?.message ??
-                    'Thư viện đang tải. Vui lòng thử lại.',
+              ? 'Đã tải và xác minh bản quyền trên thiết bị.'
+              : ref.read(offlineControllerProvider).failure?.message ??
+                    'Đang có thao tác tải xuống. Vui lòng thử lại.',
         ),
       ),
     );
+    return;
   }
+  final controller = ref.read(libraryControllerProvider.notifier);
+  final success = await controller.toggleLike(track);
+  if (!context.mounted) return;
+  final state = ref.read(libraryControllerProvider);
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(
+        success
+            ? (state.likedIds.contains(track.spotifyId)
+                  ? 'Đã lưu vào bài hát yêu thích.'
+                  : 'Đã bỏ lưu bài hát.')
+            : state.failure?.message ?? 'Thư viện đang tải. Vui lòng thử lại.',
+      ),
+    ),
+  );
 }
 
 class _PlaylistPicker extends ConsumerWidget {
@@ -194,13 +277,23 @@ class _PlaylistPicker extends ConsumerWidget {
                 padding: const EdgeInsets.all(20),
                 child: FeedbackPanel(message: state.failure!.message),
               ),
-            if (state.playlists.isEmpty && !state.loading)
-              const Padding(
-                padding: EdgeInsets.all(24),
-                child: Text(
-                  'Bạn chưa có playlist. Tạo playlist trong Thư viện.',
-                ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: OutlinedButton.icon(
+                onPressed: state.busy || state.loading
+                    ? null
+                    : () async {
+                        final playlist = await showCreatePlaylist(context);
+                        if (playlist == null || !context.mounted) return;
+                        final success = await ref
+                            .read(libraryControllerProvider.notifier)
+                            .add(playlist.id, track);
+                        if (success && context.mounted) Navigator.pop(context);
+                      },
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('Tạo playlist mới'),
               ),
+            ),
             Expanded(
               child: ListView.builder(
                 itemCount: state.playlists.length,
@@ -235,8 +328,14 @@ class _PlaylistPicker extends ConsumerWidget {
 }
 
 class LoadMessage extends StatelessWidget {
-  const LoadMessage({super.key, required this.message, this.retry});
+  const LoadMessage({
+    super.key,
+    required this.message,
+    this.retry,
+    this.retryLabel = 'Thử lại',
+  });
   final String message;
+  final String retryLabel;
   final VoidCallback? retry;
   @override
   Widget build(BuildContext context) => Padding(
@@ -253,7 +352,7 @@ class LoadMessage extends StatelessWidget {
           TextButton.icon(
             onPressed: retry,
             icon: const Icon(Icons.refresh_rounded),
-            label: const Text('Thử lại'),
+            label: Text(retryLabel),
           ),
       ],
     ),
@@ -276,27 +375,45 @@ class GuestPrompt extends StatelessWidget {
         padding: const EdgeInsets.all(28),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 440),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.library_music_outlined,
-                size: 56,
-                color: AppColors.secondary,
+          child: SectionEntrance(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(20),
               ),
-              const SizedBox(height: 24),
-              Text(message, textAlign: TextAlign.center),
-              const SizedBox(height: 24),
-              FilledButton(
-                onPressed: () => context.push(
-                  Uri(
-                    path: '/sign-in',
-                    queryParameters: {'from': returnTo},
-                  ).toString(),
-                ),
-                child: const Text('Đăng nhập'),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircleAvatar(
+                    radius: 34,
+                    backgroundColor: AppColors.surfaceRaised,
+                    child: Icon(
+                      Icons.person_outline_rounded,
+                      size: 32,
+                      color: AppColors.lavender,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Khách vãng lai',
+                    style: TextStyle(fontSize: 21, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(message, textAlign: TextAlign.center),
+                  const SizedBox(height: 24),
+                  FilledButton(
+                    onPressed: () => context.push(
+                      Uri(
+                        path: '/sign-in',
+                        queryParameters: {'from': returnTo},
+                      ).toString(),
+                    ),
+                    child: const Text('Đăng nhập'),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),

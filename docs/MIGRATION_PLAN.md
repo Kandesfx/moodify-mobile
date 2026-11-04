@@ -6,7 +6,7 @@ Sau khi nghiệm thu chuyển đổi mới mở rộng chức năng consumer t�
 
 ## 1. Trạng thái và cách đọc bằng chứng
 
-**M0 hoàn thành; M1 và M2 đang triển khai; M3–M7 `NOT_STARTED`.** Password auth/session và phần lõi catalog/search/library/player có mã và test; chưa nghiệm thu toàn milestone.
+**M0 hoàn thành; M1–M4 đang triển khai; M5–M6 thuộc nhánh cộng tác viên; M7 chưa bắt đầu.** Password auth/session, catalog/search/library/player, subscription/payment/inbox và offline đã có mã. Chưa nghiệm thu toàn milestone; bằng chứng tài khoản/native còn thiếu được ghi riêng trong STATE.
 Đã có mã Dart, Android/iOS/web scaffold, dependency lock, analyze/test và APK debug. Bằng chứng thiết bị/API được ghi theo từng luồng trong `ai/STATE.md`.
 Đánh dấu từng luồng và từng nền tảng riêng; không suy kết quả iOS từ Android.
 
@@ -39,7 +39,7 @@ Không hỏi phê duyệt cho thao tác triển khai thông thường đã nằm
 ## 3. Ma trận chức năng cần chuyển
 
 Đường dẫn trong cột nguồn tương đối với `Moodify-Mobile/`; xem `docs/ai/SOURCE_MAP.md` để tìm checkout.
-Mỗi hàng dưới đây: source đã `SOURCE_OBSERVED`. Login/register và profile/logout cơ sở đã `IMPLEMENTED`; shell bốn tab, profile/subscription đầy đủ và các hàng còn lại **`NOT_STARTED`**.
+Mỗi hàng dưới đây đã `SOURCE_OBSERVED`. Shell, password auth, catalog/search/library/player và các module M3/M4 có implementation Flutter. Social OAuth còn thiếu cấu hình native; karaoke và quảng cáo do cộng tác viên làm trên nhánh GitHub riêng. Không suy trạng thái toàn bộ app từ việc đã port các màn hình.
 Các API cụ thể và khác biệt response nằm tại `docs/reference/API_CONTRACT.md`.
 
 | Luồng | Source RN tham chiếu | Cách chuyển và tiêu chí nghiệm thu chính |
@@ -95,9 +95,11 @@ Trạng thái Flutter: **IN_PROGRESS**. Password auth/session/profile/logout cơ
 
 ## 6. M2 — core parity nghe nhạc và thư viện
 
-Trạng thái Flutter: **IN_PROGRESS**. Đã triển khai shell 4 tab giữ trạng thái; khách duyệt/phát qua API public; catalog/filter/phân trang, album/artist detail, search thường/cảm xúc, liked tracks, tạo playlist riêng tư/thêm bài/đọc playlist, mini/full player với queue/seek/shuffle/repeat/plain lyrics. Một engine native và OS controls dùng cùng coordinator. 53 test cục bộ đạt; Android phát/pause/seek/background/OS play đã kiểm tra với nguồn thật.
+Trạng thái Flutter: **IN_PROGRESS**. Đã có shell 4 tab, khách duyệt/phát qua API public, catalog/filter/phân trang, album/artist detail, search thường/cảm xúc/history, liked tracks/favorite albums, playlist create/add/remove/delete/visibility. Player có queue/seek/shuffle/repeat, volume, sleep, share metadata qua native sheet và lyrics với timestamp thật theo entitlement. Một engine/OS coordinator và listening telemetry từ sự kiện native; không gửi doanh thu cho guest/offline. Home, library, account và player đã được tổ chức lại theo UX_REVIEW.
 
-Chưa hoàn tất M2: search history, favorite album, xóa bài/playlist/visibility, volume/sleep/share/synced lyrics, entitlement/ad policy và listening telemetry. Không coi player debug hiện tại là bản production đạt chính sách quảng cáo/quyền. Auth/library mutation và mood worker chưa được xác minh end-to-end bằng tài khoản thật; iOS, Bluetooth và lock-screen/interruption chưa nghiệm thu. Xem `ai/STATE.md`.
+Thiết kế đã điều chỉnh lại theo source RN theo yêu cầu người dùng: quick grid/spotlight/shelves, mini-player nổi, full-player nền artwork mờ và slide-up; motion có reduced-motion và test màn nhỏ. Không thay engine hay kiến trúc.
+
+Chưa nghiệm thu M2: mutation bằng tài khoản thật, mood worker, native share/volume/sleep/synced lyrics và listening telemetry trên server thật; iOS, Bluetooth và interruption. Quảng cáo/entitlement policy do cộng tác viên tích hợp từ nhánh riêng, vẫn là gate release. Chia sẻ hiện là tên bài/nghệ sĩ; chưa có public deep link được xác minh. Xem `ai/STATE.md`.
 
 - Chuyển shell/home/catalog/album/artist-list, search thường/cảm xúc và search history.
 - Chuyển playlist/liked/favorite album với server validation, rollback và phân trang.
@@ -111,7 +113,7 @@ Chưa hoàn tất M2: search history, favorite album, xóa bài/playlist/visibil
 
 ## 7. M3 — gói, gia hạn, thanh toán và thông báo
 
-Trạng thái Flutter: **NOT_STARTED**. Phụ thuộc session và playback coordinator.
+Trạng thái Flutter: **IN_PROGRESS**. Có typed current/quotes/management, xác nhận checkout, VietQR/sao chép, kiểm tra status tối đa 180 lần tự động, dừng khi nền/lỗi/thoát, chặn đơn lặp khi kết quả chưa rõ và kiểm tra đơn pending từ lịch sử. Chỉ server SUCCESS mới cập nhật quyền. Có hủy lịch/đơn và inbox read/read-all; notification billing mở route gói qua allowlist. Chưa thực hiện giao dịch thật hoặc xác minh protected API trên thiết bị.
 
 - Chuyển package list, subscription hiện tại, checkout/QR và payment status polling có giới hạn.
 - Gia hạn/nâng gói dùng checkout và trạng thái hiệu lực từ server; không tự cộng ngày hoặc ghi Premium local.
@@ -124,7 +126,7 @@ Trạng thái Flutter: **NOT_STARTED**. Phụ thuộc session và playback coord
 
 ## 8. M4 — tải và nghe offline
 
-Trạng thái Flutter: **NOT_STARTED**. Spike native/file I/O có thể làm sớm.
+Trạng thái Flutter: **IN_PROGRESS**. Có tải HTTPS giới hạn 40 MiB/1 lượt, file AES-256-GCM riêng sandbox Flutter, manifest/key trong secure storage theo API+user+device, `.part`/rename, confirm/verify, expiry/revocation/renew/remove. Cleanup intent giới hạn phục hồi reservation qua DELETE hiện có; không lưu ticket hoặc tạo outbox nghiệp vụ. Có cổng phát offline dùng chung engine và mở thư viện khi restore lỗi mạng. Test filesystem/crypto đạt theo STATE; native, RAM bài lớn và tài khoản Premium chưa nghiệm thu.
 
 - Đọc contract backend và MFY1 (format file local do client mã hóa); đánh giá tương thích và không quảng bá CTR hiện tại như DRM hoàn chỉnh. Không mặc định app Flutter mới truy cập được file/token trong sandbox Expo cũ.
 - Manifest versioned theo user, key secure storage, file private, `.part` và rename atomically.
@@ -137,7 +139,7 @@ Trạng thái Flutter: **NOT_STARTED**. Spike native/file I/O có thể làm s�
 
 ## 9. M5 — karaoke solo và pitch
 
-Trạng thái Flutter: **NOT_STARTED**. Spike mic/pitch được phép trước khi dựng toàn bộ UI.
+Trạng thái trong nhánh này: **EXTERNAL_BRANCH**. Người dùng xác nhận cộng tác viên phụ trách karaoke trên nhánh GitHub riêng. Không triển khai/sửa module ở đây; các tiêu chí dưới vẫn áp dụng khi tích hợp và nghiệm thu.
 
 - Chuyển catalog/detail/instrumental/lyrics, session và gửi pitch features để backend chấm điểm.
 - Native Android cũ dùng AudioRecord + YIN; port bridge qua adapter/platform channel, kiểm tra thuật toán và thread.
@@ -148,7 +150,7 @@ Trạng thái Flutter: **NOT_STARTED**. Spike mic/pitch được phép trước 
 
 ## 10. M6 — karaoke rooms, voice và điểm nhóm
 
-Trạng thái Flutter: **NOT_STARTED**. Spike Flutter/native mediasoup/WebRTC cần thực hiện sớm.
+Trạng thái trong nhánh này: **EXTERNAL_BRANCH**, cùng phạm vi karaoke của cộng tác viên. Kiểm chứng sau tích hợp, không suy tiến độ nhánh kia từ checkout hiện tại.
 
 - Dùng room API hiện có: public/private, invite, membership, queue, host close/playback và expectedVersion.
 - WS state giữ auth frame đầu/device UUID, heartbeat/reconnect; event stale không đè snapshot version mới.

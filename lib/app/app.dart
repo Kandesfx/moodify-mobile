@@ -8,6 +8,8 @@ import '../core/widgets/brand_lockup.dart';
 import '../core/widgets/feedback_panel.dart';
 import '../features/auth/domain/session_state.dart';
 import '../features/auth/presentation/session_controller.dart';
+import '../features/offline/presentation/offline_controller.dart';
+import '../features/player/presentation/player_controller.dart';
 import 'router/app_router.dart';
 import 'theme/app_theme.dart';
 
@@ -33,6 +35,18 @@ class _AppRootState extends ConsumerState<MoodifyApp>
     if (state == AppLifecycleState.resumed &&
         ref.read(sessionControllerProvider).phase == SessionPhase.signedIn) {
       unawaited(ref.read(sessionControllerProvider.notifier).refreshProfile());
+      unawaited(_verifyOffline());
+    }
+  }
+
+  Future<void> _verifyOffline() async {
+    await ref.read(offlineControllerProvider.notifier).load(verify: true);
+    if (!mounted) return;
+    final player = ref.read(playerControllerProvider);
+    final entries = ref.read(offlineControllerProvider).entries;
+    if (player.offline &&
+        !entries.any((e) => e.track.id == player.track?.id && !e.expired)) {
+      await ref.read(playerControllerProvider.notifier).clear();
     }
   }
 
@@ -43,15 +57,20 @@ class _AppRootState extends ConsumerState<MoodifyApp>
   }
 
   @override
-  Widget build(BuildContext context) => MaterialApp.router(
-    title: 'Moodify',
-    debugShowCheckedModeBanner: false,
-    theme: buildAppTheme(),
-    locale: const Locale('vi'),
-    localizationsDelegates: GlobalMaterialLocalizations.delegates,
-    supportedLocales: const [Locale('vi'), Locale('en')],
-    routerConfig: ref.watch(appRouterProvider),
-  );
+  Widget build(BuildContext context) {
+    // Keep the account-scoped offline service alive so logout also purges files
+    // when the download screen has not been opened during this app session.
+    ref.watch(offlinePlaybackAccessProvider);
+    return MaterialApp.router(
+      title: 'Moodify',
+      debugShowCheckedModeBanner: false,
+      theme: buildAppTheme(),
+      locale: const Locale('vi'),
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      supportedLocales: const [Locale('vi'), Locale('en')],
+      routerConfig: ref.watch(appRouterProvider),
+    );
+  }
 }
 
 class ConfigurationApp extends StatelessWidget {

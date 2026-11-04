@@ -10,12 +10,15 @@ class SessionState {
     this.isBusy = false,
     this.failure,
     this.notice,
+    this.offlineUserId,
   });
   final SessionPhase phase;
   final AuthSession? session;
   final bool isBusy;
   final AppFailure? failure;
   final String? notice;
+  // Identity scope only; never treats a cached profile as server-verified.
+  final String? offlineUserId;
 
   SessionState withFeedback({
     bool? busy,
@@ -27,5 +30,6 @@ class SessionState {
     isBusy: busy ?? isBusy,
     failure: failure,
     notice: notice,
+    offlineUserId: offlineUserId,
   );
 }

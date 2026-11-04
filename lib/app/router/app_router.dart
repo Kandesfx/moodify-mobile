@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/widgets/brand_lockup.dart';
+import '../../core/widgets/app_motion.dart';
 import '../../core/widgets/feedback_panel.dart';
 import '../../features/auth/domain/session_state.dart';
 import '../../features/auth/presentation/account_screen.dart';
@@ -13,6 +14,9 @@ import '../../features/home/presentation/home_screen.dart';
 import '../../features/search/presentation/search_screen.dart';
 import '../../features/library/presentation/library_screen.dart';
 import '../../features/player/presentation/player_screen.dart';
+import '../../features/notifications/presentation/notification_screen.dart';
+import '../../features/subscriptions/presentation/subscription_screen.dart';
+import '../../features/offline/presentation/offline_screen.dart';
 import '../main_shell.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -26,6 +30,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final path = route.uri.path;
       if (session.phase == SessionPhase.restoring ||
           session.phase == SessionPhase.restoreFailed) {
+        if (session.phase == SessionPhase.restoreFailed &&
+            session.offlineUserId != null &&
+            (path == '/offline' || path == '/player')) {
+          return null;
+        }
         return path == '/restoring'
             ? null
             : Uri(
@@ -90,22 +99,51 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
         ],
       ),
-      GoRoute(path: '/player', builder: (_, _) => const PlayerScreen()),
+      GoRoute(
+        path: '/player',
+        pageBuilder: (context, route) =>
+            _slidePage(context, route, const PlayerScreen()),
+      ),
+      GoRoute(
+        path: '/notifications',
+        pageBuilder: (context, route) =>
+            _slidePage(context, route, const NotificationScreen()),
+      ),
+      GoRoute(
+        path: '/subscriptions',
+        pageBuilder: (context, route) =>
+            _slidePage(context, route, const SubscriptionScreen()),
+      ),
+      GoRoute(
+        path: '/offline',
+        pageBuilder: (context, route) =>
+            _slidePage(context, route, const OfflineScreen()),
+      ),
       GoRoute(
         path: '/album/:id',
-        builder: (_, route) =>
-            CollectionScreen(id: route.pathParameters['id']!, album: true),
+        pageBuilder: (context, route) => _slidePage(
+          context,
+          route,
+          CollectionScreen(id: route.pathParameters['id']!, album: true),
+        ),
       ),
       GoRoute(
         path: '/playlist/:id',
-        builder: (_, route) =>
-            CollectionScreen(id: route.pathParameters['id']!, album: false),
+        pageBuilder: (context, route) => _slidePage(
+          context,
+          route,
+          CollectionScreen(id: route.pathParameters['id']!, album: false),
+        ),
       ),
       GoRoute(
         path: '/artist/:id',
-        builder: (_, route) => ArtistScreen(
-          id: route.pathParameters['id']!,
-          name: route.uri.queryParameters['name'] ?? 'Nghệ sĩ',
+        pageBuilder: (context, route) => _slidePage(
+          context,
+          route,
+          ArtistScreen(
+            id: route.pathParameters['id']!,
+            name: route.uri.queryParameters['name'] ?? 'Nghệ sĩ',
+          ),
         ),
       ),
     ],
@@ -135,6 +173,28 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 });
 
 // Only destinations implemented by this app may be restored after authentication.
+CustomTransitionPage<void> _slidePage(
+  BuildContext context,
+  GoRouterState route,
+  Widget child,
+) => CustomTransitionPage<void>(
+  key: route.pageKey,
+  transitionDuration: AppMotion.duration(context, 320),
+  reverseTransitionDuration: AppMotion.duration(context, 240),
+  child: child,
+  transitionsBuilder: (_, animation, _, child) => SlideTransition(
+    position: Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero)
+        .animate(
+          CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+            reverseCurve: Curves.easeInCubic,
+          ),
+        ),
+    child: child,
+  ),
+);
+
 String _destination(Uri uri) {
   final requested = uri.queryParameters['from'] ?? uri.path;
   final parsed = Uri.tryParse(requested);
@@ -150,6 +210,9 @@ String _destination(Uri uri) {
         '/library',
         '/account',
         '/player',
+        '/notifications',
+        '/subscriptions',
+        '/offline',
       }.contains(parsed.path) ||
       RegExp(r'^/(album|playlist|artist)/[^/]+$').hasMatch(parsed.path)) {
     return parsed.toString();
@@ -190,6 +253,12 @@ class _RestoringScreen extends ConsumerWidget {
                       onPressed: controller.logout,
                       child: const Text('Xóa phiên và đăng nhập lại'),
                     ),
+                    if (state.offlineUserId != null)
+                      OutlinedButton.icon(
+                        onPressed: () => context.push('/offline'),
+                        icon: const Icon(Icons.download_for_offline_outlined),
+                        label: const Text('Nghe nhạc đã tải'),
+                      ),
                   ] else
                     const CircularProgressIndicator(
                       semanticsLabel: 'Đang khôi phục phiên',

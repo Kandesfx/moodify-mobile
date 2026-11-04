@@ -1,6 +1,6 @@
 # Kiến trúc Moodify Flutter
 
-Trạng thái: nền app/core/auth và phần lõi M2 home/catalog/search/library/player đã có mã. Những feature còn lại là thiết kế mục tiêu. Đọc `ai/STATE.md` để biết bằng chứng kiểm chứng và áp dụng `AGENTS.md` trước mọi quyết định kỹ thuật.
+Trạng thái: app/core/auth, home/catalog/search/library/player, subscriptions, notifications và offline đã có mã. Karaoke/quảng cáo do cộng tác viên làm trên nhánh riêng. Đọc `ai/STATE.md` để phân biệt implementation với bằng chứng thiết bị và áp dụng `AGENTS.md` trước mọi quyết định kỹ thuật.
 
 ## 1. Biên hệ thống
 
@@ -33,7 +33,7 @@ Một ứng dụng Flutter độc lập dùng lại backend, các ID, nghiệp v
 | HTTP | `dio` | Base URL, token, timeout, cancel, error mapping; không gọi HTTP trực tiếp từ widget |
 | Audio | `just_audio` + `audio_service` + `audio_session` | Một handler/coordinator quản queue, playback, nền/lock screen/audio focus |
 | Token/key | `flutter_secure_storage` | OS-backed storage; không plaintext preferences, không hardcode key |
-| File/cache | App-private files, manifest JSON có version | Chỉ thêm package file/path cần thiết khi triển khai offline |
+| File/cache | App-private files, secure manifest JSON có version; path_provider + cryptography | AES-256-GCM trong sandbox mới, một download giới hạn 40 MiB; RAM/native còn cần đo |
 | Karaoke native | Adapter + platform channel/plugin đã xác minh | Pitch capture/voice theo protocol hiện tại; cần spike trước khi chọn package WebRTC/mediasoup |
 
 Nền dùng Riverpod 2.6.1, go_router 17.5.0, Dio 5.11.1, flutter_secure_storage 11.2.0 và uuid 4.6.0 với Flutter 3.41.6 / Dart 3.11.4. Audio M2 dùng just_audio 0.10.6, audio_service 0.18.19, audio_session 0.2.4; API package đối chiếu README/source đã cài. `pubspec.lock` khóa dependency. Không thêm app SQL/ORM; sqflite là dependency gián tiếp của cache trong package, không phải schema nghiệp vụ mới.
@@ -55,6 +55,7 @@ lib/
     storage/
     errors/
     widgets/
+    formatters/
   features/
     auth/
     home/
@@ -64,6 +65,7 @@ lib/
     player/
     profile/
     subscriptions/
+    notifications/
     offline/
     karaoke/
 test/                    # phản chiếu feature có test thật
@@ -116,6 +118,8 @@ Listening session dùng API telemetry hiện có; chỉ đếm theo event/thời
 Không cần tạo bảng server để giữ state giao diện. Cache RAM/JSON cục bộ đủ cho baseline; không tự thêm SQLite tables/ORM. Nếu cần bộ lưu trữ khác thì nêu tradeoff trước. Không phát triển outbox đồng bộ nghiệp vụ tự chế khi chưa có contract idempotency.
 
 Offline RN dùng format file local **MFY1**: backend cấp URL audio/key/license, client tải rồi mã hóa; xem audit về CTR không có authentication tag. Giữ contract API; khi port phải đánh giá tương thích format local, không coi mã hóa hiện tại là DRM hoàn chỉnh. Giải mã theo luồng khi khả thi, đo bộ nhớ và tránh nạp cả bài/base64 vào Dart heap. File tải dở dùng `.part` rồi rename atomically; manifest versioned và recovery khi app bị kill. Không đổi thời gian máy để tự gia hạn; không cho user B dùng file/secret của user A. Thiếu cơ chế kiểm quyền an toàn thì ghi blocker cụ thể cho release offline. App Flutter mới không mặc định đọc được sandbox/file/token Expo cũ; chuyển chức năng không bao gồm nhập dữ liệu local cũ khi chưa có yêu cầu riêng.
+
+Implementation Flutter hiện dùng AES-256-GCM (nonce ngẫu nhiên + authentication tag), không nhập MFY1 cũ; backend vẫn cấp audio plaintext/key theo contract có sẵn. Khóa/metadata license ở secure manifest, audio encrypted ở file private, chỉ có một plaintext tạm để engine phát và xóa theo lifecycle. Download tuần tự, giới hạn 40 MiB; hiện còn giữ buffer toàn bài khi mã hóa/giải mã nên đo RAM trên máy là gate release. Cleanup intent được lưu trước request-download và reconcile bằng DELETE offline/remove, không giữ ticket hay lịch sử giao dịch. Clock rollback khóa playback cho tới khi verify thật; không quảng bá cơ chế này như DRM chống can thiệp thiết bị.
 
 ## 8. Karaoke và mở rộng
 

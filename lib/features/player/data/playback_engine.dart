@@ -40,6 +40,7 @@ abstract interface class PlaybackEngine {
   Future<void> pause();
   Future<void> seek(Duration position);
   Future<void> stop();
+  Future<void> volume(double value);
   Future<void> dispose();
 }
 
@@ -87,6 +88,8 @@ class _NativePlaybackEngine implements PlaybackEngine {
   Future<void> pause() => handler.player.pause();
   @override
   Future<void> seek(Duration position) => handler.player.seek(position);
+  @override
+  Future<void> volume(double value) => handler.player.setVolume(value);
   @override
   Future<void> stop() async {
     await handler.player.stop();

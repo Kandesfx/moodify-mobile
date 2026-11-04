@@ -43,12 +43,13 @@ Các API mobile còn tập trung trong `Mobile/src/services/api.ts`, web trong `
 
 ## 3. Bản đồ Flutter mục tiêu
 
-Đã có app/core/auth và các feature home/catalog/search/library/player cho phần lõi M2. profile/subscriptions/offline/karaoke vẫn là mục tiêu; không tạo file rỗng chỉ để khớp bảng.
+Đã có app/core/auth, home/catalog/search/library/player, subscriptions, notifications và offline. Karaoke/advertising ở nhánh cộng tác viên; không tạo file rỗng chỉ để khớp bảng.
 
 | Mã M1 thực tế | Điểm vào |
 | --- | --- |
 | Bootstrap, DI, môi trường | `lib/main.dart`, `lib/app/bootstrap.dart`, `lib/core/config/app_config.dart`, `config/` |
 | Router, theme | `lib/app/router/app_router.dart`, `lib/app/theme/app_theme.dart` |
+| Motion/reduced motion, nền artwork thật | `lib/core/widgets/app_motion.dart`, `lib/features/catalog/presentation/artwork_backdrop.dart`; route slide trong router |
 | Token refresh, request theo session | `lib/core/network/session_interceptor.dart` |
 | Session lifecycle và secure storage | `lib/features/auth/data/session_repository.dart`, `session_storage.dart`, `device_identity.dart` trong cùng thư mục |
 | Auth contract | `lib/features/auth/data/auth_remote_service.dart`, `lib/features/auth/domain/` |
@@ -57,9 +58,15 @@ Các API mobile còn tập trung trong `Mobile/src/services/api.ts`, web trong `
 | Shell 4 tab, route public/return sau auth | `lib/app/main_shell.dart`, `lib/app/router/app_router.dart` |
 | Model, catalog API public, stream validation | `lib/features/catalog/domain/catalog_models.dart`, `lib/features/catalog/data/catalog_repository.dart` |
 | Home/phân trang, album/artist detail, track actions | `lib/features/home/presentation/home_screen.dart`, `lib/features/catalog/presentation/` |
-| Search debounce/cancel/mood, chưa có history | `lib/features/search/presentation/` |
-| Thư viện theo user, like, playlist create/add/read | `lib/features/library/data/library_repository.dart`, `lib/features/library/presentation/` |
+| Search debounce/cancel/mood, server history theo user | `lib/features/search/presentation/`, `lib/features/search/data/search_history_repository.dart` |
+| Thư viện theo user, favorite album, playlist create/add/remove/delete/visibility | `lib/features/library/data/library_repository.dart`, `lib/features/library/presentation/collection_actions.dart`, `playlist_dialog.dart` cùng thư mục |
 | Playback coordinator, một native handler, mini/full | `lib/features/player/presentation/player_controller.dart`, `player_screen.dart` cùng thư mục; `lib/features/player/data/playback_engine.dart` |
+| Lyrics/queue sheet, LRC, telemetry | `lib/features/player/presentation/player_sheets.dart`, `lib/features/player/domain/lyric_line.dart`, `lib/features/player/data/listening_reporter.dart` |
+| Gói dịch vụ/checkout/polling | `lib/features/subscriptions/domain/subscription_models.dart`, `data/subscription_repository.dart`, `presentation/` trong feature |
+| Inbox/read/read-all và billing link | `lib/features/notifications/data/notification_repository.dart`, `presentation/notification_screen.dart` trong feature |
+| Download/encryption/license/cache cleanup | `lib/features/offline/data/offline_repository.dart`, `lib/features/offline/presentation/` |
+| Player-offline interface và wiring | `lib/features/player/domain/offline_playback.dart`, `lib/app/bootstrap.dart`, `lib/main.dart` |
+| UX audit và native/account acceptance | `docs/UX_REVIEW.md`, `docs/ai/STATE.md` |
 | Native background audio Android/iOS | `android/app/src/main/AndroidManifest.xml`, `android/app/src/main/kotlin/dev/moodify/moodify_flutter/MainActivity.kt`, `ios/Runner/Info.plist` |
 | Test M2 | `test/features/catalog/`, `search/`, `library/`, `player/`; engine/repository fake chỉ ở `test/support/music_harness.dart` |
 
@@ -71,7 +78,7 @@ Các API mobile còn tập trung trong `Mobile/src/services/api.ts`, web trong `
 | Catalog models/detail/albums/artists | `lib/features/catalog/` |
 | Home, search, library | `lib/features/home/`, `search/`, `library/` |
 | Audio coordinator/queue/telemetry | `lib/features/player/` |
-| Account UI và inbox | `lib/features/profile/` (inbox tách feature chỉ khi phạm vi thực tế cần) |
+| Account UI và inbox | `lib/features/auth/presentation/account_screen.dart`, `lib/features/notifications/` |
 | Packages/checkout/entitlement | `lib/features/subscriptions/` |
 | Download/license/files | `lib/features/offline/` |
 | Solo/room/pitch/voice/scoring | `lib/features/karaoke/` |

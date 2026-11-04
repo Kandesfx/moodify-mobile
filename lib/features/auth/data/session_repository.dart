@@ -115,7 +115,7 @@ class SessionRepository {
   Future<void> _restore() async {
     final scope = _generation;
     var readComplete = false;
-    _emit(const SessionState());
+    _emit(SessionState(offlineUserId: _session?.user.id));
     try {
       final stored = await _storage.read();
       readComplete = true;
@@ -142,7 +142,11 @@ class SessionRepository {
           await expire(failure.message);
         } else {
           _emit(
-            SessionState(phase: SessionPhase.restoreFailed, failure: failure),
+            SessionState(
+              phase: SessionPhase.restoreFailed,
+              failure: failure,
+              offlineUserId: readComplete ? _session?.user.id : null,
+            ),
           );
         }
       }

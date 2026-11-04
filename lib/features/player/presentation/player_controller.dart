@@ -8,21 +8,34 @@ import '../../auth/presentation/session_controller.dart';
 import '../../catalog/data/catalog_repository.dart';
 import '../../catalog/domain/catalog_models.dart';
 import '../data/playback_engine.dart';
+import '../domain/offline_playback.dart';
+import '../data/listening_reporter.dart';
 
 final playbackEngineFactoryProvider =
     Provider<Future<PlaybackEngine> Function()>((ref) => createNativeEngine);
+final offlinePlaybackAccessProvider = Provider<OfflinePlaybackAccess?>(
+  (ref) => null,
+);
 final playerControllerProvider =
     StateNotifierProvider<PlayerController, PlayerState>((ref) {
       final controller = PlayerController(
         ref.watch(catalogRepositoryProvider),
         ref.watch(playbackEngineFactoryProvider),
+        offline: (track) async => ref
+            .read(offlinePlaybackAccessProvider)
+            ?.playback(track, required: true),
+        releaseOffline: () async =>
+            ref.read(offlinePlaybackAccessProvider)?.releasePlayback(),
+        report: (event) => ref.read(listeningReporterProvider)?.record(event),
       );
-      ref.listen(sessionControllerProvider.select((s) => s.session?.user.id), (
-        previous,
-        next,
-      ) {
-        if (previous != next) unawaited(controller.clear());
-      });
+      ref.listen(
+        sessionControllerProvider.select(
+          (s) => s.session?.user.id ?? s.offlineUserId,
+        ),
+        (previous, next) {
+          if (previous != next) unawaited(controller.clear());
+        },
+      );
       return controller;
     });
 
@@ -40,6 +53,10 @@ class PlayerState {
     this.repeat = PlaybackRepeat.off,
     this.shuffle = false,
     this.failure,
+    this.volume = 1,
+    this.sleepUntil,
+    this.offline = false,
+    this.source = 'OTHER',
   });
   final List<Track> queue;
   final int index;
@@ -48,6 +65,10 @@ class PlayerState {
   final Duration position, duration;
   final PlaybackRepeat repeat;
   final AppFailure? failure;
+  final double volume;
+  final DateTime? sleepUntil;
+  final bool offline;
+  final String source;
   PlayerState copy({
     List<Track>? queue,
     int? index,
@@ -60,6 +81,11 @@ class PlayerState {
     bool? shuffle,
     AppFailure? failure,
     bool clearFailure = false,
+    double? volume,
+    DateTime? sleepUntil,
+    bool clearSleep = false,
+    bool? offline,
+    String? source,
   }) => PlayerState(
     queue: queue ?? this.queue,
     index: index ?? this.index,
@@ -71,14 +97,30 @@ class PlayerState {
     repeat: repeat ?? this.repeat,
     shuffle: shuffle ?? this.shuffle,
     failure: clearFailure ? null : failure ?? this.failure,
+    volume: volume ?? this.volume,
+    sleepUntil: clearSleep ? null : sleepUntil ?? this.sleepUntil,
+    offline: offline ?? this.offline,
+    source: source ?? this.source,
   );
 }
 
 class PlayerController extends StateNotifier<PlayerState> {
-  PlayerController(this.repository, this.createEngine)
-    : super(const PlayerState());
+  PlayerController(
+    this.repository,
+    this.createEngine, {
+    this.offline,
+    this.releaseOffline,
+    this.report,
+  }) : super(const PlayerState());
   final CatalogRepository repository;
   final Future<PlaybackEngine> Function() createEngine;
+  final Future<OfflineSource?> Function(Track)? offline;
+  final Future<void> Function()? releaseOffline;
+  final void Function(ListeningEvent)? report;
+  bool _started = false, _actuallyPlaying = false;
+  DateTime? _heartbeatAt;
+  Duration _heartbeatPosition = Duration.zero;
+  Timer? _sleepTimer, _licenseTimer;
   PlaybackEngine? _engine;
   Future<PlaybackEngine>? _engineFuture;
   StreamSubscription<EngineEvent>? _subscription;
@@ -136,11 +178,19 @@ class PlayerController extends StateNotifier<PlayerState> {
     return result;
   }
 
-  Future<void> select(List<Track> queue, int index) async {
+  Future<void> select(
+    List<Track> queue,
+    int index, {
+    bool offline = false,
+    String source = 'OTHER',
+  }) async {
     if (index < 0 || index >= queue.length) return;
     _history.clear();
     _historyCursor = -1;
     _resetShuffle(queue.length, index);
+    _report('TRACK_CHANGED');
+    _started = false;
+    state = state.copy(offline: offline, source: source);
     await _select(queue, index);
   }
 
@@ -170,7 +220,12 @@ class PlayerController extends StateNotifier<PlayerState> {
       }
       _historyCursor = _history.length - 1;
     }
+    _report('TRACK_CHANGED');
     final generation = ++_generation;
+    _started = false;
+    _actuallyPlaying = false;
+    _heartbeatAt = null;
+    _licenseTimer?.cancel();
     _wantedPlaying = true;
     _switching = true;
     _completed = false;
@@ -188,10 +243,17 @@ class PlayerController extends StateNotifier<PlayerState> {
       if (generation != _generation) return;
       final engine = await _getEngine();
       await engine.stop();
+      await releaseOffline?.call();
       if (generation != _generation) return;
-      final track = await repository.track(queue[index].id);
+      final track = state.offline
+          ? queue[index]
+          : await repository.track(queue[index].id);
       if (generation != _generation) return;
-      final uri = await repository.stream(track);
+      final local = state.offline ? await offline?.call(track) : null;
+      if (state.offline && local == null) {
+        throw const AppFailure('Chưa tìm thấy bản tải xuống của bài hát.');
+      }
+      final uri = local?.uri ?? await repository.stream(track);
       if (generation != _generation) return;
       try {
         await engine.load(uri, track);
@@ -203,7 +265,31 @@ class PlayerController extends StateNotifier<PlayerState> {
       }
       if (generation != _generation) return;
       _switching = false;
+      if (local != null) {
+        final remaining = local.expiresAt.difference(DateTime.now().toUtc());
+        if (remaining <= Duration.zero) {
+          throw const AppFailure('Bản quyền offline đã hết hạn.');
+        }
+        _licenseTimer = Timer(remaining, () {
+          if (!mounted || generation != _generation) return;
+          _wantedPlaying = false;
+          unawaited(
+            _run(() async {
+              await _engine?.stop();
+              await releaseOffline?.call();
+            }),
+          );
+          state = state.copy(
+            playing: false,
+            loading: false,
+            failure: const AppFailure(
+              'Bản quyền offline đã hết hạn. Kết nối mạng để gia hạn.',
+            ),
+          );
+        });
+      }
       state = state.copy(track: track, loading: false);
+      await engine.volume(state.volume);
       if (_wantedPlaying) await engine.resume();
     }, generation: generation);
   }
@@ -211,6 +297,8 @@ class PlayerController extends StateNotifier<PlayerState> {
   void _event(EngineEvent event) {
     if (!mounted || _switching || state.track == null) return;
     if (event.failed) {
+      _report('PAUSE');
+      _actuallyPlaying = false;
       _wantedPlaying = false;
       state = state.copy(
         playing: false,
@@ -221,6 +309,28 @@ class PlayerController extends StateNotifier<PlayerState> {
       );
       unawaited(_run(() async => _engine?.pause()));
       return;
+    }
+    if (event.completed) {
+      _report('COMPLETE', position: event.position);
+      _actuallyPlaying = false;
+    } else if (event.playing && !event.buffering) {
+      if (!_started || !_actuallyPlaying) {
+        _report(_started ? 'RESUME' : 'PLAY', position: event.position);
+        _started = true;
+        _actuallyPlaying = true;
+        _heartbeatAt = DateTime.now();
+        _heartbeatPosition = event.position;
+      } else if (_heartbeatAt != null &&
+          DateTime.now().difference(_heartbeatAt!) >=
+              const Duration(seconds: 8) &&
+          event.position > _heartbeatPosition) {
+        _report('HEARTBEAT', position: event.position);
+        _heartbeatAt = DateTime.now();
+        _heartbeatPosition = event.position;
+      }
+    } else if (!event.playing && _actuallyPlaying) {
+      _report('PAUSE', position: event.position);
+      _actuallyPlaying = false;
     }
     state = state.copy(
       playing: event.playing && !event.completed,
@@ -238,7 +348,7 @@ class PlayerController extends StateNotifier<PlayerState> {
 
   Future<void> play() async {
     if (state.track == null) return;
-    if (state.failure != null) {
+    if (state.failure != null || _completed) {
       await _select(state.queue, state.index, remember: false);
       return;
     }
@@ -264,6 +374,12 @@ class PlayerController extends StateNotifier<PlayerState> {
     final maximum = state.duration.inMilliseconds;
     final ms = position.inMilliseconds.clamp(0, maximum > 0 ? maximum : 0);
     await _engine?.seek(Duration(milliseconds: ms));
+    _report('SEEK', target: Duration(milliseconds: ms));
+    if (!_actuallyPlaying) {
+      _report('PAUSE', position: Duration(milliseconds: ms));
+    }
+    _heartbeatAt = DateTime.now();
+    _heartbeatPosition = Duration(milliseconds: ms);
     _completed = false;
   });
   Future<void> next() => _advance();
@@ -273,6 +389,7 @@ class PlayerController extends StateNotifier<PlayerState> {
       return;
     }
     if (_historyCursor > 0) {
+      _report('SKIP_PREVIOUS');
       _historyCursor--;
       await _select(state.queue, _history[_historyCursor], remember: false);
     } else {
@@ -287,6 +404,7 @@ class PlayerController extends StateNotifier<PlayerState> {
       return;
     }
     if (_historyCursor + 1 < _history.length) {
+      if (!completion) _report('SKIP_NEXT');
       _historyCursor++;
       await _select(state.queue, _history[_historyCursor], remember: false);
       return;
@@ -308,6 +426,7 @@ class PlayerController extends StateNotifier<PlayerState> {
         return;
       }
     }
+    if (!completion) _report('SKIP_NEXT');
     await _select(state.queue, nextIndex);
   }
 
@@ -320,7 +439,32 @@ class PlayerController extends StateNotifier<PlayerState> {
     state = state.copy(shuffle: !state.shuffle);
   }
 
+  Future<void> volume(double value) {
+    state = state.copy(volume: value.clamp(0, 1));
+    return _run(() async => _engine?.volume(state.volume));
+  }
+
+  void sleep(Duration? duration) {
+    _sleepTimer?.cancel();
+    state = state.copy(
+      sleepUntil: duration == null ? null : DateTime.now().add(duration),
+      clearSleep: duration == null,
+    );
+    if (duration != null) {
+      _sleepTimer = Timer(duration, () {
+        if (!mounted) return;
+        unawaited(pause());
+        state = state.copy(clearSleep: true);
+      });
+    }
+  }
+
   Future<void> clear() {
+    _report('PLAYBACK_STOPPED');
+    _started = false;
+    _actuallyPlaying = false;
+    _sleepTimer?.cancel();
+    _licenseTimer?.cancel();
     _generation++;
     _wantedPlaying = false;
     _switching = false;
@@ -329,11 +473,16 @@ class PlayerController extends StateNotifier<PlayerState> {
     _historyCursor = -1;
     _shuffleRemaining.clear();
     if (mounted) state = const PlayerState();
-    return _run(() async => _engine?.stop());
+    return _run(() async {
+      await _engine?.stop();
+      await releaseOffline?.call();
+    });
   }
 
   @override
   void dispose() {
+    _sleepTimer?.cancel();
+    _licenseTimer?.cancel();
     _generation++;
     unawaited(_subscription?.cancel());
     // Wait for an in-flight load before disposing its single native engine.
@@ -348,5 +497,20 @@ class PlayerController extends StateNotifier<PlayerState> {
       }),
     );
     super.dispose();
+  }
+
+  void _report(String event, {Duration? position, Duration? target}) {
+    final track = state.track;
+    if (track == null || state.offline || (!_started && event != 'PLAY')) {
+      return;
+    }
+    report?.call((
+      generation: _generation,
+      trackId: track.id,
+      event: event,
+      positionMs: (position ?? state.position).inMilliseconds,
+      targetPositionMs: (target ?? position ?? state.position).inMilliseconds,
+      source: state.source,
+    ));
   }
 }

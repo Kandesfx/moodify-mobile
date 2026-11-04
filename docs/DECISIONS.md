@@ -25,10 +25,16 @@ Baseline ngày **04/11/2026**. Đã có implementation M1; phân biệt lựa ch
 | D17 | Không port chọn thể loại khi đăng ký USER | Backend chỉ xử lý genre cho CONTENT_LEAD; lựa chọn ở form RN không được lưu cho người nghe. Không tạo UI hứa lưu sở thích khi server bỏ qua |
 | D18 | Gradle 8.14.3 bản bin cùng nhánh scaffold | Wrapper 8.14-all tải bị treo; dùng bản vá 8.14.3 đã có tại máy, URL official và SHA-256 đã đối chiếu. Không đổi AGP/Kotlin chỉ để né build |
 | D19 | Home/search public như RN; xác thực ở thao tác cá nhân | Đối chiếu `Mobile/src/app/_layout.tsx`: tabs không có auth guard toàn cục. Flutter mở `/home`, giữ 4 tab, return path nội bộ có allowlist; không tạo debug account/bypass token |
-| D20 | Giữ bố cục main RN, không chép UI admin | Home có filter thật, quick access, album, danh sách bài và nghệ sĩ; mini player trên tabbar. Bỏ CTA chưa được port, không thêm badge/số liệu giả. Metadata hash được ghi là chưa có tên, không bịa tên mới |
+| D20 | Bố cục mobile bám React Native theo yêu cầu sửa thiết kế | Ngày 04/11/2026 người dùng yêu cầu dựng theo app cũ: quick grid 2 cột, spotlight cover mờ, kệ nhạc/nghệ sĩ/album, mini nổi, full player trượt lên, search segment và library list. Thay hướng home search-first trước đó. Không sao chép nhãn trending/rank giả, random personalization hay lỗi media; xem DESIGN/UX_REVIEW |
 | D21 | Kiểm tra detail localPath trước stream | Resolver cũ có bài fallback khi thiếu localPath. Flutter từ chối trường hợp này; gọi stream public không bearer, kiểm tra scheme redirect. File 404 báo lỗi, không đổi sang bài khác |
 | D22 | Một native engine khởi tạo khi phát, queue thuộc controller | Native load serialize và có generation; pause trong load giữ ý định dừng. Shuffle duyệt hữu hạn, previous theo lịch sử tối đa 100 mục. Session đổi dừng/xóa queue; mini/full/OS commands cùng coordinator |
-| D23 | M2 lõi là bản debug, chưa đủ chính sách release | Chưa port entitlement/ad/listening telemetry; không gọi SANDBOX hoặc cấp Premium local. Cần hoàn tất và kiểm chứng trước release. Mutation cá nhân chưa có xác minh tài khoản thật, không lấy fixture làm bằng chứng API |
+| D23 | M2–M4 là bản debug, chưa nghiệm thu release | Listening telemetry đã triển khai từ event native; entitlement/ad policy chờ nhánh cộng tác viên. Không gọi SANDBOX/cấp Premium local; chưa có bằng chứng protected API/payment/offline trên tài khoản thật |
+| D24 | Karaoke và quảng cáo thuộc nhánh cộng tác viên | Người dùng xác nhận làm trên nhánh GitHub riêng. Không tự merge hay sửa feature đó; shared router/player phải tích hợp có kiểm chứng và giữ một engine |
+| D25 | Offline Flutter dùng AES-256-GCM trong sandbox mới | Giữ request/confirm/verify contract, không đổi backend/schema. Không nhập file MFY1/Expo cũ; secure manifest theo API+user+device, `.part`/rename, cleanup intent dùng DELETE hiện có. Tối đa 40 MiB/1 download; RAM native vẫn là gate |
+| D26 | Player phụ thuộc cổng offline có kiểu, wire tại bootstrap | `OfflinePlaybackAccess` ở domain; cùng coordinator cho stream/file. Restore lỗi mạng chỉ mở cached offline identity, không coi profile cache là phiên đã xác minh; logout purges cả khi chưa mở màn download |
+| D27 | Thanh toán chỉ dùng checkout/status/management thật | Xác nhận trước checkout, không tự retry; lỗi mơ hồ yêu cầu đọc lịch sử trước lần mới, chặn thêm đơn khi còn pending. Poll tối đa 180 lần, dừng nền/lỗi/thoát; SUCCESS và hiệu lực gói lấy từ server |
+| D28 | Share native là metadata cho tới khi có public deep link thật | Không dựng URL bài hát hoặc hứa share link mở app khi chưa có route/backend hợp lệ. `share_plus` 13.3.1 và secure storage dùng chung win32 tương thích; AGP nâng 8.12.1 theo yêu cầu plugin, không đổi Kotlin/Gradle |
+| D29 | Lịch sử/search/lyrics/telemetry không sinh dữ liệu thay thế | Chỉ ghi lịch sử khi submit; LIMITED mood giữ thông báo bài gần nhất; LRC thật + synced entitlement, không nội suy. Guest/offline không gửi revenue, heartbeat theo tiến độ engine và không backfill khi mạng lỗi |
 
 ## 2. Các quyết định còn mở trước bước liên quan
 
@@ -42,7 +48,7 @@ Không cần chốt tất cả để bắt đầu code M1; tiếp tục phần �
 | Target thiết bị và mức hỗ trợ iOS | Trước nghiệm thu native/release | Android-first là thứ tự kiểm chứng, chưa phải người dùng đồng ý bỏ iOS |
 | Adapter Flutter/native mediasoup/WebRTC | Spike đầu dự án | Chứng minh tương thích protocol trước khi chọn dependency hoặc port toàn UI |
 | Quyền asset, quảng cáo, font | Trước bundle/release | Không xem giấy phép template Expo là quyền cho mọi logo/audio/catalog |
-| Repo remote mới | Khi người dùng yêu cầu push | Hiện thư mục đã tách; chưa tự tạo remote/publish |
+| Repo remote | Khi người dùng yêu cầu commit/push mới | Đã có `Kandesfx/moodify-mobile`; lượt cải thiện này chưa commit/push. Không tự merge nhánh karaoke/quảng cáo |
 
 ## 3. Cách cập nhật
 

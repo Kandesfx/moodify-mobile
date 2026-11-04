@@ -22,12 +22,14 @@ class SearchState {
     this.failure,
     this.nextPage = 0,
     this.hasMore = false,
+    this.moodResult,
   });
   final String query;
   final bool mood, loading, submitted, hasMore;
   final List<Track> tracks;
   final AppFailure? failure;
   final int nextPage;
+  final MoodResult? moodResult;
 }
 
 class SearchController extends StateNotifier<SearchState> {
@@ -81,8 +83,10 @@ class SearchController extends StateNotifier<SearchState> {
               page: more ? previous.nextPage : 0,
               cancel: cancel,
             );
-      final tracks =
-          page?.tracks ?? await repository.mood(previous.query.trim(), cancel);
+      final moodResult = previous.mood
+          ? await repository.mood(previous.query.trim(), cancel)
+          : null;
+      final tracks = page?.tracks ?? moodResult!.tracks;
       if (!mounted || generation != _generation) return;
       final unique = {
         if (more)
@@ -96,6 +100,7 @@ class SearchController extends StateNotifier<SearchState> {
         tracks: List.unmodifiable(unique.values),
         nextPage: (page?.page ?? 0) + 1,
         hasMore: page?.hasMore ?? false,
+        moodResult: moodResult,
       );
     } catch (error) {
       if (!mounted || generation != _generation) return;

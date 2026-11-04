@@ -14,13 +14,25 @@ import '../../support/auth_harness.dart';
 import '../../support/music_harness.dart';
 
 void main() {
-  for (final largeText in [false, true]) {
+  for (final scenario in [
+    (largeText: false, reducedMotion: false),
+    (largeText: true, reducedMotion: false),
+    (largeText: true, reducedMotion: true),
+  ]) {
+    final largeText = scenario.largeText;
     testWidgets(
-      'guest browses and plays real repository results; largeText=$largeText',
+      'guest browses and plays real repository results; largeText=$largeText reducedMotion=${scenario.reducedMotion}',
       (tester) async {
         final auth = AuthHarness();
         final music = MusicRepositoryFake();
         final engine = PlaybackEngineFake();
+        tester.platformDispatcher.accessibilityFeaturesTestValue =
+            FakeAccessibilityFeatures(
+              disableAnimations: scenario.reducedMotion,
+            );
+        addTearDown(
+          tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+        );
         if (largeText) {
           tester.view.physicalSize = const Size(320, 640);
           tester.view.devicePixelRatio = 1;
@@ -66,6 +78,8 @@ void main() {
               )
               .first,
         );
+        await tester.ensureVisible(track);
+        await tester.pumpAndSettle();
         await tester.tap(track);
         await tester.pumpAndSettle();
         expect(engine.loaded, [firstTrack.id]);
@@ -88,6 +102,17 @@ void main() {
         await tester.tap(find.byType(NavigationDestination).at(1));
         await tester.pumpAndSettle();
         expect(find.byType(TextField), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        await tester.tap(find.text('Cảm xúc'));
+        await tester.pumpAndSettle();
+        tester.view.viewInsets = const FakeViewPadding(bottom: 280);
+        addTearDown(tester.view.resetViewInsets);
+        await tester.tap(find.byType(TextField));
+        await tester.enterText(
+          find.byType(TextField),
+          'Hôm nay tôi muốn nghe nhạc nhẹ',
+        );
+        await tester.pump();
         expect(tester.takeException(), isNull);
       },
     );

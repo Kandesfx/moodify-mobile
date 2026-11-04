@@ -56,13 +56,15 @@ class MusicRepositoryFake extends CatalogRepository {
   }
 
   @override
-  Future<List<Track>> mood(String text, CancelToken cancel) async {
+  Future<MoodResult> mood(String text, CancelToken cancel) async {
     queries.add(text);
-    return [];
+    return const MoodResult(tracks: []);
   }
 }
 
 class PlaybackEngineFake implements PlaybackEngine {
+  @override
+  Future<void> volume(double value) async {}
   final controller = StreamController<EngineEvent>.broadcast(sync: true);
   final loaded = <String>[];
   int resumes = 0, pauses = 0, stops = 0;
