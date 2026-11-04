@@ -24,6 +24,7 @@ class MiniPlayer extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(playerControllerProvider);
+    if (state.source == 'KARAOKE') return const SizedBox.shrink();
     final track = state.track;
     if (track == null) return const SizedBox.shrink();
     final controller = ref.read(playerControllerProvider.notifier);

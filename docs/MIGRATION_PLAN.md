@@ -6,7 +6,7 @@ Sau khi nghiệm thu chuyển đổi mới mở rộng chức năng consumer t�
 
 ## 1. Trạng thái và cách đọc bằng chứng
 
-**M0 hoàn thành; M1–M4 đang triển khai; M5–M6 thuộc nhánh cộng tác viên; M7 chưa bắt đầu.** Password auth/session, catalog/search/library/player, subscription/payment/inbox và offline đã có mã. Chưa nghiệm thu toàn milestone; bằng chứng tài khoản/native còn thiếu được ghi riêng trong STATE.
+**M0 hoàn thành; M1–M6 đang triển khai; M7 chưa bắt đầu.** Đã merge karaoke từ `Thuan_Branch` theo yêu cầu; quảng cáo vẫn chờ cộng tác viên. Password auth/session, catalog/search/library/player, subscription/payment/inbox và offline đã có mã. Chưa nghiệm thu toàn milestone; bằng chứng tài khoản/native còn thiếu được ghi riêng trong STATE.
 Đã có mã Dart, Android/iOS/web scaffold, dependency lock, analyze/test và APK debug. Bằng chứng thiết bị/API được ghi theo từng luồng trong `ai/STATE.md`.
 Đánh dấu từng luồng và từng nền tảng riêng; không suy kết quả iOS từ Android.
 
@@ -39,12 +39,12 @@ Không hỏi phê duyệt cho thao tác triển khai thông thường đã nằm
 ## 3. Ma trận chức năng cần chuyển
 
 Đường dẫn trong cột nguồn tương đối với `Moodify-Mobile/`; xem `docs/ai/SOURCE_MAP.md` để tìm checkout.
-Mỗi hàng dưới đây đã `SOURCE_OBSERVED`. Shell, password auth, catalog/search/library/player và các module M3/M4 có implementation Flutter. Social OAuth còn thiếu cấu hình native; karaoke và quảng cáo do cộng tác viên làm trên nhánh GitHub riêng. Không suy trạng thái toàn bộ app từ việc đã port các màn hình.
+Mỗi hàng dưới đây đã `SOURCE_OBSERVED`. Shell, password auth, catalog/search/library/player và các module M3/M4 có implementation Flutter. Social OAuth còn thiếu cấu hình native; karaoke đã merge từ Thuan_Branch; quảng cáo tiếp tục thuộc nhánh cộng tác viên. Không suy trạng thái toàn bộ app từ việc đã port các màn hình.
 Các API cụ thể và khác biệt response nằm tại `docs/reference/API_CONTRACT.md`.
 
 | Luồng | Source RN tham chiếu | Cách chuyển và tiêu chí nghiệm thu chính |
 | --- | --- | --- |
-| Shell, auth-return | `src/app/_layout.tsx`, `src/app/(tabs)/_layout.tsx` | Shell 4 tab + detail routes; login trở về nơi yêu cầu, Back đúng, không mất ý định phát |
+| Shell, auth-return | `src/app/_layout.tsx`, `src/app/(tabs)/_layout.tsx` | Shell 5 tab sau merge karaoke + detail routes; login trở về nơi yêu cầu, Back đúng, không mất ý định phát |
 | Login/register | `src/app/auth.tsx`, `src/services/api.ts` | Form → auth controller/repository; server validation, token restore, lỗi credentials, không giữ password |
 | Google/Facebook | `src/app/auth.tsx`, `src/constants/config.ts` | Adapter native/OAuth theo backend; đúng client/redirect/signing, hủy login an toàn; xác minh từng platform |
 | Catalog/home | `src/app/(tabs)/index.tsx` | Data thật, ảnh lazy/cache, phân trang có giới hạn; refresh/error/empty rõ; không gọi dữ liệu random là cá nhân hóa |
@@ -95,7 +95,7 @@ Trạng thái Flutter: **IN_PROGRESS**. Password auth/session/profile/logout cơ
 
 ## 6. M2 — core parity nghe nhạc và thư viện
 
-Trạng thái Flutter: **IN_PROGRESS**. Đã có shell 4 tab, khách duyệt/phát qua API public, catalog/filter/phân trang, album/artist detail, search thường/cảm xúc/history, liked tracks/favorite albums, playlist create/add/remove/delete/visibility. Player có queue/seek/shuffle/repeat, volume, sleep, share metadata qua native sheet và lyrics với timestamp thật theo entitlement. Một engine/OS coordinator và listening telemetry từ sự kiện native; không gửi doanh thu cho guest/offline. Home, library, account và player đã được tổ chức lại theo UX_REVIEW.
+Trạng thái Flutter: **IN_PROGRESS**. Đã có shell 5 tab sau merge karaoke, khách duyệt/phát qua API public, catalog/filter/phân trang, album/artist detail, search thường/cảm xúc/history, liked tracks/favorite albums, playlist create/add/remove/delete/visibility. Player có queue/seek/shuffle/repeat, volume, sleep, share metadata qua native sheet và lyrics với timestamp thật theo entitlement. Một engine/OS coordinator và listening telemetry từ sự kiện native; không gửi doanh thu cho guest/offline. Home, library, account và player đã được tổ chức lại theo UX_REVIEW.
 
 Thiết kế đã điều chỉnh lại theo source RN theo yêu cầu người dùng: quick grid/spotlight/shelves, mini-player nổi, full-player nền artwork mờ và slide-up; motion có reduced-motion và test màn nhỏ. Không thay engine hay kiến trúc.
 
@@ -139,7 +139,7 @@ Trạng thái Flutter: **IN_PROGRESS**. Có tải HTTPS giới hạn 40 MiB/1 l�
 
 ## 9. M5 — karaoke solo và pitch
 
-Trạng thái trong nhánh này: **EXTERNAL_BRANCH**. Người dùng xác nhận cộng tác viên phụ trách karaoke trên nhánh GitHub riêng. Không triển khai/sửa module ở đây; các tiêu chí dưới vẫn áp dụng khi tích hợp và nghiệm thu.
+Trạng thái: **IN_PROGRESS** sau merge `origin/Thuan_Branch` (`9b070ec`). Solo catalog/detail/lyrics, session, PCM16/YIN, realtime pitch/reference và submit kết quả đã có mã. Nhạc nền dùng adapter vào coordinator/engine chung thay cho AudioPlayer riêng của nhánh nguồn. Chưa nghiệm thu micro/chấm điểm/API thật sau merge.
 
 - Chuyển catalog/detail/instrumental/lyrics, session và gửi pitch features để backend chấm điểm.
 - Native Android cũ dùng AudioRecord + YIN; port bridge qua adapter/platform channel, kiểm tra thuật toán và thread.
@@ -150,7 +150,7 @@ Trạng thái trong nhánh này: **EXTERNAL_BRANCH**. Người dùng xác nhận
 
 ## 10. M6 — karaoke rooms, voice và điểm nhóm
 
-Trạng thái trong nhánh này: **EXTERNAL_BRANCH**, cùng phạm vi karaoke của cộng tác viên. Kiểm chứng sau tích hợp, không suy tiến độ nhánh kia từ checkout hiện tại.
+Trạng thái: **IN_PROGRESS** sau merge. Đã có room REST/queue/playback, voice ticket + mediasoup/WebRTC và contribution/finish score. State phòng hiện poll 4 giây; chưa có Spring WebSocket state/reconnect parity. Cần hai thiết bị để nghiệm thu; không suy kết quả runtime từ build.
 
 - Dùng room API hiện có: public/private, invite, membership, queue, host close/playback và expectedVersion.
 - WS state giữ auth frame đầu/device UUID, heartbeat/reconnect; event stale không đè snapshot version mới.

@@ -68,10 +68,16 @@ class _MainShellState extends State<MainShell>
           backgroundColor: AppColors.background,
           indicatorColor: Colors.transparent,
           selectedIndex: widget.navigation.currentIndex,
-          onDestinationSelected: (index) => widget.navigation.goBranch(
-            index,
-            initialLocation: index == widget.navigation.currentIndex,
-          ),
+          onDestinationSelected: (index) {
+            if (widget.navigation.currentIndex == 2 && index != 2) {
+              // Release karaoke screens, microphone and room timers on tab exit.
+              widget.navigation.goBranch(2, initialLocation: true);
+            }
+            widget.navigation.goBranch(
+              index,
+              initialLocation: index == widget.navigation.currentIndex,
+            );
+          },
           destinations: const [
             NavigationDestination(
               icon: Icon(Icons.home_outlined),
@@ -81,6 +87,11 @@ class _MainShellState extends State<MainShell>
             NavigationDestination(
               icon: Icon(Icons.search_rounded),
               label: 'Tìm kiếm',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.mic_none_rounded),
+              selectedIcon: Icon(Icons.mic_rounded),
+              label: 'Karaoke',
             ),
             NavigationDestination(
               icon: Icon(Icons.library_music_outlined),

@@ -43,7 +43,7 @@ Các API mobile còn tập trung trong `Mobile/src/services/api.ts`, web trong `
 
 ## 3. Bản đồ Flutter mục tiêu
 
-Đã có app/core/auth, home/catalog/search/library/player, subscriptions, notifications và offline. Karaoke/advertising ở nhánh cộng tác viên; không tạo file rỗng chỉ để khớp bảng.
+Đã có app/core/auth, home/catalog/search/library/player, subscriptions, notifications, offline và karaoke sau merge `Thuan_Branch`. Quảng cáo chưa có trong nhánh được merge; không tạo file rỗng chỉ để khớp bảng.
 
 | Mã M1 thực tế | Điểm vào |
 | --- | --- |
@@ -55,7 +55,7 @@ Các API mobile còn tập trung trong `Mobile/src/services/api.ts`, web trong `
 | Auth contract | `lib/features/auth/data/auth_remote_service.dart`, `lib/features/auth/domain/` |
 | Form, profile, controller | `lib/features/auth/presentation/` |
 | Test phiên và UI | `test/core/`, `test/features/auth/`; fixture chỉ ở `test/support/` |
-| Shell 4 tab, route public/return sau auth | `lib/app/main_shell.dart`, `lib/app/router/app_router.dart` |
+| Shell 5 tab, route public/return sau auth và karaoke session scope | `lib/app/main_shell.dart`, `lib/app/router/app_router.dart` |
 | Model, catalog API public, stream validation | `lib/features/catalog/domain/catalog_models.dart`, `lib/features/catalog/data/catalog_repository.dart` |
 | Home/phân trang, album/artist detail, track actions | `lib/features/home/presentation/home_screen.dart`, `lib/features/catalog/presentation/` |
 | Search debounce/cancel/mood, server history theo user | `lib/features/search/presentation/`, `lib/features/search/data/search_history_repository.dart` |
@@ -66,6 +66,9 @@ Các API mobile còn tập trung trong `Mobile/src/services/api.ts`, web trong `
 | Inbox/read/read-all và billing link | `lib/features/notifications/data/notification_repository.dart`, `presentation/notification_screen.dart` trong feature |
 | Download/encryption/license/cache cleanup | `lib/features/offline/data/offline_repository.dart`, `lib/features/offline/presentation/` |
 | Player-offline interface và wiring | `lib/features/player/domain/offline_playback.dart`, `lib/app/bootstrap.dart`, `lib/main.dart` |
+| Karaoke solo/phòng, API, voice, pitch/reference | `lib/features/karaoke/presentation/karaoke_screen.dart`, `lib/features/karaoke/data/` |
+| Nhạc nền karaoke dùng chung engine, ownership token qua OS retry/restart | `lib/features/karaoke/data/karaoke_playback.dart`, `PlayerController.loadKaraoke` trong player controller |
+| Test chuyển nguồn music/karaoke và guest 5 tab | `test/features/player/karaoke_playback_test.dart`, `test/features/catalog/main_shell_test.dart` |
 | UX audit và native/account acceptance | `docs/UX_REVIEW.md`, `docs/ai/STATE.md` |
 | Native background audio Android/iOS | `android/app/src/main/AndroidManifest.xml`, `android/app/src/main/kotlin/dev/moodify/moodify_flutter/MainActivity.kt`, `ios/Runner/Info.plist` |
 | Test M2 | `test/features/catalog/`, `search/`, `library/`, `player/`; engine/repository fake chỉ ở `test/support/music_harness.dart` |

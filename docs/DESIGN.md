@@ -57,8 +57,8 @@ Thời lượng, giá và ngày hết hạn có định dạng thống nhất; k
 
 ## 4. Navigation và player
 
-- Bốn tab gốc: **Trang chủ · Tìm kiếm · Thư viện · Tài khoản**; giữ trạng thái tab hợp lý và label luôn đọc được.
-- Detail album/playlist/artist, Premium, offline, karaoke mở từ vị trí có ngữ cảnh; không tạo tab thứ năm chỉ để khoe tính năng.
+- Sau merge nhánh karaoke: **Trang chủ · Tìm kiếm · Karaoke · Thư viện · Tài khoản**; giữ thứ tự từ nhánh tích hợp, kiểm tra label trên màn nhỏ/chữ lớn. Các tab nhạc giữ trạng thái; thoát tab karaoke về trang chọn chế độ để dọn mic/voice.
+- Detail album/playlist/artist, Premium và offline mở từ vị trí có ngữ cảnh. Karaoke có tab riêng sau merge `Thuan_Branch`, với lối vào solo/phòng.
 - Mini-player nằm trên tab bar và safe area, không che item cuối hoặc CTA. Chỉ hiện khi có playback context thật; artwork, tên bài và play/pause phải đồng bộ engine.
 - Chạm phần nội dung mini-player mở full-player; nút play/pause có hit area riêng. Full-player có back/close rõ ràng, artwork, title/artist, seek, thời lượng và điều khiển cần thiết.
 - Mini-player, full-player và OS controls cùng một coordinator. UI không tạo engine mới hoặc tự cập nhật trạng thái “đang phát” trước kết quả thực tế.
@@ -107,9 +107,9 @@ Không đánh dấu thiết kế hoàn thiện chỉ vì đã có tài liệu ho
 
 ## 8. Baseline M2 ngày 04/11/2026
 
-Giữ cấu trúc Trang chủ → Tìm kiếm → Thư viện → Tài khoản, nền tối/tím Moodify và Be Vietnam Pro. Theo yêu cầu sửa thiết kế, Home bám `Mobile/src/app/(tabs)/index.tsx`: header logo gọn, filter thật, lưới quick tracks 2 cột tối đa 6 bài, spotlight dùng artwork thật làm nền mờ, kệ nhạc ngang, nghệ sĩ tròn, album và danh sách bài. Ẩn shelf album khi API rỗng. Quick/spotlight lấy từ catalog hiện tại; không gọi là lịch sử, trending hay cá nhân hóa khi API không chứng minh.
+Giữ bố cục RN cho các màn nhạc, thêm tab Karaoke giữa Tìm kiếm và Thư viện sau merge, nền tối/tím Moodify và Be Vietnam Pro. Theo yêu cầu sửa thiết kế, Home bám `Mobile/src/app/(tabs)/index.tsx`: header logo gọn, filter thật, lưới quick tracks 2 cột tối đa 6 bài, spotlight dùng artwork thật làm nền mờ, kệ nhạc ngang, nghệ sĩ tròn, album và danh sách bài. Ẩn shelf album khi API rỗng. Quick/spotlight lấy từ catalog hiện tại; không gọi là lịch sử, trending hay cá nhân hóa khi API không chứng minh.
 
-Mini-player nổi có lề 8, cover 44, yêu thích/play/progress; tab bar cao 64 không có pill Material lớn. Full player có nền cover mờ, cover bo góc, play tròn trắng, seek/volume mảnh, lyrics preview thật và queue/share/sleep; trượt từ dưới lên và vuốt header xuống để đóng. Search có hai segment nền đặc theo RN. Library vẫn là danh sách trong Playlist/Yêu thích/Album, guest có card nhận diện; Account gom avatar/tên vào card gọn. Queue/lyrics ở sheet riêng. Karaoke và quảng cáo thuộc nhánh cộng tác viên. Đây chưa phải chứng nhận nghiệm thu toàn bộ UI/native.
+Mini-player nổi có lề 8, cover 44, yêu thích/play/progress; tab bar cao 64 không có pill Material lớn. Full player có nền cover mờ, cover bo góc, play tròn trắng, seek/volume mảnh, lyrics preview thật và queue/share/sleep; trượt từ dưới lên và vuốt header xuống để đóng. Search có hai segment nền đặc theo RN. Library vẫn là danh sách trong Playlist/Yêu thích/Album, guest có card nhận diện; Account gom avatar/tên vào card gọn. Queue/lyrics ở sheet riêng. Karaoke đã merge; quảng cáo tiếp tục thuộc nhánh cộng tác viên. Đây chưa phải chứng nhận nghiệm thu toàn bộ UI/native.
 
 Nền artwork chỉ blur lớp ảnh riêng, giới hạn decode 360 px và RepaintBoundary; không blur cả subtree tương tác. LRC parse theo thay đổi track thay vì mỗi tick tiến độ. Trạng thái tab và engine được giữ khi chuyển cảnh. Không thêm dependency animation.
 

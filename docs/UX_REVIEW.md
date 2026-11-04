@@ -1,8 +1,8 @@
 # UX review and migration scope - 04/11/2026
 
 Source: current Flutter screens, RN tabs/player/subscription/offline services,
-and the existing backend controllers. Karaoke and advertising belong to a
-collaborator's separate GitHub branch; do not implement those modules here.
+and the existing backend controllers. Karaoke is merged from Thuan_Branch; advertising belongs to a
+collaborator's separate GitHub branch and is not included in this merge.
 
 ## Findings and target flows
 
@@ -63,5 +63,5 @@ and a reduced-motion scenario. Device evidence and remaining gates live in STATE
 
 Social OAuth requires app/provider configuration. Protected flows require a user
 to sign in on the device. Payment success requires an actual provider event;
-offline expiry/revocation and iOS need their own native evidence. Karaoke/ad
-integration is coordinated through the existing player/router on the other branch.
+offline expiry/revocation and iOS need their own native evidence. Karaoke uses
+the existing player/router after merge; ad policy remains a separate integration gate.

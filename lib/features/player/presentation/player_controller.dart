@@ -57,6 +57,7 @@ class PlayerState {
     this.sleepUntil,
     this.offline = false,
     this.source = 'OTHER',
+    this.completed = false,
   });
   final List<Track> queue;
   final int index;
@@ -69,6 +70,7 @@ class PlayerState {
   final DateTime? sleepUntil;
   final bool offline;
   final String source;
+  final bool completed;
   PlayerState copy({
     List<Track>? queue,
     int? index,
@@ -86,6 +88,7 @@ class PlayerState {
     bool clearSleep = false,
     bool? offline,
     String? source,
+    bool? completed,
   }) => PlayerState(
     queue: queue ?? this.queue,
     index: index ?? this.index,
@@ -101,6 +104,7 @@ class PlayerState {
     sleepUntil: clearSleep ? null : sleepUntil ?? this.sleepUntil,
     offline: offline ?? this.offline,
     source: source ?? this.source,
+    completed: completed ?? this.completed,
   );
 }
 
@@ -117,6 +121,8 @@ class PlayerController extends StateNotifier<PlayerState> {
   final Future<OfflineSource?> Function(Track)? offline;
   final Future<void> Function()? releaseOffline;
   final void Function(ListeningEvent)? report;
+  PlayerState get current => state;
+  Object? get karaokeOwner => _karaokeOwner;
   bool _started = false, _actuallyPlaying = false;
   DateTime? _heartbeatAt;
   Duration _heartbeatPosition = Duration.zero;
@@ -126,9 +132,12 @@ class PlayerController extends StateNotifier<PlayerState> {
   StreamSubscription<EngineEvent>? _subscription;
   Future<void> _serial = Future.value();
   int _generation = 0;
+  // A retry can change the load generation without changing the performance.
+  Object? _karaokeOwner;
   bool _wantedPlaying = false;
   bool _switching = false;
   bool _completed = false;
+  Uri? _karaokeSource;
   final _history = <int>[];
   int _historyCursor = -1;
   final _shuffleRemaining = <int>[];
@@ -185,6 +194,7 @@ class PlayerController extends StateNotifier<PlayerState> {
     String source = 'OTHER',
   }) async {
     if (index < 0 || index >= queue.length) return;
+    _karaokeOwner = null;
     _history.clear();
     _historyCursor = -1;
     _resetShuffle(queue.length, index);
@@ -192,6 +202,28 @@ class PlayerController extends StateNotifier<PlayerState> {
     _started = false;
     state = state.copy(offline: offline, source: source);
     await _select(queue, index);
+  }
+
+  Future<void> loadKaraoke(
+    Track track,
+    Uri uri, {
+    required Object owner,
+  }) async {
+    if (uri.scheme != 'https' ||
+        uri.host != 'moodify.click' ||
+        uri.userInfo.isNotEmpty ||
+        uri.hasFragment) {
+      throw const AppFailure('Đường dẫn nhạc nền không hợp lệ.');
+    }
+    _karaokeOwner = owner;
+    _report('TRACK_CHANGED');
+    _history.clear();
+    _historyCursor = -1;
+    _shuffleRemaining.clear();
+    _sleepTimer?.cancel();
+    state = state.copy(offline: false, source: 'KARAOKE', clearSleep: true);
+    await _select([track], 0, sourceUri: uri, autoplay: false);
+    if (state.failure != null) throw state.failure!;
   }
 
   void _resetShuffle(int length, int current) {
@@ -208,6 +240,8 @@ class PlayerController extends StateNotifier<PlayerState> {
     List<Track> queue,
     int index, {
     bool remember = true,
+    Uri? sourceUri,
+    bool autoplay = true,
   }) async {
     if (index < 0 || index >= queue.length) return;
     if (remember) {
@@ -222,11 +256,12 @@ class PlayerController extends StateNotifier<PlayerState> {
     }
     _report('TRACK_CHANGED');
     final generation = ++_generation;
+    _karaokeSource = sourceUri;
     _started = false;
     _actuallyPlaying = false;
     _heartbeatAt = null;
     _licenseTimer?.cancel();
-    _wantedPlaying = true;
+    _wantedPlaying = autoplay;
     _switching = true;
     _completed = false;
     state = state.copy(
@@ -238,6 +273,7 @@ class PlayerController extends StateNotifier<PlayerState> {
       position: Duration.zero,
       duration: Duration(milliseconds: queue[index].durationMs),
       clearFailure: true,
+      completed: false,
     );
     await _run(() async {
       if (generation != _generation) return;
@@ -245,7 +281,7 @@ class PlayerController extends StateNotifier<PlayerState> {
       await engine.stop();
       await releaseOffline?.call();
       if (generation != _generation) return;
-      final track = state.offline
+      final track = state.offline || sourceUri != null
           ? queue[index]
           : await repository.track(queue[index].id);
       if (generation != _generation) return;
@@ -253,7 +289,7 @@ class PlayerController extends StateNotifier<PlayerState> {
       if (state.offline && local == null) {
         throw const AppFailure('Chưa tìm thấy bản tải xuống của bài hát.');
       }
-      final uri = local?.uri ?? await repository.stream(track);
+      final uri = sourceUri ?? local?.uri ?? await repository.stream(track);
       if (generation != _generation) return;
       try {
         await engine.load(uri, track);
@@ -339,8 +375,12 @@ class PlayerController extends StateNotifier<PlayerState> {
       duration: event.duration > Duration.zero
           ? event.duration
           : state.duration,
+      completed: event.completed,
     );
-    if (event.completed && _wantedPlaying && !_completed) {
+    if (event.completed &&
+        state.source != 'KARAOKE' &&
+        _wantedPlaying &&
+        !_completed) {
       _completed = true;
       unawaited(_advance(completion: true));
     }
@@ -348,8 +388,13 @@ class PlayerController extends StateNotifier<PlayerState> {
 
   Future<void> play() async {
     if (state.track == null) return;
-    if (state.failure != null || _completed) {
-      await _select(state.queue, state.index, remember: false);
+    if (state.failure != null || _completed || state.completed) {
+      await _select(
+        state.queue,
+        state.index,
+        remember: false,
+        sourceUri: _karaokeSource,
+      );
       return;
     }
     _wantedPlaying = true;
@@ -381,9 +426,12 @@ class PlayerController extends StateNotifier<PlayerState> {
     _heartbeatAt = DateTime.now();
     _heartbeatPosition = Duration(milliseconds: ms);
     _completed = false;
+    state = state.copy(completed: false);
   });
-  Future<void> next() => _advance();
+  Future<void> next() =>
+      state.source == 'KARAOKE' ? Future.value() : _advance();
   Future<void> previous() async {
+    if (state.source == 'KARAOKE') return;
     if (state.position > const Duration(seconds: 3)) {
       await seek(Duration.zero);
       return;
@@ -460,6 +508,7 @@ class PlayerController extends StateNotifier<PlayerState> {
   }
 
   Future<void> clear() {
+    _karaokeOwner = null;
     _report('PLAYBACK_STOPPED');
     _started = false;
     _actuallyPlaying = false;
@@ -469,6 +518,7 @@ class PlayerController extends StateNotifier<PlayerState> {
     _wantedPlaying = false;
     _switching = false;
     _completed = false;
+    _karaokeSource = null;
     _history.clear();
     _historyCursor = -1;
     _shuffleRemaining.clear();
@@ -481,6 +531,7 @@ class PlayerController extends StateNotifier<PlayerState> {
 
   @override
   void dispose() {
+    _karaokeOwner = null;
     _sleepTimer?.cancel();
     _licenseTimer?.cancel();
     _generation++;
@@ -501,7 +552,10 @@ class PlayerController extends StateNotifier<PlayerState> {
 
   void _report(String event, {Duration? position, Duration? target}) {
     final track = state.track;
-    if (track == null || state.offline || (!_started && event != 'PLAY')) {
+    if (track == null ||
+        state.offline ||
+        state.source == 'KARAOKE' ||
+        (!_started && event != 'PLAY')) {
       return;
     }
     report?.call((

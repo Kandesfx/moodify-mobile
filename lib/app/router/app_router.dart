@@ -10,9 +10,11 @@ import '../../features/auth/presentation/account_screen.dart';
 import '../../features/auth/presentation/auth_screen.dart';
 import '../../features/auth/presentation/session_controller.dart';
 import '../../features/catalog/presentation/detail_screen.dart';
+import '../../features/catalog/presentation/catalog_widgets.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/search/presentation/search_screen.dart';
 import '../../features/library/presentation/library_screen.dart';
+import '../../features/karaoke/presentation/karaoke_screen.dart';
 import '../../features/player/presentation/player_screen.dart';
 import '../../features/notifications/presentation/notification_screen.dart';
 import '../../features/subscriptions/presentation/subscription_screen.dart';
@@ -79,6 +81,46 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(path: '/search', builder: (_, _) => const SearchScreen()),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/karaoke',
+                builder: (_, _) => const KaraokeScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'solo',
+                    builder: (_, _) =>
+                        const _KaraokeSessionPage(child: KaraokeSoloScreen()),
+                    routes: [
+                      GoRoute(
+                        path: ':songId',
+                        builder: (_, route) => _KaraokeSessionPage(
+                          returnTo: route.uri.toString(),
+                          child: KaraokePerformanceScreen(
+                            songId: route.pathParameters['songId']!,
+                            nextSongIds: route.extra is List<String>
+                                ? route.extra as List<String>
+                                : route.extra is Map &&
+                                      (route.extra as Map)['nextSongIds']
+                                          is List
+                                ? ((route.extra as Map)['nextSongIds'] as List)
+                                      .whereType<String>()
+                                      .toList(growable: false)
+                                : const [],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  GoRoute(
+                    path: 'rooms',
+                    builder: (_, _) =>
+                        const _KaraokeSessionPage(child: KaraokeRoomsScreen()),
+                  ),
+                ],
+              ),
             ],
           ),
           StatefulShellBranch(
@@ -204,9 +246,17 @@ String _destination(Uri uri) {
       parsed.hasFragment) {
     return '/home';
   }
+  final karaokeSongRoute =
+      parsed.pathSegments.length == 3 &&
+      parsed.pathSegments[0] == 'karaoke' &&
+      parsed.pathSegments[1] == 'solo' &&
+      parsed.pathSegments[2].isNotEmpty;
   if (const {
         '/home',
         '/search',
+        '/karaoke',
+        '/karaoke/solo',
+        '/karaoke/rooms',
         '/library',
         '/account',
         '/player',
@@ -214,10 +264,30 @@ String _destination(Uri uri) {
         '/subscriptions',
         '/offline',
       }.contains(parsed.path) ||
+      karaokeSongRoute ||
       RegExp(r'^/(album|playlist|artist)/[^/]+$').hasMatch(parsed.path)) {
     return parsed.toString();
   }
   return '/home';
+}
+
+class _KaraokeSessionPage extends ConsumerWidget {
+  const _KaraokeSessionPage({required this.child, this.returnTo});
+  final Widget child;
+  final String? returnTo;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final session = ref.watch(sessionControllerProvider);
+    if (returnTo != null && session.phase != SessionPhase.signedIn) {
+      return GuestPrompt(
+        title: 'Karaoke',
+        message: 'Đăng nhập để hát và lưu kết quả của bạn.',
+        returnTo: returnTo!,
+      );
+    }
+    return KeyedSubtree(key: ValueKey(session.session?.user.id), child: child);
+  }
 }
 
 class _RouterRefresh extends ChangeNotifier {

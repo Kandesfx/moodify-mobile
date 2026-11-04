@@ -23,6 +23,8 @@ dependencies:
   path_provider: ^2.1.6
   share_plus: ^13.3.1
   intl: ^0.20.2
+  record: ^6.2.1
+  mediasfu_mediasoup_client: ^0.1.4
 
 dev_dependencies:
   flutter_test:

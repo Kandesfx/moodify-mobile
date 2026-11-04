@@ -9,6 +9,7 @@ import 'package:moodify_flutter/features/catalog/presentation/catalog_controller
 import 'package:moodify_flutter/features/catalog/presentation/catalog_widgets.dart';
 import 'package:moodify_flutter/features/player/presentation/player_controller.dart';
 import 'package:moodify_flutter/features/player/presentation/player_screen.dart';
+import 'package:moodify_flutter/features/karaoke/presentation/karaoke_screen.dart';
 
 import '../../support/auth_harness.dart';
 import '../../support/music_harness.dart';
@@ -65,6 +66,7 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(find.byType(NavigationBar), findsOneWidget);
+        expect(find.byType(NavigationDestination), findsNWidgets(5));
         expect(find.byType(TextFormField), findsNothing);
         expect(find.text('Nghe ngay'), findsOneWidget);
         final track = find.byType(TrackTile);
@@ -96,6 +98,25 @@ void main() {
         await tester.tap(find.byTooltip('Thu nhỏ'));
         await tester.pumpAndSettle();
         await tester.tap(find.byType(NavigationDestination).at(2));
+        await tester.pumpAndSettle();
+        await tester.scrollUntilVisible(
+          find.text('Hát một mình'),
+          150,
+          scrollable: find
+              .descendant(
+                of: find.byType(KaraokeScreen),
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        );
+        await tester.ensureVisible(find.text('Hát một mình'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Hát một mình'));
+        await tester.pumpAndSettle();
+        expect(find.text('Đăng nhập'), findsOneWidget);
+        expect(auth.requests, isEmpty);
+        expect(tester.takeException(), isNull);
+        await tester.tap(find.byType(NavigationDestination).at(3));
         await tester.pumpAndSettle();
         expect(find.widgetWithText(FilledButton, 'Đăng nhập'), findsOneWidget);
         expect(auth.requests, isEmpty);

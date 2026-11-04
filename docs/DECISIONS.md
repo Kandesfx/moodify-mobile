@@ -29,12 +29,15 @@ Baseline ngày **04/11/2026**. Đã có implementation M1; phân biệt lựa ch
 | D21 | Kiểm tra detail localPath trước stream | Resolver cũ có bài fallback khi thiếu localPath. Flutter từ chối trường hợp này; gọi stream public không bearer, kiểm tra scheme redirect. File 404 báo lỗi, không đổi sang bài khác |
 | D22 | Một native engine khởi tạo khi phát, queue thuộc controller | Native load serialize và có generation; pause trong load giữ ý định dừng. Shuffle duyệt hữu hạn, previous theo lịch sử tối đa 100 mục. Session đổi dừng/xóa queue; mini/full/OS commands cùng coordinator |
 | D23 | M2–M4 là bản debug, chưa nghiệm thu release | Listening telemetry đã triển khai từ event native; entitlement/ad policy chờ nhánh cộng tác viên. Không gọi SANDBOX/cấp Premium local; chưa có bằng chứng protected API/payment/offline trên tài khoản thật |
-| D24 | Karaoke và quảng cáo thuộc nhánh cộng tác viên | Người dùng xác nhận làm trên nhánh GitHub riêng. Không tự merge hay sửa feature đó; shared router/player phải tích hợp có kiểm chứng và giữ một engine |
+| D24 | Karaoke và quảng cáo do cộng tác viên phụ trách | Ngày 04/11/2026 người dùng yêu cầu merge; karaoke từ `Thuan_Branch` được tích hợp theo D30–D32. Quảng cáo chưa có trong nhánh này; không suy rằng ad policy đã hoàn thành |
 | D25 | Offline Flutter dùng AES-256-GCM trong sandbox mới | Giữ request/confirm/verify contract, không đổi backend/schema. Không nhập file MFY1/Expo cũ; secure manifest theo API+user+device, `.part`/rename, cleanup intent dùng DELETE hiện có. Tối đa 40 MiB/1 download; RAM native vẫn là gate |
 | D26 | Player phụ thuộc cổng offline có kiểu, wire tại bootstrap | `OfflinePlaybackAccess` ở domain; cùng coordinator cho stream/file. Restore lỗi mạng chỉ mở cached offline identity, không coi profile cache là phiên đã xác minh; logout purges cả khi chưa mở màn download |
 | D27 | Thanh toán chỉ dùng checkout/status/management thật | Xác nhận trước checkout, không tự retry; lỗi mơ hồ yêu cầu đọc lịch sử trước lần mới, chặn thêm đơn khi còn pending. Poll tối đa 180 lần, dừng nền/lỗi/thoát; SUCCESS và hiệu lực gói lấy từ server |
 | D28 | Share native là metadata cho tới khi có public deep link thật | Không dựng URL bài hát hoặc hứa share link mở app khi chưa có route/backend hợp lệ. `share_plus` 13.3.1 và secure storage dùng chung win32 tương thích; AGP nâng 8.12.1 theo yêu cầu plugin, không đổi Kotlin/Gradle |
 | D29 | Lịch sử/search/lyrics/telemetry không sinh dữ liệu thay thế | Chỉ ghi lịch sử khi submit; LIMITED mood giữ thông báo bài gần nhất; LRC thật + synced entitlement, không nội suy. Guest/offline không gửi revenue, heartbeat theo tiến độ engine và không backfill khi mạng lỗi |
+| D30 | Merge `Thuan_Branch` vào main theo yêu cầu người dùng | Nguồn `9b070ec`, giữ checkpoint UI/core `f0b1669`. Shell có 5 tab theo nhánh karaoke: Trang chủ/Tìm kiếm/Karaoke/Thư viện/Tài khoản. Giữ UI/motion và toàn bộ M2–M4 hiện tại; ID D24–D27 bên nhánh karaoke được hợp nhất vào D30–D32, không ghi đè quyết định offline/payment |
+| D31 | Nhạc nền karaoke dùng engine và coordinator hiện có | `KaraokePlayback` chuyển DTO/controls sang `PlayerController.loadKaraoke`; source KARAOKE dùng instrumental HTTPS thuộc moodify.click, không resolver catalog, không revenue nghe nhạc, không repeat/auto-next queue nhạc thường. OS play/pause/seek dùng cùng handler. Adapter theo ownership token ổn định qua OS retry/restart ngăn màn cũ dừng/tua màn mới; thoát tab reset stack karaoke; đổi user remount màn/capture |
+| D32 | Giữ luồng solo/phòng cuối cùng của nhánh karaoke | Solo scorable tạo session/capture pitch/reference và submit khi hết bài; mic-check riêng, không raw audio. Giữ cách pause/resume/cancel thực tế trong source, chưa gọi là nghiệm thu parity web. Rooms có REST polling 4 giây, mediasoup/WebRTC voice và contribution/finish; state WebSocket/reconnect và hai máy/mic/score cần kiểm chứng. Các quyết định mic-only trước đó ở nhánh nguồn đã được thay thế |
 
 ## 2. Các quyết định còn mở trước bước liên quan
 
@@ -48,7 +51,7 @@ Không cần chốt tất cả để bắt đầu code M1; tiếp tục phần �
 | Target thiết bị và mức hỗ trợ iOS | Trước nghiệm thu native/release | Android-first là thứ tự kiểm chứng, chưa phải người dùng đồng ý bỏ iOS |
 | Adapter Flutter/native mediasoup/WebRTC | Spike đầu dự án | Chứng minh tương thích protocol trước khi chọn dependency hoặc port toàn UI |
 | Quyền asset, quảng cáo, font | Trước bundle/release | Không xem giấy phép template Expo là quyền cho mọi logo/audio/catalog |
-| Repo remote | Khi người dùng yêu cầu commit/push mới | Đã có `Kandesfx/moodify-mobile`; lượt cải thiện này chưa commit/push. Không tự merge nhánh karaoke/quảng cáo |
+| Repo remote | Khi người dùng yêu cầu commit/push mới | Đã có `Kandesfx/moodify-mobile`; merge karaoke từ Thuan_Branch theo yêu cầu ngày 04/11/2026. Chỉ merge local, chưa push; quảng cáo chưa có trong nhánh nguồn |
 
 ## 3. Cách cập nhật
 
