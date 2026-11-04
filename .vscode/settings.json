@@ -1,0 +1,33 @@
+{
+  "files.exclude": {
+    "**/.dart_tool": true,
+    "**/build": true,
+    "**/.gradle": true,
+    "**/Pods": true,
+    "**/ephemeral": true
+  },
+  "search.exclude": {
+    "**/.dart_tool": true,
+    "**/build": true,
+    "**/coverage": true,
+    "**/.gradle": true,
+    "**/Pods": true,
+    "**/ephemeral": true,
+    "**/downloads": true,
+    "**/recordings": true,
+    "**/runtime-cache": true,
+    "**/*.g.dart": true,
+    "**/*.freezed.dart": true
+  },
+  "files.watcherExclude": {
+    "**/.dart_tool/**": true,
+    "**/build/**": true,
+    "**/coverage/**": true,
+    "**/.gradle/**": true,
+    "**/Pods/**": true,
+    "**/ephemeral/**": true,
+    "**/downloads/**": true,
+    "**/recordings/**": true,
+    "**/runtime-cache/**": true
+  }
+}

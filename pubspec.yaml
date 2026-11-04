@@ -1,0 +1,43 @@
+name: moodify_flutter
+description: Moodify mobile application
+publish_to: none
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.11.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  flutter_riverpod: ^2.6.1
+  go_router: ^17.5.0
+  dio: ^5.11.1
+  flutter_secure_storage: ^11.2.0
+  uuid: ^4.6.0
+  just_audio: ^0.10.6
+  audio_session: ^0.2.4
+  audio_service: ^0.18.19
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/brand/moodify-mark.png
+    - assets/fonts/OFL.txt
+  fonts:
+    - family: BeVietnamPro
+      fonts:
+        - asset: assets/fonts/BeVietnamPro-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/BeVietnamPro-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/BeVietnamPro-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/BeVietnamPro-Bold.ttf
+          weight: 700

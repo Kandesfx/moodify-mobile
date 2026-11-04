@@ -1,0 +1,34 @@
+# Ngữ cảnh nhanh
+
+Cập nhật: **04/11/2026**. Đọc tiếp `STATE.md` để biết việc thực sự đã hoàn thành.
+
+## Mục tiêu
+
+Chuyển mobile Moodify từ Expo/React Native sang **Flutter**, trong repo độc lập. Chuyển những hành vi đã có trước; sau khi nghiệm thu chuyển đổi mới mở rộng chức năng từ backend/web và hoàn thiện thêm UX.
+
+Đề cương yêu cầu mobile có catalog, gói dịch vụ/gia hạn, thanh toán online, phát/chuyển/tua, tìm kiếm và tìm theo cảm xúc, karaoke, offline. Backend thực tế dùng Spring Boot, MySQL và MongoDB; không đổi DB chỉ vì ví dụ công nghệ trong đề cương.
+
+## Quy tắc ưu tiên
+
+- Không tự thêm/xóa/sửa schema DB hoặc chạy auto-DDL. Thay đổi thực sự cần thiết phải có đề xuất cụ thể và người dùng đồng ý rõ ràng.
+- API có sẵn và state/cache tạm có TTL/user scope trước; cache không thay thế sổ giao dịch, quyền tải hoặc Premium.
+- Không mock trong production, không âm thầm đổi sang bài hát/dữ liệu cố định khi lỗi.
+- Không tự đổi tổ chức kiến trúc. Theo feature-first + Riverpod + repositories; player toàn app.
+- Không dùng thiết kế đầy chip/badge/nội dung giả; ưu tiên âm nhạc thật, chữ dễ đọc và điều khiển có tác dụng.
+- Không đọc/copy key, env thật, dump, cache dependency từ workspace cũ.
+
+## Chỉ đọc thêm khi cần
+
+| Công việc | Đọc |
+| --- | --- |
+| Bắt đầu/code tiếp | `STATE.md`, `WORKFLOW.md`, `../MIGRATION_PLAN.md` |
+| Tìm source | `SOURCE_MAP.md` |
+| Tổ chức code, audio, offline, auth | `../ARCHITECTURE.md` |
+| Endpoint/ID/payload | `../reference/API_CONTRACT.md` và controller được dẫn |
+| Tính năng cũ, bẫy kế thừa | `../reference/LEGACY_AUDIT.md` |
+| Giao diện | `../DESIGN.md` |
+| Quyết định/phạm vi còn mở | `../DECISIONS.md` |
+
+Repo này là mobile client. Web quản trị, worker Python, media server và database tiếp tục thuộc hệ thống cũ. Các repo cũ đang có thay đổi chưa commit; khảo sát dựa trên working tree, không chỉ Git HEAD.
+
+Tài liệu source audit mô tả mã tại thời điểm khảo sát, chưa chứng minh endpoint đang được deploy hoặc chạy thành công. Đối chiếu code/live contract bằng môi trường được cấu hình trước khi nghiệm thu module.
