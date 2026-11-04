@@ -33,6 +33,11 @@ class MainShell extends StatelessWidget {
               label: 'Tìm kiếm',
             ),
             NavigationDestination(
+              icon: Icon(Icons.mic_none_rounded),
+              selectedIcon: Icon(Icons.mic_rounded),
+              label: 'Karaoke',
+            ),
+            NavigationDestination(
               icon: Icon(Icons.library_music_outlined),
               selectedIcon: Icon(Icons.library_music_rounded),
               label: 'Thư viện',

@@ -43,7 +43,7 @@ Các API mobile còn tập trung trong `Mobile/src/services/api.ts`, web trong `
 
 ## 3. Bản đồ Flutter mục tiêu
 
-Đã có app/core/auth và các feature home/catalog/search/library/player cho phần lõi M2. profile/subscriptions/offline/karaoke vẫn là mục tiêu; không tạo file rỗng chỉ để khớp bảng.
+Đã có app/core/auth và các feature home/catalog/search/library/player cho phần lõi M2; Karaoke solo/phòng đang được port và cần kiểm tra runtime. profile/subscriptions/offline vẫn là mục tiêu; không tạo file rỗng chỉ để khớp bảng.
 
 | Mã M1 thực tế | Điểm vào |
 | --- | --- |
@@ -54,12 +54,14 @@ Các API mobile còn tập trung trong `Mobile/src/services/api.ts`, web trong `
 | Auth contract | `lib/features/auth/data/auth_remote_service.dart`, `lib/features/auth/domain/` |
 | Form, profile, controller | `lib/features/auth/presentation/` |
 | Test phiên và UI | `test/core/`, `test/features/auth/`; fixture chỉ ở `test/support/` |
-| Shell 4 tab, route public/return sau auth | `lib/app/main_shell.dart`, `lib/app/router/app_router.dart` |
+| Shell 5 tab (Karaoke thứ năm theo yêu cầu), route public/return sau auth | `lib/app/main_shell.dart`, `lib/app/router/app_router.dart` |
 | Model, catalog API public, stream validation | `lib/features/catalog/domain/catalog_models.dart`, `lib/features/catalog/data/catalog_repository.dart` |
 | Home/phân trang, album/artist detail, track actions | `lib/features/home/presentation/home_screen.dart`, `lib/features/catalog/presentation/` |
 | Search debounce/cancel/mood, chưa có history | `lib/features/search/presentation/` |
 | Thư viện theo user, like, playlist create/add/read | `lib/features/library/data/library_repository.dart`, `lib/features/library/presentation/` |
 | Playback coordinator, một native handler, mini/full | `lib/features/player/presentation/player_controller.dart`, `player_screen.dart` cùng thư mục; `lib/features/player/data/playback_engine.dart` |
+| Karaoke catalog/solo/pitch capture/fullscreen lyric player | `lib/features/karaoke/data/karaoke_repository.dart`, `pitch_capture.dart`, `lib/features/karaoke/presentation/karaoke_screen.dart` (`KaraokePerformanceScreen`), route `lib/app/router/app_router.dart` |
+| Karaoke rooms, synced playback, voice/media, group scoring | `lib/features/karaoke/data/karaoke_repository.dart`, `karaoke_voice_client.dart`, `pitch_capture.dart`, `lib/features/karaoke/presentation/karaoke_screen.dart` |
 | Native background audio Android/iOS | `android/app/src/main/AndroidManifest.xml`, `android/app/src/main/kotlin/dev/moodify/moodify_flutter/MainActivity.kt`, `ios/Runner/Info.plist` |
 | Test M2 | `test/features/catalog/`, `search/`, `library/`, `player/`; engine/repository fake chỉ ở `test/support/music_harness.dart` |
 

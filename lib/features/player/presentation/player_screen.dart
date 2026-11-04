@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../core/widgets/feedback_panel.dart';
 import '../../catalog/presentation/catalog_widgets.dart';
+import '../../karaoke/presentation/karaoke_screen.dart';
 import 'player_controller.dart';
 
 String playbackTime(Duration duration) {
@@ -16,6 +17,9 @@ class MiniPlayer extends ConsumerWidget {
   const MiniPlayer({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (ref.watch(karaokePlaybackActiveProvider)) {
+      return const SizedBox.shrink();
+    }
     final state = ref.watch(playerControllerProvider);
     final track = state.track;
     if (track == null) return const SizedBox.shrink();

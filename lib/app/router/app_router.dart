@@ -12,6 +12,7 @@ import '../../features/catalog/presentation/detail_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/search/presentation/search_screen.dart';
 import '../../features/library/presentation/library_screen.dart';
+import '../../features/karaoke/presentation/karaoke_screen.dart';
 import '../../features/player/presentation/player_screen.dart';
 import '../main_shell.dart';
 
@@ -70,6 +71,40 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(path: '/search', builder: (_, _) => const SearchScreen()),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/karaoke',
+                builder: (_, _) => const KaraokeScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'solo',
+                    builder: (_, _) => const KaraokeSoloScreen(),
+                    routes: [
+                      GoRoute(
+                        path: ':songId',
+                        builder: (_, route) => KaraokePerformanceScreen(
+                          songId: route.pathParameters['songId']!,
+                          nextSongIds: route.extra is List<String>
+                              ? route.extra as List<String>
+                              : route.extra is Map &&
+                                    (route.extra as Map)['nextSongIds'] is List
+                              ? ((route.extra as Map)['nextSongIds'] as List)
+                                    .whereType<String>()
+                                    .toList(growable: false)
+                              : const [],
+                        ),
+                      ),
+                    ],
+                  ),
+                  GoRoute(
+                    path: 'rooms',
+                    builder: (_, _) => const KaraokeRoomsScreen(),
+                  ),
+                ],
+              ),
             ],
           ),
           StatefulShellBranch(
@@ -144,13 +179,22 @@ String _destination(Uri uri) {
       parsed.hasFragment) {
     return '/home';
   }
+  final karaokeSongRoute =
+      parsed.pathSegments.length == 3 &&
+      parsed.pathSegments[0] == 'karaoke' &&
+      parsed.pathSegments[1] == 'solo' &&
+      parsed.pathSegments[2].isNotEmpty;
   if (const {
         '/home',
         '/search',
+        '/karaoke',
+        '/karaoke/solo',
+        '/karaoke/rooms',
         '/library',
         '/account',
         '/player',
       }.contains(parsed.path) ||
+      karaokeSongRoute ||
       RegExp(r'^/(album|playlist|artist)/[^/]+$').hasMatch(parsed.path)) {
     return parsed.toString();
   }

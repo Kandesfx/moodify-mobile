@@ -29,6 +29,10 @@ Baseline ngày **04/11/2026**. Đã có implementation M1; phân biệt lựa ch
 | D21 | Kiểm tra detail localPath trước stream | Resolver cũ có bài fallback khi thiếu localPath. Flutter từ chối trường hợp này; gọi stream public không bearer, kiểm tra scheme redirect. File 404 báo lỗi, không đổi sang bài khác |
 | D22 | Một native engine khởi tạo khi phát, queue thuộc controller | Native load serialize và có generation; pause trong load giữ ý định dừng. Shuffle duyệt hữu hạn, previous theo lịch sử tối đa 100 mục. Session đổi dừng/xóa queue; mini/full/OS commands cùng coordinator |
 | D23 | M2 lõi là bản debug, chưa đủ chính sách release | Chưa port entitlement/ad/listening telemetry; không gọi SANDBOX hoặc cấp Premium local. Cần hoàn tất và kiểm chứng trước release. Mutation cá nhân chưa có xác minh tài khoản thật, không lấy fixture làm bằng chứng API |
+| D24 | Karaoke là tab thứ năm trên mobile; chuyển luồng solo và phòng từ web | Theo yêu cầu trực tiếp của người dùng: đặt sau Tìm kiếm, trước Thư viện; dùng API karaoke hiện hữu, không đổi backend/schema. Android kiểm tra trước. Chấm điểm nhóm dùng `record` độc lập và yêu cầu tắt mic Voice khi thu để tránh hai capturer cùng mở; voice, mic và chấm điểm vẫn cần kiểm tra thiết bị thật |
+| D25 | Nút phát solo chỉ xin quyền micro | Quyết định lịch sử ngày 04/11/2026; luồng solo hiện tại được thay bằng D27 để khớp hành vi web. Chấm điểm phòng không đổi |
+| D26 | Micro solo có công tắc riêng, không chấm điểm | Quyết định lịch sử ngày 04/11/2026; mic-check vẫn là nút riêng, còn capture chấm điểm theo D27. Không ghi file audio thô |
+| D27 | Port nguyên luồng karaoke solo từ web | Theo yêu cầu ngày 04/11/2026: đối chiếu `KaraokeSoloPage.handleSelect/beginScoring/finishScoring/togglePlayback/onEnded`. Chọn bài có `scoringAvailable` thì xin quyền, tạo session, capture pitch, phát nhạc và tự submit features khi bài kết thúc; nút playback khi đang capture hủy bản thu. Bài không có reference chỉ phát nhạc; mic-check tách biệt. Không tự thêm API/backend/schema |
 
 ## 2. Các quyết định còn mở trước bước liên quan
 

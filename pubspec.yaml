@@ -19,6 +19,8 @@ dependencies:
   just_audio: ^0.10.6
   audio_session: ^0.2.4
   audio_service: ^0.18.19
+  record: ^6.2.1
+  mediasfu_mediasoup_client: ^0.1.4
 
 dev_dependencies:
   flutter_test:

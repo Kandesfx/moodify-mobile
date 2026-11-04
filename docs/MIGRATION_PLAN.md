@@ -6,7 +6,7 @@ Sau khi nghiệm thu chuyển đổi mới mở rộng chức năng consumer t�
 
 ## 1. Trạng thái và cách đọc bằng chứng
 
-**M0 hoàn thành; M1 và M2 đang triển khai; M3–M7 `NOT_STARTED`.** Password auth/session và phần lõi catalog/search/library/player có mã và test; chưa nghiệm thu toàn milestone.
+**M0 hoàn thành; M1, M2, M5 và M6 đang triển khai; M3, M4, M7 `NOT_STARTED`.** Karaoke solo/phòng đã có implementation Flutter; chưa nghiệm thu tích hợp hoặc thiết bị.
 Đã có mã Dart, Android/iOS/web scaffold, dependency lock, analyze/test và APK debug. Bằng chứng thiết bị/API được ghi theo từng luồng trong `ai/STATE.md`.
 Đánh dấu từng luồng và từng nền tảng riêng; không suy kết quả iOS từ Android.
 
@@ -39,12 +39,12 @@ Không hỏi phê duyệt cho thao tác triển khai thông thường đã nằm
 ## 3. Ma trận chức năng cần chuyển
 
 Đường dẫn trong cột nguồn tương đối với `Moodify-Mobile/`; xem `docs/ai/SOURCE_MAP.md` để tìm checkout.
-Mỗi hàng dưới đây: source đã `SOURCE_OBSERVED`. Login/register và profile/logout cơ sở đã `IMPLEMENTED`; shell bốn tab, profile/subscription đầy đủ và các hàng còn lại **`NOT_STARTED`**.
+Mỗi hàng dưới đây: source đã `SOURCE_OBSERVED`. Login/register và profile/logout cơ sở đã `IMPLEMENTED`; shell năm tab (Karaoke tab thứ năm) và karaoke solo/phòng có implementation nhưng chưa nghiệm thu; profile/subscription đầy đủ và các hàng còn lại **`NOT_STARTED`**.
 Các API cụ thể và khác biệt response nằm tại `docs/reference/API_CONTRACT.md`.
 
 | Luồng | Source RN tham chiếu | Cách chuyển và tiêu chí nghiệm thu chính |
 | --- | --- | --- |
-| Shell, auth-return | `src/app/_layout.tsx`, `src/app/(tabs)/_layout.tsx` | Shell 4 tab + detail routes; login trở về nơi yêu cầu, Back đúng, không mất ý định phát |
+| Shell, auth-return | `src/app/_layout.tsx`, `src/app/(tabs)/_layout.tsx` | Shell 5 tab (Karaoke được người dùng yêu cầu) + detail routes; login trở về nơi yêu cầu, Back đúng, không mất ý định phát |
 | Login/register | `src/app/auth.tsx`, `src/services/api.ts` | Form → auth controller/repository; server validation, token restore, lỗi credentials, không giữ password |
 | Google/Facebook | `src/app/auth.tsx`, `src/constants/config.ts` | Adapter native/OAuth theo backend; đúng client/redirect/signing, hủy login an toàn; xác minh từng platform |
 | Catalog/home | `src/app/(tabs)/index.tsx` | Data thật, ảnh lazy/cache, phân trang có giới hạn; refresh/error/empty rõ; không gọi dữ liệu random là cá nhân hóa |
@@ -102,7 +102,7 @@ Chưa hoàn tất M2: search history, favorite album, xóa bài/playlist/visibil
 - Chuyển shell/home/catalog/album/artist-list, search thường/cảm xúc và search history.
 - Chuyển playlist/liked/favorite album với server validation, rollback và phân trang.
 - Chuyển player/queue/mini/fullscreen, controls, volume, sleep timer, lyrics và share.
-- Dùng `/tracks/{id}/stream`; kiểm tra redirect/range/seek, codec và lỗi media thật, không dùng preview làm full track.
+- Dùng `/tracks/{id}/stream`; kiểm tra redirect/range/seek, codec và lỗi media thật, không dùng preview làm full track. Local backend đã ưu tiên phục vụ file local tồn tại trước khi redirect; chưa nghiệm thu runtime trên local API/thiết bị.
 - Dùng một coordinator để screen/OS controls không tạo player song song; stale callback không đổi bài mới.
 - Xác minh bài cuối + repeat off dừng, pause không bị retry tự phát, seek/retry không nhân bản session.
 - Kiểm tra mất mạng/khôi phục, audio interruption, background/lock screen/Bluetooth trên target device.
@@ -137,24 +137,23 @@ Trạng thái Flutter: **NOT_STARTED**. Spike native/file I/O có thể làm s�
 
 ## 9. M5 — karaoke solo và pitch
 
-Trạng thái Flutter: **NOT_STARTED**. Spike mic/pitch được phép trước khi dựng toàn bộ UI.
+Trạng thái Flutter: **IN_PROGRESS**. Port luồng `KaraokeSoloPage` trên web: khi chọn bài có `scoringAvailable`, xin quyền micro, tạo session, thu pitch features và phát nhạc; khi nhạc kết thúc, tự submit features rồi hiện điểm. Nút chính trong lúc thu dừng và hủy bản thu như web; bài thiếu scoring reference chỉ phát nhạc. Mic-check là thao tác riêng. Lời hát giữ highlight theo mốc đồng bộ có sẵn.
 
-- Chuyển catalog/detail/instrumental/lyrics, session và gửi pitch features để backend chấm điểm.
-- Native Android cũ dùng AudioRecord + YIN; port bridge qua adapter/platform channel, kiểm tra thuật toán và thread.
-- Giữ sample grid/đơn vị/offset/voiced probability đúng contract; không tự chấm điểm hay tạo score khi server lỗi.
-- Điều phối audio focus với music player; capture/cancel/finalize có timeout và cleanup khi rời màn hình.
-- Nghiệm thu: mic denied, capture interruption, file thiếu, session expired, hủy bài, kết thúc bài và server score thật.
+- Chọn bài scorable: microphone permission → session API → PCM16/YIN capture → nhạc nền → submit features khi `ProcessingState.completed` → kết quả tổng. Không upload raw audio.
+- Toggle playback trong khi thu hủy session capture và dừng nhạc; seek bị khóa trong lúc thu. Mic-check dừng trước khi bắt đầu chấm.
+- Bài không có scoring reference phát nhạc bình thường, không tạo session; lỗi permission/session/capture/API hiển thị trên màn hình.
+- Nghiệm thu: luồng scorable/unsupported, mic denied, score thật khi bài kết thúc, hủy khi dừng/chuyển bài/rời màn, đường dẫn audio lỗi/timeout và seek state.
 - iOS chưa có native đối ứng trong source cũ: ghi nhánh trạng thái riêng và kế hoạch thực hiện, không tuyên bố parity đủ.
 
 ## 10. M6 — karaoke rooms, voice và điểm nhóm
 
-Trạng thái Flutter: **NOT_STARTED**. Spike Flutter/native mediasoup/WebRTC cần thực hiện sớm.
+Trạng thái Flutter: **IN_PROGRESS**. Room REST, playback/lyrics sync, voice ticket + mediasoup/WebRTC signaling và contribution API đã có; cần kiểm tra nhiều thiết bị.
 
 - Dùng room API hiện có: public/private, invite, membership, queue, host close/playback và expectedVersion.
-- WS state giữ auth frame đầu/device UUID, heartbeat/reconnect; event stale không đè snapshot version mới.
-- Voice ticket và signaling/media adapter phải tương thích backend; không đoán package từ tên hoặc thay SFU.
-- Đồng bộ clock/serverTime/position và resync có kiểm soát; reconnect không tự bật mic hoặc phát ngoài ý định.
-- Giữ participant/contribution/finish group score; xử lý mic voice cạnh tranh mic pitch qua coordinator.
+- Room state hiện refresh bằng REST polling 4 giây; Spring WebSocket auth/device UUID, heartbeat/reconnect và stale-event handling còn thiếu.
+- Voice ticket và client mediasoup/WebRTC đã được port theo backend signaling; chưa kết nối được với server thật trên thiết bị để nghiệm thu.
+- Snapshot playback có resync vị trí; cần xác minh lệch đồng hồ/position, reconnect không tự bật mic hoặc phát ngoài ý định.
+- Participant/contribution/finish group score đã nối endpoint; khi thu pitch, UI yêu cầu tắt mic Voice để không mở hai capturer đồng thời. Cần nghiệm thu trên thiết bị.
 - Nghiệm thu trên ít nhất hai thiết bị: join/leave, host pause/resume/skip/close, private code sai, reconnect và scoring.
 - Thử mic denied, Bluetooth/loa, background và rời phòng; socket/transport/capture phải được giải phóng.
 - Dependency native chưa tương thích là blocker có bằng chứng và phương án, không lý do chuyển tính năng ra khỏi parity.

@@ -30,6 +30,8 @@ flutter devices
 flutter run -d <device-id> --dart-define-from-file=config/production.json
 ```
 
+Trong Android Studio, chọn **Moodify (production API)** để dùng backend production, hoặc **Moodify (local API)** để emulator gọi backend local tại `10.0.2.2:8088`. Backend local cần đang chạy và trỏ tới MongoDB/media local của bạn. Nút Run của cấu hình `main.dart` mặc định không tự nạp file JSON; nếu tạo cấu hình riêng, thêm `--dart-define-from-file` cùng file môi trường tương ứng vào **Additional run args**.
+
 `config/production.json` chứa URL public `https://api.moodify.click/api`, không có credential. App gọi backend hiện có; không cần khởi động backend cũ. Không tự tạo tài khoản production để kiểm thử.
 
 Cho môi trường local, tạo file JSON trong `config/local/` theo `config/development.example.json` rồi truyền bằng `--dart-define-from-file`. `10.0.2.2` chỉ dành cho Android emulator; máy thật cần địa chỉ LAN/tunnel có thể truy cập từ điện thoại. Không cấu hình URL thì app báo lỗi rõ, không tự fallback. Release bắt buộc HTTPS; HTTP chỉ được Android debug cho phép để phát triển.
