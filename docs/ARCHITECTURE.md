@@ -1,6 +1,6 @@
 # Kiến trúc Moodify Flutter
 
-Trạng thái: nền app/core/auth và phần lõi M2 home/catalog/search/library/player đã có mã. Những feature còn lại là thiết kế mục tiêu. Đọc `ai/STATE.md` để biết bằng chứng kiểm chứng và áp dụng `AGENTS.md` trước mọi quyết định kỹ thuật.
+Trạng thái: app/core/auth, home/catalog/search/library/player, subscriptions, notifications, offline và karaoke đã có mã. Karaoke được merge từ Thuan_Branch; quảng cáo tiếp tục thuộc cộng tác viên. Đọc `ai/STATE.md` để phân biệt implementation với bằng chứng thiết bị và áp dụng `AGENTS.md` trước mọi quyết định kỹ thuật.
 
 ## 1. Biên hệ thống
 
@@ -29,11 +29,11 @@ Một ứng dụng Flutter độc lập dùng lại backend, các ID, nghiệp v
 | --- | --- | --- |
 | UI | Flutter / Dart, Material primitives được theme theo Moodify | Android trước để xác minh native karaoke, giữ thiết kế tương thích iOS |
 | State và DI | `flutter_riverpod` | Async state của feature, auth và dependency graph; không trộn BLoC/GetX/Provider khác |
-| Router | `go_router` | Auth guards, shell 4 tab, detail routes, fullscreen player, deep link thanh toán |
+| Router | `go_router` | Auth guards, shell 5 tab sau merge karaoke, detail routes, fullscreen player, deep link thanh toán |
 | HTTP | `dio` | Base URL, token, timeout, cancel, error mapping; không gọi HTTP trực tiếp từ widget |
 | Audio | `just_audio` + `audio_service` + `audio_session` | Một handler/coordinator quản queue, playback, nền/lock screen/audio focus |
 | Token/key | `flutter_secure_storage` | OS-backed storage; không plaintext preferences, không hardcode key |
-| File/cache | App-private files, manifest JSON có version | Chỉ thêm package file/path cần thiết khi triển khai offline |
+| File/cache | App-private files, secure manifest JSON có version; path_provider + cryptography | AES-256-GCM trong sandbox mới, một download giới hạn 40 MiB; RAM/native còn cần đo |
 | Karaoke native | Adapter + platform channel/plugin đã xác minh | Pitch capture/voice theo protocol hiện tại; cần spike trước khi chọn package WebRTC/mediasoup |
 
 Nền dùng Riverpod 2.6.1, go_router 17.5.0, Dio 5.11.1, flutter_secure_storage 11.2.0 và uuid 4.6.0 với Flutter 3.41.6 / Dart 3.11.4. Audio M2 dùng just_audio 0.10.6, audio_service 0.18.19, audio_session 0.2.4; API package đối chiếu README/source đã cài. `pubspec.lock` khóa dependency. Không thêm app SQL/ORM; sqflite là dependency gián tiếp của cache trong package, không phải schema nghiệp vụ mới.
@@ -55,6 +55,7 @@ lib/
     storage/
     errors/
     widgets/
+    formatters/
   features/
     auth/
     home/
@@ -64,6 +65,7 @@ lib/
     player/
     profile/
     subscriptions/
+    notifications/
     offline/
     karaoke/
 test/                    # phản chiếu feature có test thật
@@ -97,6 +99,8 @@ Map envelope và raw response theo endpoint, xem API_CONTRACT. Retry GET có gi�
 
 `PlaybackCoordinator` nhận play/pause/seek/next/previous từ mini-player, full-player, list và OS controls. Một audio handler duy nhất sở hữu engine. State machine tối thiểu: idle/loading/ready/playing/paused/buffering/completed/error; khả năng thao tác là dữ liệu riêng theo entitlement.
 
+Sau merge karaoke, `KaraokePlayback` là adapter của `PlayerController`, không tạo AudioPlayer khác. Nhạc nền lấy trực tiếp instrumental HTTPS đã kiểm tra, dùng source KARAOKE, không revenue nghe nhạc hoặc auto-next/repeat của queue thường. Adapter mỗi màn giữ ownership token ổn định qua retry/restart từ OS; màn cũ không được stop/seek nguồn mới. Thoát tab karaoke reset stack để dispose mic/timer/voice; route theo user key dọn màn cũ khi session đổi. Capture/voice vẫn cần kiểm chứng native/mất kết nối riêng.
+
 Quy tắc cần test: bài mới bắt đầu 0; resume/retry cùng lượt giữ vị trí; callback cũ không can thiệp bài mới (generation/session ID); queue một bài + repeat off phải dừng; shuffle hữu hạn và Previous theo lịch sử thực tế; restore paused; pause không bị retry tự phát lại. Quy tắc web đã được khảo sát là nguồn hồi quy, không copy code React.
 
 Đường phát chuẩn `/tracks/{id}/stream`, không dùng preview làm bản đầy đủ, không thay nhạc thiếu bằng bài khác. Server có thể trả redirect/range; kiểm tra codec, headers, seek, URL tương đối, audio interruption, Bluetooth, lock screen trên native. Hạn mức/quảng cáo/quality theo server, không suy từ tên gói hoặc bỏ qua khi tải source trực tiếp.
@@ -116,6 +120,8 @@ Listening session dùng API telemetry hiện có; chỉ đếm theo event/thời
 Không cần tạo bảng server để giữ state giao diện. Cache RAM/JSON cục bộ đủ cho baseline; không tự thêm SQLite tables/ORM. Nếu cần bộ lưu trữ khác thì nêu tradeoff trước. Không phát triển outbox đồng bộ nghiệp vụ tự chế khi chưa có contract idempotency.
 
 Offline RN dùng format file local **MFY1**: backend cấp URL audio/key/license, client tải rồi mã hóa; xem audit về CTR không có authentication tag. Giữ contract API; khi port phải đánh giá tương thích format local, không coi mã hóa hiện tại là DRM hoàn chỉnh. Giải mã theo luồng khi khả thi, đo bộ nhớ và tránh nạp cả bài/base64 vào Dart heap. File tải dở dùng `.part` rồi rename atomically; manifest versioned và recovery khi app bị kill. Không đổi thời gian máy để tự gia hạn; không cho user B dùng file/secret của user A. Thiếu cơ chế kiểm quyền an toàn thì ghi blocker cụ thể cho release offline. App Flutter mới không mặc định đọc được sandbox/file/token Expo cũ; chuyển chức năng không bao gồm nhập dữ liệu local cũ khi chưa có yêu cầu riêng.
+
+Implementation Flutter hiện dùng AES-256-GCM (nonce ngẫu nhiên + authentication tag), không nhập MFY1 cũ; backend vẫn cấp audio plaintext/key theo contract có sẵn. Khóa/metadata license ở secure manifest, audio encrypted ở file private, chỉ có một plaintext tạm để engine phát và xóa theo lifecycle. Download tuần tự, giới hạn 40 MiB; hiện còn giữ buffer toàn bài khi mã hóa/giải mã nên đo RAM trên máy là gate release. Cleanup intent được lưu trước request-download và reconcile bằng DELETE offline/remove, không giữ ticket hay lịch sử giao dịch. Clock rollback khóa playback cho tới khi verify thật; không quảng bá cơ chế này như DRM chống can thiệp thiết bị.
 
 ## 8. Karaoke và mở rộng
 

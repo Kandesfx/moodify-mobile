@@ -15,6 +15,12 @@ import '../features/auth/data/device_identity.dart';
 import '../features/auth/data/session_repository.dart';
 import '../features/auth/data/session_storage.dart';
 import '../features/auth/presentation/session_controller.dart';
+import '../features/offline/data/offline_repository.dart';
+import '../features/player/domain/offline_playback.dart';
+
+final wiredOfflinePlaybackProvider = Provider<OfflinePlaybackAccess?>(
+  (ref) => ref.watch(offlineRepositoryProvider),
+);
 
 final appConfigProvider = Provider<AppConfig>(
   (ref) => throw StateError('AppConfig is required'),

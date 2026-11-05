@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../app/theme/app_theme.dart';
+import '../../../core/widgets/app_motion.dart';
 
-import '../../../core/widgets/feedback_panel.dart';
 import '../../auth/presentation/session_controller.dart';
 import '../../catalog/domain/catalog_models.dart';
+import 'playlist_dialog.dart';
 import '../../catalog/presentation/catalog_widgets.dart';
 import 'library_controller.dart';
+import '../../catalog/data/artist_repository.dart';
+import '../../player/presentation/player_controller.dart';
 
 class LibraryScreen extends ConsumerWidget {
   const LibraryScreen({super.key});
@@ -24,79 +28,237 @@ class LibraryScreen extends ConsumerWidget {
     }
     final state = ref.watch(libraryControllerProvider);
     final controller = ref.read(libraryControllerProvider.notifier);
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Thư viện'),
-        actions: [
-          IconButton(
-            tooltip: 'Tạo playlist',
-            onPressed: state.busy || state.loading
-                ? null
-                : () => showDialog<void>(
-                    context: context,
-                    builder: (_) => const _CreatePlaylist(),
-                  ),
-            icon: const Icon(Icons.add_rounded),
+    final albums = ref.watch(favoriteAlbumsProvider);
+    return DefaultTabController(
+      length: 4,
+      animationDuration: AppMotion.duration(context),
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Thư viện'),
+          actions: [
+            IconButton(
+              tooltip: 'Nhạc đã tải',
+              onPressed: () => context.push('/offline'),
+              icon: const Icon(Icons.download_for_offline_outlined),
+            ),
+            IconButton(
+              tooltip: 'Tạo playlist',
+              onPressed: state.busy || state.loading
+                  ? null
+                  : () => showCreatePlaylist(context),
+              icon: const Icon(Icons.add_rounded),
+            ),
+          ],
+          bottom: const TabBar(
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            dividerColor: Colors.transparent,
+            labelColor: Colors.white,
+            unselectedLabelColor: AppColors.secondary,
+            labelStyle: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+            indicatorSize: TabBarIndicatorSize.tab,
+            indicatorPadding: EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+            indicator: BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.all(Radius.circular(8)),
+            ),
+            tabs: [
+              Tab(text: 'Playlist'),
+              Tab(text: 'Yêu thích'),
+              Tab(text: 'Album'),
+              Tab(text: 'Nghệ sĩ'),
+            ],
           ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: controller.load,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
+        ),
+        body: TabBarView(
           children: [
-            if (state.loading) const LinearProgressIndicator(),
-            if (state.failure != null)
-              LoadMessage(
-                message: state.failure!.message,
-                retry: controller.load,
-              ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-              child: Text(
-                'Playlist của bạn',
-                style: Theme.of(context).textTheme.titleLarge,
+            RefreshIndicator(
+              onRefresh: controller.load,
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.only(top: 16, bottom: 24),
+                children: [
+                  if (state.loading) const LinearProgressIndicator(),
+                  if (state.failure != null)
+                    LoadMessage(
+                      message: state.failure!.message,
+                      retry: controller.load,
+                    ),
+                  if (!state.loading &&
+                      state.playlists.isEmpty &&
+                      state.failure == null)
+                    Padding(
+                      padding: const EdgeInsets.all(28),
+                      child: Column(
+                        children: [
+                          const Icon(Icons.queue_music_rounded, size: 64),
+                          const SizedBox(height: 20),
+                          Text(
+                            'Nhạc của bạn, theo cách của bạn',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'Gom những bài bạn muốn nghe vào một playlist.',
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 24),
+                          FilledButton.icon(
+                            onPressed: () => showCreatePlaylist(context),
+                            icon: const Icon(Icons.add_rounded),
+                            label: const Text('Tạo playlist đầu tiên'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  for (final playlist in state.playlists)
+                    ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 8,
+                      ),
+                      leading: MusicArtwork(image: playlist.image, size: 64),
+                      title: Text(playlist.title),
+                      subtitle: Text(
+                        '${playlist.trackCount} bài hát · ${playlist.isPublic ? 'Công khai' : 'Riêng tư'}',
+                      ),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () =>
+                          context.push('/playlist/${segment(playlist.id)}'),
+                    ),
+                ],
               ),
             ),
-            if (!state.loading &&
-                state.playlists.isEmpty &&
-                state.failure == null)
-              const LoadMessage(
-                message:
-                    'Chưa có playlist. Nhấn dấu + để tạo playlist đầu tiên.',
-              ),
-            for (final playlist in state.playlists)
-              ListTile(
-                leading: MusicArtwork(image: playlist.image),
-                title: Text(playlist.title),
-                subtitle: Text('${playlist.trackCount} bài hát'),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => context.push('/playlist/${segment(playlist.id)}'),
-              ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 28, 20, 12),
-              child: Text(
-                'Bài hát yêu thích',
-                style: Theme.of(context).textTheme.titleLarge,
+            RefreshIndicator(
+              onRefresh: controller.load,
+              child: ListView.builder(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.only(top: 16, bottom: 24),
+                itemCount: state.tracks.length + 2,
+                itemBuilder: (_, i) {
+                  if (i == 0) {
+                    return Column(
+                      children: [
+                        if (state.tracks.isNotEmpty)
+                          Wrap(
+                            spacing: 8,
+                            children: [
+                              TextButton.icon(
+                                onPressed: () => ref
+                                    .read(playerControllerProvider.notifier)
+                                    .playCollection(
+                                      state.tracks,
+                                      source: 'LIBRARY',
+                                    ),
+                                icon: const Icon(Icons.play_arrow),
+                                label: const Text('Phát danh sách'),
+                              ),
+                              TextButton.icon(
+                                onPressed: () => ref
+                                    .read(playerControllerProvider.notifier)
+                                    .playCollection(
+                                      state.tracks,
+                                      shuffled: true,
+                                      source: 'LIBRARY',
+                                    ),
+                                icon: const Icon(Icons.shuffle),
+                                label: const Text('Trộn bài'),
+                              ),
+                            ],
+                          ),
+                        if (state.loading) const LinearProgressIndicator(),
+                        if (state.failure != null)
+                          LoadMessage(
+                            message: state.failure!.message,
+                            retry: controller.load,
+                          ),
+                        if (state.tracks.isEmpty &&
+                            !state.loading &&
+                            state.failure == null)
+                          Padding(
+                            padding: const EdgeInsets.all(28),
+                            child: Column(
+                              children: [
+                                const Icon(
+                                  Icons.favorite_border_rounded,
+                                  size: 64,
+                                ),
+                                const SizedBox(height: 20),
+                                const Text(
+                                  'Lưu những bài bạn muốn nghe lại.',
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 20),
+                                OutlinedButton(
+                                  onPressed: () => context.go('/search'),
+                                  child: const Text('Tìm bài hát'),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    );
+                  }
+                  if (i > state.tracks.length) {
+                    return state.hasMore
+                        ? Padding(
+                            padding: const EdgeInsets.all(20),
+                            child: OutlinedButton(
+                              onPressed: state.loading || state.busy
+                                  ? null
+                                  : () => controller.load(more: true),
+                              child: const Text('Xem thêm'),
+                            ),
+                          )
+                        : const SizedBox();
+                  }
+                  return TrackTile(
+                    track: state.tracks[i - 1],
+                    queue: state.tracks,
+                    index: i - 1,
+                  );
+                },
               ),
             ),
-            if (!state.loading && state.tracks.isEmpty && state.failure == null)
-              const LoadMessage(
-                message: 'Các bài hát bạn lưu sẽ xuất hiện ở đây.',
-              ),
-            for (var i = 0; i < state.tracks.length; i++)
-              TrackTile(track: state.tracks[i], queue: state.tracks, index: i),
-            if (state.hasMore)
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: OutlinedButton(
-                  onPressed: state.loading || state.busy
-                      ? null
-                      : () => controller.load(more: true),
-                  child: const Text('Xem thêm'),
+            RefreshIndicator(
+              onRefresh: () async {
+                ref.invalidate(favoriteAlbumsProvider);
+                await ref.read(favoriteAlbumsProvider.future);
+              },
+              child: albums.when(
+                loading: () =>
+                    ListView(children: const [LinearProgressIndicator()]),
+                error: (_, _) => ListView(
+                  children: [
+                    LoadMessage(
+                      message: 'Chưa tải được album đã lưu.',
+                      retry: () => ref.invalidate(favoriteAlbumsProvider),
+                    ),
+                  ],
+                ),
+                data: (items) => ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  children: [
+                    if (items.isEmpty)
+                      const LoadMessage(
+                        message: 'Album bạn lưu sẽ xuất hiện ở đây.',
+                      ),
+                    for (final album in items)
+                      ListTile(
+                        leading: MusicArtwork(image: album.image, size: 64),
+                        title: Text(album.title),
+                        subtitle: Text(album.author ?? 'Album'),
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: () =>
+                            context.push('/album/${segment(album.id)}'),
+                      ),
+                  ],
                 ),
               ),
-            const SizedBox(height: 20),
+            ),
+            const FollowedArtistsView(),
           ],
         ),
       ),
@@ -104,67 +266,42 @@ class LibraryScreen extends ConsumerWidget {
   }
 }
 
-class _CreatePlaylist extends ConsumerStatefulWidget {
-  const _CreatePlaylist();
+class FollowedArtistsView extends ConsumerWidget {
+  const FollowedArtistsView({super.key});
   @override
-  ConsumerState<_CreatePlaylist> createState() => _CreatePlaylistState();
-}
-
-class _CreatePlaylistState extends ConsumerState<_CreatePlaylist> {
-  final _name = TextEditingController();
-  final _form = GlobalKey<FormState>();
-  @override
-  void dispose() {
-    _name.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final state = ref.watch(libraryControllerProvider);
-    return AlertDialog(
-      title: const Text('Tạo playlist'),
-      content: SingleChildScrollView(
-        child: Form(
-          key: _form,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _name,
-                autofocus: true,
-                maxLength: 100,
-                decoration: const InputDecoration(labelText: 'Tên playlist'),
-                validator: (value) => value == null || value.trim().isEmpty
-                    ? 'Nhập tên playlist.'
-                    : null,
-              ),
-              const SizedBox(height: 12),
-              const Text('Playlist mới chỉ hiển thị với bạn.'),
-              if (state.failure != null)
-                FeedbackPanel(message: state.failure!.message),
-            ],
-          ),
+  Widget build(BuildContext context, WidgetRef ref) => ref
+      .watch(followedArtistsProvider)
+      .when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => LoadMessage(
+          message: 'Chưa tải được nghệ sĩ đã theo dõi.',
+          retry: () => ref.invalidate(followedArtistsProvider),
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: state.busy ? null : () => Navigator.pop(context),
-          child: const Text('Hủy'),
-        ),
-        FilledButton(
-          onPressed: state.busy
-              ? null
-              : () async {
-                  if (!_form.currentState!.validate()) return;
-                  final success = await ref
-                      .read(libraryControllerProvider.notifier)
-                      .create(_name.text);
-                  if (context.mounted && success) Navigator.pop(context);
+        data: (items) => items.isEmpty
+            ? LoadMessage(
+                message: 'Nghệ sĩ bạn theo dõi sẽ xuất hiện ở đây.',
+                retry: () => context.go('/search'),
+                retryLabel: 'Tìm nghệ sĩ',
+              )
+            : RefreshIndicator(
+                onRefresh: () async {
+                  ref.invalidate(followedArtistsProvider);
+                  await ref.read(followedArtistsProvider.future);
                 },
-          child: Text(state.busy ? 'Đang tạo…' : 'Tạo playlist'),
-        ),
-      ],
-    );
-  }
+                child: ListView.builder(
+                  itemCount: items.length,
+                  itemBuilder: (_, i) => ListTile(
+                    leading: MusicArtwork(image: items[i].image, round: true),
+                    title: Text(items[i].name),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push(
+                      Uri(
+                        path: '/artist/${segment(items[i].id)}',
+                        queryParameters: {'name': items[i].name},
+                      ).toString(),
+                    ),
+                  ),
+                ),
+              ),
+      );
 }

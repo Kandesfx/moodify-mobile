@@ -13,6 +13,23 @@ import '../../support/music_harness.dart';
 
 void main() {
   test(
+    'mood results preserve limited matches and actual emotion without inventing tracks',
+    () {
+      final result = MoodResult.fromJson({
+        'tracks': [],
+        'matchStatus': 'LIMITED',
+        'emotion': {'label': 'sadness'},
+      });
+      expect(result.tracks, isEmpty);
+      expect(result.matchStatus, 'LIMITED');
+      expect(result.emotion, 'sadness');
+      expect(
+        () => MoodResult.fromJson({'tracks': null}),
+        throwsFormatException,
+      );
+    },
+  );
+  test(
     'track ids remain strings and audioUrl does not imply source availability',
     () {
       final track = Track.fromJson({

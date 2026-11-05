@@ -32,6 +32,12 @@ class LibraryRemoteService {
       data: {'trackSpotifyId': trackId},
     );
   }
+
+  Future<void> delete(String path) async => dio.delete<void>(path);
+  Future<void> visibility(String id, bool value) async => dio.patch<Object?>(
+    'playlists/${segment(id)}/visibility',
+    queryParameters: {'isPublic': value},
+  );
 }
 
 class LibraryRepository {
@@ -65,4 +71,32 @@ class LibraryRepository {
   Future<MusicCollection> create(String name) async =>
       MusicCollection.fromJson(objectJson(await remote.create(name.trim())));
   Future<void> add(String id, String trackId) => remote.add(id, trackId);
+  Future<void> removeTrack(String id, String trackId) =>
+      remote.delete('playlists/${segment(id)}/tracks/${segment(trackId)}');
+  Future<void> deletePlaylist(String id) =>
+      remote.delete('playlists/${segment(id)}');
+  Future<void> visibility(String id, bool value) =>
+      remote.visibility(id, value);
+  Future<List<MusicCollection>> favoriteAlbums() async {
+    final json = await remote.get('albums/favorites/me');
+    if (json is! List) throw const FormatException('Invalid favorite albums');
+    return json
+        .map((e) => MusicCollection.fromJson(objectJson(e), album: true))
+        .toList();
+  }
+
+  Future<bool> albumFavorite(String id) async =>
+      objectJson(
+        await remote.get('albums/${segment(id)}/favorite/status'),
+      )['favorited'] ==
+      true;
+  Future<bool> toggleAlbum(String id) async {
+    final json = objectJson(
+      (await remote.dio.post<Object?>('albums/${segment(id)}/favorite')).data,
+    );
+    if (json['favorited'] is! bool) {
+      throw const FormatException('Invalid favorite status');
+    }
+    return json['favorited'] as bool;
+  }
 }

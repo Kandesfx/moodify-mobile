@@ -43,25 +43,33 @@ Các API mobile còn tập trung trong `Mobile/src/services/api.ts`, web trong `
 
 ## 3. Bản đồ Flutter mục tiêu
 
-Đã có app/core/auth và các feature home/catalog/search/library/player cho phần lõi M2; Karaoke solo/phòng đang được port và cần kiểm tra runtime. profile/subscriptions/offline vẫn là mục tiêu; không tạo file rỗng chỉ để khớp bảng.
+Đã có app/core/auth, home/catalog/search/library/player, subscriptions, notifications, offline và karaoke sau merge `Thuan_Branch`. Quảng cáo chưa có trong nhánh được merge; không tạo file rỗng chỉ để khớp bảng.
 
 | Mã M1 thực tế | Điểm vào |
 | --- | --- |
 | Bootstrap, DI, môi trường | `lib/main.dart`, `lib/app/bootstrap.dart`, `lib/core/config/app_config.dart`, `config/` |
 | Router, theme | `lib/app/router/app_router.dart`, `lib/app/theme/app_theme.dart` |
+| Motion/reduced motion, nền artwork thật | `lib/core/widgets/app_motion.dart`, `lib/features/catalog/presentation/artwork_backdrop.dart`; route slide trong router |
 | Token refresh, request theo session | `lib/core/network/session_interceptor.dart` |
 | Session lifecycle và secure storage | `lib/features/auth/data/session_repository.dart`, `session_storage.dart`, `device_identity.dart` trong cùng thư mục |
 | Auth contract | `lib/features/auth/data/auth_remote_service.dart`, `lib/features/auth/domain/` |
 | Form, profile, controller | `lib/features/auth/presentation/` |
 | Test phiên và UI | `test/core/`, `test/features/auth/`; fixture chỉ ở `test/support/` |
-| Shell 5 tab (Karaoke thứ năm theo yêu cầu), route public/return sau auth | `lib/app/main_shell.dart`, `lib/app/router/app_router.dart` |
+| Shell 5 tab, route public/return sau auth và karaoke session scope | `lib/app/main_shell.dart`, `lib/app/router/app_router.dart` |
 | Model, catalog API public, stream validation | `lib/features/catalog/domain/catalog_models.dart`, `lib/features/catalog/data/catalog_repository.dart` |
 | Home/phân trang, album/artist detail, track actions | `lib/features/home/presentation/home_screen.dart`, `lib/features/catalog/presentation/` |
-| Search debounce/cancel/mood, chưa có history | `lib/features/search/presentation/` |
-| Thư viện theo user, like, playlist create/add/read | `lib/features/library/data/library_repository.dart`, `lib/features/library/presentation/` |
+| Search debounce/cancel/mood, server history theo user | `lib/features/search/presentation/`, `lib/features/search/data/search_history_repository.dart` |
+| Thư viện theo user, favorite album, playlist create/add/remove/delete/visibility | `lib/features/library/data/library_repository.dart`, `lib/features/library/presentation/collection_actions.dart`, `playlist_dialog.dart` cùng thư mục |
 | Playback coordinator, một native handler, mini/full | `lib/features/player/presentation/player_controller.dart`, `player_screen.dart` cùng thư mục; `lib/features/player/data/playback_engine.dart` |
-| Karaoke catalog/solo/pitch capture/fullscreen lyric player | `lib/features/karaoke/data/karaoke_repository.dart`, `pitch_capture.dart`, `lib/features/karaoke/presentation/karaoke_screen.dart` (`KaraokePerformanceScreen`), route `lib/app/router/app_router.dart` |
-| Karaoke rooms, synced playback, voice/media, group scoring | `lib/features/karaoke/data/karaoke_repository.dart`, `karaoke_voice_client.dart`, `pitch_capture.dart`, `lib/features/karaoke/presentation/karaoke_screen.dart` |
+| Lyrics/queue sheet, LRC, telemetry | `lib/features/player/presentation/player_sheets.dart`, `lib/features/player/domain/lyric_line.dart`, `lib/features/player/data/listening_reporter.dart` |
+| Gói dịch vụ/checkout/polling | `lib/features/subscriptions/domain/subscription_models.dart`, `data/subscription_repository.dart`, `presentation/` trong feature |
+| Inbox/read/read-all và billing link | `lib/features/notifications/data/notification_repository.dart`, `presentation/notification_screen.dart` trong feature |
+| Download/encryption/license/cache cleanup | `lib/features/offline/data/offline_repository.dart`, `lib/features/offline/presentation/` |
+| Player-offline interface và wiring | `lib/features/player/domain/offline_playback.dart`, `lib/app/bootstrap.dart`, `lib/main.dart` |
+| Karaoke solo/phòng, API, voice, pitch/reference | `lib/features/karaoke/presentation/karaoke_screen.dart`, `lib/features/karaoke/data/` |
+| Nhạc nền karaoke dùng chung engine, ownership token qua OS retry/restart | `lib/features/karaoke/data/karaoke_playback.dart`, `PlayerController.loadKaraoke` trong player controller |
+| Test chuyển nguồn music/karaoke và guest 5 tab | `test/features/player/karaoke_playback_test.dart`, `test/features/catalog/main_shell_test.dart` |
+| UX audit và native/account acceptance | `docs/UX_REVIEW.md`, `docs/ai/STATE.md` |
 | Native background audio Android/iOS | `android/app/src/main/AndroidManifest.xml`, `android/app/src/main/kotlin/dev/moodify/moodify_flutter/MainActivity.kt`, `ios/Runner/Info.plist` |
 | Test M2 | `test/features/catalog/`, `search/`, `library/`, `player/`; engine/repository fake chỉ ở `test/support/music_harness.dart` |
 
@@ -73,7 +81,7 @@ Các API mobile còn tập trung trong `Mobile/src/services/api.ts`, web trong `
 | Catalog models/detail/albums/artists | `lib/features/catalog/` |
 | Home, search, library | `lib/features/home/`, `search/`, `library/` |
 | Audio coordinator/queue/telemetry | `lib/features/player/` |
-| Account UI và inbox | `lib/features/profile/` (inbox tách feature chỉ khi phạm vi thực tế cần) |
+| Account UI và inbox | `lib/features/auth/presentation/account_screen.dart`, `lib/features/notifications/` |
 | Packages/checkout/entitlement | `lib/features/subscriptions/` |
 | Download/license/files | `lib/features/offline/` |
 | Solo/room/pitch/voice/scoring | `lib/features/karaoke/` |
@@ -95,3 +103,14 @@ Không search ổ đĩa hoặc parent workspace bằng `--hidden --no-ignore` n�
 `.gitignore` phục vụ Git; `.ignore` phục vụ công cụ tìm kiếm có hỗ trợ; VS Code settings phục vụ search/watcher/editor. Không giả định ba file đó cấu hình được mọi agent indexer. Source map và chọn đúng workspace là cơ chế giới hạn ngữ cảnh chính.
 
 - Quảng cáo Flutter: `lib/features/player/data/ad_policy.dart`, `lib/features/player/data/playback_engine.dart`, `lib/features/player/presentation/player_controller.dart`, `lib/features/player/presentation/player_screen.dart`; MP3/artwork ở `assets/ads/`. Đối chiếu web `components/dashboard/player-context.tsx` và `components/dashboard/ad-interstitial-banner.tsx`.
+## Bổ sung ưu tiên 05/11/2026
+
+- Lịch sử nghe `/history`, GET/DELETE analytics và phát lại: `lib/features/player/presentation/listening_history_screen.dart`; entry Account/router. Provider theo user; dữ liệu từ server.
+- Tải: `DownloadUpdate/DownloadPhase` trong offline repository, state/controller và offline screen. Transfer không chiếm serial playback; manifest writes được serialize. Xóa local + cleanup quota theo verify/download.
+- Quyền/quota tải: `offline/data/offline_access_repository.dart`, GET subscriptions/me + offline/my-downloads theo deviceUuid; preflight trong OfflineController, phân biệt quota server với dung lượng bản tải local. Test `test/features/offline/offline_access_test.dart` và offline_repository_test/offline_screen_test.
+- Search history/selection: `features/search/data/search_history_repository.dart`, `search_history_controller.dart`, hook explicit-submit trong search controller và `TrackTile.onSelected`.
+- Kiểm thử mới: `test/features/search/search_history_test.dart`, `test/features/offline/offline_screen_test.dart` và mở rộng offline_repository_test. Bằng chứng/giới hạn tại `docs/UX_PRIORITY_IMPLEMENTATION.md`.
+
+- Đợt continuity: `library/presentation/pending_track_action.dart` (RAM TTL/user cleanup), `continue_track_action_screen.dart` và route `/continue-action`; `PlayerController.enqueue/removeUpcoming`, `player_sheets.dart` cho queue/LRC follow; mini gắn vào detail/inbox/subscriptions. Test `test/features/player/continuity_test.dart`.
+
+- Artist/profile/follow: `catalog/data/artist_repository.dart`, `detail_screen.dart`; followed tab ở Library. Device API/schema client: `auth/data/device_repository.dart`, `auth/presentation/device_screen.dart`, route `/devices` và entry Account. Tests `test/features/catalog/artist_device_test.dart`.

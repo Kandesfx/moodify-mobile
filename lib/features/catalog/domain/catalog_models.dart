@@ -9,6 +9,7 @@ class Track {
     this.localPath,
     this.durationMs = 0,
     this.lyrics,
+    this.lyricsSynced,
   });
 
   factory Track.fromJson(Map<String, dynamic> json) => Track(
@@ -21,13 +22,24 @@ class Track {
     localPath: optionalText(json['localPath']),
     durationMs: (json['durationMs'] as num?)?.toInt() ?? 0,
     lyrics: optionalText(json['lyricsPlain']),
+    lyricsSynced: optionalText(json['lyricsSynced']),
   );
   final String id, spotifyId, name, artist;
-  final String? artistId, image, localPath, lyrics;
+  final String? artistId, image, localPath, lyrics, lyricsSynced;
   final int durationMs;
   bool get hasTitle => !RegExp(r'^[a-fA-F0-9]{32,}$').hasMatch(name);
   String get displayName => hasTitle ? name : 'Chưa có tên bài hát';
   bool get hasAudio => localPath != null && localPath!.trim().isNotEmpty;
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'spotifyId': spotifyId,
+    'name': name,
+    'artistName': artist,
+    'artistSpotifyId': artistId,
+    'imageUrl': image,
+    'localPath': localPath,
+    'durationMs': durationMs,
+  };
 }
 
 class TrackPage {
@@ -64,6 +76,7 @@ class MusicCollection {
     this.description,
     this.trackCount = 0,
     this.tracks = const [],
+    this.isPublic = false,
   });
   factory MusicCollection.fromJson(
     Map<String, dynamic> json, {
@@ -81,6 +94,7 @@ class MusicCollection {
       author: optionalText(json[album ? 'authorName' : 'username']),
       description: optionalText(json['description']),
       trackCount: (json['trackCount'] as num?)?.toInt() ?? 0,
+      isPublic: json['isPublic'] == true,
       tracks: List.unmodifiable(
         (json['tracks'] as List? ?? []).map(
           (e) => Track.fromJson(objectJson(e)),
@@ -91,7 +105,38 @@ class MusicCollection {
   final String id, title;
   final String? image, author, description;
   final int trackCount;
+  final bool isPublic;
   final List<Track> tracks;
+}
+
+class MoodResult {
+  const MoodResult({
+    required this.tracks,
+    this.matchStatus,
+    this.emotion,
+    this.confidence,
+  });
+  factory MoodResult.fromJson(Map<String, dynamic> json) {
+    if (json['tracks'] is! List) {
+      throw const FormatException('Invalid recommendations');
+    }
+    final emotion = json['emotion'];
+    return MoodResult(
+      tracks: List.unmodifiable(
+        (json['tracks'] as List).map((e) => Track.fromJson(objectJson(e))),
+      ),
+      matchStatus: optionalText(json['matchStatus']),
+      confidence: emotion is Map && emotion['confidence'] is num
+          ? (emotion['confidence'] as num).toDouble()
+          : null,
+      emotion: emotion is Map<String, dynamic>
+          ? optionalText(emotion['label'])
+          : null,
+    );
+  }
+  final List<Track> tracks;
+  final String? matchStatus, emotion;
+  final double? confidence;
 }
 
 class Artist {

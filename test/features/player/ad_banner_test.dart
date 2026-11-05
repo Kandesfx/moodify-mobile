@@ -5,10 +5,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:moodify_flutter/features/player/data/ad_policy.dart';
 import 'package:moodify_flutter/app/bootstrap.dart';
 import 'package:moodify_flutter/core/config/app_config.dart';
+import 'package:moodify_flutter/features/auth/presentation/session_controller.dart';
 import 'package:moodify_flutter/features/player/presentation/player_controller.dart';
 import 'package:moodify_flutter/features/player/presentation/player_screen.dart';
 
-import '../../support/auth_harness.dart' show MemoryStore;
+import '../../support/auth_harness.dart';
 import '../../support/music_harness.dart';
 
 class TestAdPolicy extends AdPolicyService {
@@ -68,6 +69,7 @@ void main() {
       (tester) async {
         final repository = MusicRepositoryFake();
         final engine = PlaybackEngineFake();
+        final auth = AuthHarness();
         final player = PlayerController(
           repository,
           () async => engine,
@@ -84,6 +86,7 @@ void main() {
                   premiumWebUrl: 'https://example.test/dashboard/premium',
                 ),
               ),
+              sessionRepositoryProvider.overrideWithValue(auth.repository),
               playerControllerProvider.overrideWith((ref) => player),
               premiumUrlLauncherProvider.overrideWithValue((uri) async {
                 opened = uri;
@@ -108,6 +111,7 @@ void main() {
         }
         await tester.pumpWidget(const SizedBox.shrink());
         await tester.pump();
+        await auth.close();
         repository.remote.dio.close();
       },
     );

@@ -7,10 +7,19 @@ import 'package:moodify_flutter/features/auth/domain/session_state.dart';
 import 'package:moodify_flutter/features/auth/domain/auth_session.dart';
 import 'package:moodify_flutter/features/karaoke/data/karaoke_repository.dart';
 import 'package:moodify_flutter/features/catalog/data/catalog_repository.dart';
+import 'package:moodify_flutter/features/player/data/ad_policy.dart';
+import 'package:moodify_flutter/features/player/presentation/player_controller.dart';
 import '../../support/music_harness.dart';
 import 'package:moodify_flutter/features/karaoke/presentation/karaoke_screen.dart';
 
 import '../../support/auth_harness.dart';
+
+class TestAdPolicy extends AdPolicyService {
+  TestAdPolicy() : super(Dio(), MemoryStore(), 'test');
+  @override
+  Future<AdDecision> decide(String? userId) async =>
+      const AdDecision(false, false);
+}
 
 class TestSessionController extends SessionController {
   @override
@@ -68,11 +77,17 @@ void main() {
     tester,
   ) async {
     final repository = TestKaraokeRepository();
+    final music = MusicRepositoryFake();
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           sessionControllerProvider.overrideWith(TestSessionController.new),
           karaokeRepositoryProvider.overrideWithValue(repository),
+          adPolicyProvider.overrideWithValue(TestAdPolicy()),
+          playbackEngineFactoryProvider.overrideWithValue(
+            () async => PlaybackEngineFake(),
+          ),
+          catalogRepositoryProvider.overrideWithValue(music),
         ],
         child: const MaterialApp(home: KaraokeRoomsScreen()),
       ),
@@ -95,6 +110,7 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
+    music.remote.dio.close();
   });
   testWidgets(
     'joining private room closes invite dialog without disposing its input early',
@@ -109,11 +125,17 @@ void main() {
             'maxMembers': 6,
           },
         ];
+      final music = MusicRepositoryFake();
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
             sessionControllerProvider.overrideWith(TestSessionController.new),
             karaokeRepositoryProvider.overrideWithValue(repository),
+            adPolicyProvider.overrideWithValue(TestAdPolicy()),
+            playbackEngineFactoryProvider.overrideWithValue(
+              () async => PlaybackEngineFake(),
+            ),
+            catalogRepositoryProvider.overrideWithValue(music),
           ],
           child: const MaterialApp(home: KaraokeRoomsScreen()),
         ),
@@ -134,6 +156,7 @@ void main() {
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
+      music.remote.dio.close();
       expect(tester.takeException(), isNull);
     },
   );
@@ -147,11 +170,17 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
     final repository = TestKaraokeRepository();
+    final music = MusicRepositoryFake();
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           sessionControllerProvider.overrideWith(TestSessionController.new),
           karaokeRepositoryProvider.overrideWithValue(repository),
+          adPolicyProvider.overrideWithValue(TestAdPolicy()),
+          playbackEngineFactoryProvider.overrideWithValue(
+            () async => PlaybackEngineFake(),
+          ),
+          catalogRepositoryProvider.overrideWithValue(music),
         ],
         child: const MaterialApp(home: KaraokeRoomsScreen()),
       ),
@@ -167,6 +196,7 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
+    music.remote.dio.close();
   });
   testWidgets(
     'room with music, members and queue fits a small screen with large text',
@@ -220,6 +250,10 @@ void main() {
           overrides: [
             sessionControllerProvider.overrideWith(TestSessionController.new),
             karaokeRepositoryProvider.overrideWithValue(repository),
+            adPolicyProvider.overrideWithValue(TestAdPolicy()),
+            playbackEngineFactoryProvider.overrideWithValue(
+              () async => PlaybackEngineFake(),
+            ),
             catalogRepositoryProvider.overrideWithValue(music),
           ],
           child: const MaterialApp(home: KaraokeRoomsScreen()),
@@ -300,6 +334,10 @@ void main() {
           overrides: [
             sessionControllerProvider.overrideWith(TestSessionController.new),
             karaokeRepositoryProvider.overrideWithValue(repository),
+            adPolicyProvider.overrideWithValue(TestAdPolicy()),
+            playbackEngineFactoryProvider.overrideWithValue(
+              () async => PlaybackEngineFake(),
+            ),
             catalogRepositoryProvider.overrideWithValue(music),
           ],
           child: const MaterialApp(home: KaraokeRoomsScreen()),

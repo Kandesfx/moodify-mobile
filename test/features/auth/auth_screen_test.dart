@@ -30,6 +30,10 @@ void main() {
       const Duration(seconds: 5),
     );
     if (find.widgetWithText(FilledButton, 'Đăng nhập').evaluate().isNotEmpty) {
+      await tester.ensureVisible(
+        find.widgetWithText(FilledButton, 'Đăng nhập'),
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, 'Đăng nhập'));
       await tester.pumpAndSettle();
     }
@@ -125,6 +129,8 @@ void main() {
       EnginePhase.sendSemanticsUpdate,
       const Duration(seconds: 5),
     );
+    await tester.tap(find.widgetWithText(FilledButton, 'Đăng xuất'));
+    await tester.pumpAndSettle();
     expect(find.text('user1@example.test'), findsNothing);
     expect(find.widgetWithText(FilledButton, 'Đăng nhập'), findsOneWidget);
   });

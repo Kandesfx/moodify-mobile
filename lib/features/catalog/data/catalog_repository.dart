@@ -74,15 +74,8 @@ class CatalogRepository {
     return json.map((e) => Artist.fromJson(objectJson(e))).take(12).toList();
   }
 
-  Future<List<Track>> mood(String text, CancelToken cancel) async {
-    final json = objectJson(await remote.recommend(text, cancel));
-    if (json['tracks'] is! List) {
-      throw const FormatException('Invalid recommendations');
-    }
-    return (json['tracks'] as List)
-        .map((e) => Track.fromJson(objectJson(e)))
-        .toList();
-  }
+  Future<MoodResult> mood(String text, CancelToken cancel) async =>
+      MoodResult.fromJson(objectJson(await remote.recommend(text, cancel)));
 
   Uri? artwork(String? value) {
     if (value == null) return null;

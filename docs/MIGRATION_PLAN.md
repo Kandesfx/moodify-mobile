@@ -6,7 +6,7 @@ Sau khi nghiệm thu chuyển đổi mới mở rộng chức năng consumer t�
 
 ## 1. Trạng thái và cách đọc bằng chứng
 
-**M0 hoàn thành; M1, M2, M5 và M6 đang triển khai; M3, M4, M7 `NOT_STARTED`.** Karaoke solo/phòng đã có implementation Flutter; chưa nghiệm thu tích hợp hoặc thiết bị.
+**M0 hoàn thành; M1–M6 đang triển khai; M7 chưa bắt đầu.** Đã merge karaoke từ `Thuan_Branch` theo yêu cầu; quảng cáo vẫn chờ cộng tác viên. Password auth/session, catalog/search/library/player, subscription/payment/inbox và offline đã có mã. Chưa nghiệm thu toàn milestone; bằng chứng tài khoản/native còn thiếu được ghi riêng trong STATE.
 Đã có mã Dart, Android/iOS/web scaffold, dependency lock, analyze/test và APK debug. Bằng chứng thiết bị/API được ghi theo từng luồng trong `ai/STATE.md`.
 Đánh dấu từng luồng và từng nền tảng riêng; không suy kết quả iOS từ Android.
 
@@ -39,12 +39,12 @@ Không hỏi phê duyệt cho thao tác triển khai thông thường đã nằm
 ## 3. Ma trận chức năng cần chuyển
 
 Đường dẫn trong cột nguồn tương đối với `Moodify-Mobile/`; xem `docs/ai/SOURCE_MAP.md` để tìm checkout.
-Mỗi hàng dưới đây: source đã `SOURCE_OBSERVED`. Login/register và profile/logout cơ sở đã `IMPLEMENTED`; shell năm tab (Karaoke tab thứ năm) và karaoke solo/phòng có implementation nhưng chưa nghiệm thu; profile/subscription đầy đủ và các hàng còn lại **`NOT_STARTED`**.
+Mỗi hàng dưới đây đã `SOURCE_OBSERVED`. Shell, password auth, catalog/search/library/player và các module M3/M4 có implementation Flutter. Social OAuth còn thiếu cấu hình native; karaoke đã merge từ Thuan_Branch; quảng cáo tiếp tục thuộc nhánh cộng tác viên. Không suy trạng thái toàn bộ app từ việc đã port các màn hình.
 Các API cụ thể và khác biệt response nằm tại `docs/reference/API_CONTRACT.md`.
 
 | Luồng | Source RN tham chiếu | Cách chuyển và tiêu chí nghiệm thu chính |
 | --- | --- | --- |
-| Shell, auth-return | `src/app/_layout.tsx`, `src/app/(tabs)/_layout.tsx` | Shell 5 tab (Karaoke được người dùng yêu cầu) + detail routes; login trở về nơi yêu cầu, Back đúng, không mất ý định phát |
+| Shell, auth-return | `src/app/_layout.tsx`, `src/app/(tabs)/_layout.tsx` | Shell 5 tab sau merge karaoke + detail routes; login trở về nơi yêu cầu, Back đúng, không mất ý định phát |
 | Login/register | `src/app/auth.tsx`, `src/services/api.ts` | Form → auth controller/repository; server validation, token restore, lỗi credentials, không giữ password |
 | Google/Facebook | `src/app/auth.tsx`, `src/constants/config.ts` | Adapter native/OAuth theo backend; đúng client/redirect/signing, hủy login an toàn; xác minh từng platform |
 | Catalog/home | `src/app/(tabs)/index.tsx` | Data thật, ảnh lazy/cache, phân trang có giới hạn; refresh/error/empty rõ; không gọi dữ liệu random là cá nhân hóa |
@@ -95,14 +95,16 @@ Trạng thái Flutter: **IN_PROGRESS**. Password auth/session/profile/logout cơ
 
 ## 6. M2 — core parity nghe nhạc và thư viện
 
-Trạng thái Flutter: **IN_PROGRESS**. Đã triển khai shell 4 tab giữ trạng thái; khách duyệt/phát qua API public; catalog/filter/phân trang, album/artist detail, search thường/cảm xúc, liked tracks, tạo playlist riêng tư/thêm bài/đọc playlist, mini/full player với queue/seek/shuffle/repeat/plain lyrics. Một engine native và OS controls dùng cùng coordinator. 53 test cục bộ đạt; Android phát/pause/seek/background/OS play đã kiểm tra với nguồn thật.
+Trạng thái Flutter: **IN_PROGRESS**. Đã có shell 5 tab sau merge karaoke, khách duyệt/phát qua API public, catalog/filter/phân trang, album/artist detail, search thường/cảm xúc/history, liked tracks/favorite albums, playlist create/add/remove/delete/visibility. Player có queue/seek/shuffle/repeat, volume, sleep, share metadata qua native sheet và lyrics với timestamp thật theo entitlement. Một engine/OS coordinator và listening telemetry từ sự kiện native; không gửi doanh thu cho guest/offline. Home, library, account và player đã được tổ chức lại theo UX_REVIEW.
 
-Chưa hoàn tất M2: search history, favorite album, xóa bài/playlist/visibility, volume/sleep/share/synced lyrics, entitlement/ad policy và listening telemetry. Không coi player debug hiện tại là bản production đạt chính sách quảng cáo/quyền. Auth/library mutation và mood worker chưa được xác minh end-to-end bằng tài khoản thật; iOS, Bluetooth và lock-screen/interruption chưa nghiệm thu. Xem `ai/STATE.md`.
+Thiết kế đã điều chỉnh lại theo source RN theo yêu cầu người dùng: quick grid/spotlight/shelves, mini-player nổi, full-player nền artwork mờ và slide-up; motion có reduced-motion và test màn nhỏ. Không thay engine hay kiến trúc.
+
+Chưa nghiệm thu M2: mutation bằng tài khoản thật, mood worker, native share/volume/sleep/synced lyrics và listening telemetry trên server thật; iOS, Bluetooth và interruption. Quảng cáo/entitlement policy do cộng tác viên tích hợp từ nhánh riêng, vẫn là gate release. Chia sẻ hiện là tên bài/nghệ sĩ; chưa có public deep link được xác minh. Xem `ai/STATE.md`.
 
 - Chuyển shell/home/catalog/album/artist-list, search thường/cảm xúc và search history.
 - Chuyển playlist/liked/favorite album với server validation, rollback và phân trang.
 - Chuyển player/queue/mini/fullscreen, controls, volume, sleep timer, lyrics và share.
-- Dùng `/tracks/{id}/stream`; kiểm tra redirect/range/seek, codec và lỗi media thật, không dùng preview làm full track. Local backend đã ưu tiên phục vụ file local tồn tại trước khi redirect; chưa nghiệm thu runtime trên local API/thiết bị.
+- Dùng `/tracks/{id}/stream`; kiểm tra redirect/range/seek, codec và lỗi media thật, không dùng preview làm full track.
 - Dùng một coordinator để screen/OS controls không tạo player song song; stale callback không đổi bài mới.
 - Xác minh bài cuối + repeat off dừng, pause không bị retry tự phát, seek/retry không nhân bản session.
 - Kiểm tra mất mạng/khôi phục, audio interruption, background/lock screen/Bluetooth trên target device.
@@ -111,7 +113,7 @@ Chưa hoàn tất M2: search history, favorite album, xóa bài/playlist/visibil
 
 ## 7. M3 — gói, gia hạn, thanh toán và thông báo
 
-Trạng thái Flutter: **NOT_STARTED**. Phụ thuộc session và playback coordinator.
+Trạng thái Flutter: **IN_PROGRESS**. Có typed current/quotes/management, xác nhận checkout, VietQR/sao chép, kiểm tra status tối đa 180 lần tự động, dừng khi nền/lỗi/thoát, chặn đơn lặp khi kết quả chưa rõ và kiểm tra đơn pending từ lịch sử. Chỉ server SUCCESS mới cập nhật quyền. Có hủy lịch/đơn và inbox read/read-all; notification billing mở route gói qua allowlist. Chưa thực hiện giao dịch thật hoặc xác minh protected API trên thiết bị.
 
 - Chuyển package list, subscription hiện tại, checkout/QR và payment status polling có giới hạn.
 - Gia hạn/nâng gói dùng checkout và trạng thái hiệu lực từ server; không tự cộng ngày hoặc ghi Premium local.
@@ -124,7 +126,7 @@ Trạng thái Flutter: **NOT_STARTED**. Phụ thuộc session và playback coord
 
 ## 8. M4 — tải và nghe offline
 
-Trạng thái Flutter: **NOT_STARTED**. Spike native/file I/O có thể làm sớm.
+Trạng thái Flutter: **IN_PROGRESS**. Đợt 05/11 đã thêm phase/bytes/hủy/retry/lỗi theo bài, nút/menu tải có trạng thái và xóa local offline với cleanup quota; transfer không khóa playback, confirm mơ hồ đọc verify thật. Có tải HTTPS giới hạn 40 MiB/1 lượt, file AES-256-GCM riêng sandbox Flutter, manifest/key trong secure storage theo API+user+device, `.part`/rename, confirm/verify, expiry/revocation/renew/remove. Cleanup intent giới hạn phục hồi reservation qua DELETE hiện có; không lưu ticket hoặc tạo outbox nghiệp vụ. Có cổng phát offline dùng chung engine và mở thư viện khi restore lỗi mạng. Test filesystem/crypto đạt theo STATE; native, RAM bài lớn và tài khoản Premium chưa nghiệm thu.
 
 - Đọc contract backend và MFY1 (format file local do client mã hóa); đánh giá tương thích và không quảng bá CTR hiện tại như DRM hoàn chỉnh. Không mặc định app Flutter mới truy cập được file/token trong sandbox Expo cũ.
 - Manifest versioned theo user, key secure storage, file private, `.part` và rename atomically.
@@ -137,23 +139,24 @@ Trạng thái Flutter: **NOT_STARTED**. Spike native/file I/O có thể làm s�
 
 ## 9. M5 — karaoke solo và pitch
 
-Trạng thái Flutter: **IN_PROGRESS**. Port luồng `KaraokeSoloPage` trên web: khi chọn bài có `scoringAvailable`, xin quyền micro, tạo session, thu pitch features và phát nhạc; khi nhạc kết thúc, tự submit features rồi hiện điểm. Nút chính trong lúc thu dừng và hủy bản thu như web; bài thiếu scoring reference chỉ phát nhạc. Mic-check là thao tác riêng. Lời hát giữ highlight theo mốc đồng bộ có sẵn.
+Trạng thái: **IN_PROGRESS** sau merge `origin/Thuan_Branch` (`9b070ec`). Solo catalog/detail/lyrics, session, PCM16/YIN, realtime pitch/reference và submit kết quả đã có mã. Nhạc nền dùng adapter vào coordinator/engine chung thay cho AudioPlayer riêng của nhánh nguồn. Chưa nghiệm thu micro/chấm điểm/API thật sau merge.
 
-- Chọn bài scorable: microphone permission → session API → PCM16/YIN capture → nhạc nền → submit features khi `ProcessingState.completed` → kết quả tổng. Không upload raw audio.
-- Toggle playback trong khi thu hủy session capture và dừng nhạc; seek bị khóa trong lúc thu. Mic-check dừng trước khi bắt đầu chấm.
-- Bài không có scoring reference phát nhạc bình thường, không tạo session; lỗi permission/session/capture/API hiển thị trên màn hình.
-- Nghiệm thu: luồng scorable/unsupported, mic denied, score thật khi bài kết thúc, hủy khi dừng/chuyển bài/rời màn, đường dẫn audio lỗi/timeout và seek state.
+- Chuyển catalog/detail/instrumental/lyrics, session và gửi pitch features để backend chấm điểm.
+- Native Android cũ dùng AudioRecord + YIN; port bridge qua adapter/platform channel, kiểm tra thuật toán và thread.
+- Giữ sample grid/đơn vị/offset/voiced probability đúng contract; không tự chấm điểm hay tạo score khi server lỗi.
+- Điều phối audio focus với music player; capture/cancel/finalize có timeout và cleanup khi rời màn hình.
+- Nghiệm thu: mic denied, capture interruption, file thiếu, session expired, hủy bài, kết thúc bài và server score thật.
 - iOS chưa có native đối ứng trong source cũ: ghi nhánh trạng thái riêng và kế hoạch thực hiện, không tuyên bố parity đủ.
 
 ## 10. M6 — karaoke rooms, voice và điểm nhóm
 
-Trạng thái Flutter: **IN_PROGRESS**. Room REST, playback/lyrics sync, voice ticket + mediasoup/WebRTC signaling và contribution API đã có; cần kiểm tra nhiều thiết bị.
+Trạng thái: **IN_PROGRESS** sau merge. Đã có room REST/queue/playback, voice ticket + mediasoup/WebRTC và contribution/finish score. State phòng hiện poll 4 giây; chưa có Spring WebSocket state/reconnect parity. Cần hai thiết bị để nghiệm thu; không suy kết quả runtime từ build.
 
 - Dùng room API hiện có: public/private, invite, membership, queue, host close/playback và expectedVersion.
-- Room state hiện refresh bằng REST polling 4 giây; Spring WebSocket auth/device UUID, heartbeat/reconnect và stale-event handling còn thiếu.
-- Voice ticket và client mediasoup/WebRTC đã được port theo backend signaling; chưa kết nối được với server thật trên thiết bị để nghiệm thu.
-- Snapshot playback có resync vị trí; cần xác minh lệch đồng hồ/position, reconnect không tự bật mic hoặc phát ngoài ý định.
-- Participant/contribution/finish group score đã nối endpoint; khi thu pitch, UI yêu cầu tắt mic Voice để không mở hai capturer đồng thời. Cần nghiệm thu trên thiết bị.
+- WS state giữ auth frame đầu/device UUID, heartbeat/reconnect; event stale không đè snapshot version mới.
+- Voice ticket và signaling/media adapter phải tương thích backend; không đoán package từ tên hoặc thay SFU.
+- Đồng bộ clock/serverTime/position và resync có kiểm soát; reconnect không tự bật mic hoặc phát ngoài ý định.
+- Giữ participant/contribution/finish group score; xử lý mic voice cạnh tranh mic pitch qua coordinator.
 - Nghiệm thu trên ít nhất hai thiết bị: join/leave, host pause/resume/skip/close, private code sai, reconnect và scoring.
 - Thử mic denied, Bluetooth/loa, background và rời phòng; socket/transport/capture phải được giải phóng.
 - Dependency native chưa tương thích là blocker có bằng chứng và phương án, không lý do chuyển tính năng ra khỏi parity.
@@ -198,3 +201,12 @@ Trạng thái: **DEFERRED**, chưa triển khai; chỉ mở sau parity ACCEPTED 
 Đã tích hợp 9 file audio cục bộ người dùng cung cấp và giao diện có sử dụng artwork web; player kiểm tra subscription trước khi áp dụng NO_ADS, DAILY_QUOTA hoặc FULL_ADS, hỗ trợ bỏ qua sau 5 giây cho tier BASIC. Counter hằng ngày lưu theo thiết bị/API/user. Chưa chuyển campaign ACTIVE/impression, skip quota, trang Premium; chưa xác minh API tài khoản thật hoặc native playback. Không đánh dấu parity/release hoàn tất.
 
 Nút nâng cấp ở quảng cáo hiện mở trang Premium web theo môi trường và cho qua quảng cáo hiện tại khi trình duyệt nhận URL. Chưa thay thế M3: web có phiên riêng; cần kiểm chứng checkout và quyền thật, đặc biệt local web/backend phải cùng môi trường.
+## Ưu tiên bổ sung 05/11/2026
+
+Lịch sử nghe GET/phân trang/phát lại/xóa và search history cảm xúc/selection đã có source Flutter. Đây là IN_PROGRESS, cần account/API/device evidence. Giữ các module còn lại theo bảng kế hoạch, đặc biệt recommendation/attribution, social OAuth, karaoke/ads và nghiệm thu release. Chi tiết đợt tại `UX_PRIORITY_IMPLEMENTATION.md`.
+
+Đợt continuity 05/11: đã thêm source mini-player trên detail, pending guest action xác nhận sau auth, LRC follow/recenter với trạng thái quyền rõ và enqueue/play-next/remove-upcoming. M2 vẫn IN_PROGRESS; 91tests/analyze không thay thế bằng chứng thiết bị/account. Phần còn lại xem UX_PRIORITY_IMPLEMENTATION.
+
+Đợt artist/device và Samsung05/11: artist public profile/follow và followed-library; collection lazy/play-shuffle-share; account avatar/devices list-revoke đã có source. Guest smoke playback/queue/download auth boundary/artist/search và fix rootBack có bằng chứng máy tại DEVICE_REVIEW_2026-11-05.md. Protected API/device mutation/download thật chưa nghiệm thu; M1–M6 vẫn IN_PROGRESS.
+
+Đợt thiết kế tải05/11: màn `/offline` mới có tác vụ ưu tiên, dung lượng local, entitlement/quota theo thiết bị và thư viện tìm/lọc/phát/xác minh/gia hạn/xóa. Preflight quyền/quota thật trước request-download, hủy trong lúc kiểm tra quyền; không coi lỗi quyền là quota0. 100tests/analyze/build đạt, đã cài và kiểm tra gói Miễn phí + gate tải đúng bài trên Samsung. M4 vẫn IN_PROGRESS: cần account có offline entitlement để nghiệm thu transfer/license/phát mất mạng/native failure, không có background durable/byte resume/multi-job queue.

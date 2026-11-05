@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:audio_session/audio_session.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -17,13 +16,7 @@ import '../data/karaoke_repository.dart';
 import '../data/microphone_capture.dart';
 import '../data/pitch_capture.dart';
 import '../data/karaoke_voice_client.dart';
-
-final karaokePlaybackActiveProvider = StateProvider<bool>((ref) => false);
-final karaokeAudioPlayerProvider = Provider<AudioPlayer>((ref) {
-  final player = AudioPlayer();
-  ref.onDispose(() => unawaited(player.dispose()));
-  return player;
-});
+import '../data/karaoke_playback.dart';
 
 class KaraokeScreen extends StatelessWidget {
   const KaraokeScreen({super.key});
@@ -174,7 +167,9 @@ class _KaraokeSoloScreenState extends ConsumerState<KaraokeSoloScreen> {
   @override
   void initState() {
     super.initState();
-    _tracks = ref.read(karaokeRepositoryProvider).tracks();
+    if (ref.read(sessionControllerProvider).phase == SessionPhase.signedIn) {
+      _tracks = ref.read(karaokeRepositoryProvider).tracks();
+    }
   }
 
   @override
@@ -209,7 +204,7 @@ class _KaraokeSoloScreenState extends ConsumerState<KaraokeSoloScreen> {
     final session = ref.watch(sessionControllerProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('Hát một mình')),
-      body: session.phase == SessionPhase.signedOut
+      body: session.phase != SessionPhase.signedIn
           ? _SignInPrompt(
               onTap: () => context.push('/sign-in?from=/karaoke/solo'),
             )
@@ -311,7 +306,7 @@ class KaraokePerformanceScreen extends ConsumerStatefulWidget {
 
 class _KaraokePerformanceScreenState
     extends ConsumerState<KaraokePerformanceScreen> {
-  late final AudioPlayer _audio;
+  late final KaraokePlayback _audio;
   late Future<Map<String, dynamic>> _track;
   StreamSubscription<PlayerState>? _playerStateEvents;
   bool _loadingAudio = false;
@@ -335,11 +330,10 @@ class _KaraokePerformanceScreenState
   @override
   void initState() {
     super.initState();
-    _audio = ref.read(karaokeAudioPlayerProvider);
+    _audio = ref.read(karaokePlaybackFactoryProvider)();
     _track = ref.read(karaokeRepositoryProvider).track(widget.songId);
     _playerStateEvents = _audio.playerStateStream.listen((state) {
       if (state.processingState == ProcessingState.completed) {
-        ref.read(karaokePlaybackActiveProvider.notifier).state = false;
         if (_pitchCapture != null) unawaited(_finishScoring());
       } else {
         _pitchCapture?.setPaused(
@@ -354,7 +348,6 @@ class _KaraokePerformanceScreenState
     unawaited(_playerStateEvents?.cancel());
     if (!_leavingForNext) {
       unawaited(_audio.stop());
-      ref.read(karaokePlaybackActiveProvider.notifier).state = false;
     }
     final capture = _pitchCapture;
     if (capture != null) {
@@ -391,7 +384,7 @@ class _KaraokePerformanceScreenState
   }
 
   Future<void> _startSelectedTrack(Map<String, dynamic> track) async {
-    if (_loadingAudio) return;
+    if (!mounted || _loadingAudio) return;
     final songId = track['songId']?.toString() ?? '';
     final url = Uri.tryParse(track['instrumentalUrl']?.toString() ?? '');
     if (songId.isEmpty ||
@@ -408,16 +401,19 @@ class _KaraokePerformanceScreenState
     });
     try {
       await ref.read(playerControllerProvider.notifier).pause();
-      final session = await AudioSession.instance;
-      await session.configure(const AudioSessionConfiguration.music());
-      await _audio.setUrl(url.toString()).timeout(const Duration(seconds: 25));
+      if (!mounted) return;
+      await _audio.loadTrack(track).timeout(const Duration(seconds: 25));
+      if (!mounted) {
+        await _audio.stop();
+        return;
+      }
       await _audio.seek(Duration.zero);
+      if (!mounted) return;
       if (track['scoringAvailable'] == true) {
         await _beginScoring(track);
       } else {
         _message('Bài này chưa có dữ liệu tham chiếu đủ tin cậy để chấm điểm.');
         unawaited(_playAndReportError());
-        ref.read(karaokePlaybackActiveProvider.notifier).state = true;
       }
     } catch (error) {
       unawaited(_audio.stop().catchError((Object _) {}));
@@ -434,18 +430,20 @@ class _KaraokePerformanceScreenState
   }
 
   Future<void> _beginScoring(Map<String, dynamic> track) async {
-    if (_pitchCapture != null || _scoreSubmitting) return;
+    if (!mounted || _pitchCapture != null || _scoreSubmitting) return;
     final microphoneCheck = _microphoneCapture;
     if (microphoneCheck != null) {
       _microphoneCapture = null;
       await _releaseMicrophone(microphoneCheck);
     }
+    if (!mounted) return;
     setState(() {
       _togglingMicrophone = true;
     });
     PitchCapture? capture;
     try {
       final granted = await _requestMicrophonePermission();
+      if (!mounted) return;
       if (!granted) {
         throw StateError('Cần cấp quyền micro để bắt đầu chấm điểm.');
       }
@@ -454,6 +452,7 @@ class _KaraokePerformanceScreenState
       final playbackStarted = Completer<void>();
       unawaited(_playAndReportError(started: playbackStarted));
       await playbackStarted.future;
+      if (!mounted) return;
       capture = PitchCapture();
       final activeCapture = capture;
       capture.onFailure = (_) {
@@ -487,12 +486,10 @@ class _KaraokePerformanceScreenState
         // player's actual position once the microphone stream is live.
         _captureStartOffsetMs = _audio.position.inMilliseconds;
       });
-      ref.read(karaokePlaybackActiveProvider.notifier).state = true;
     } catch (error) {
       await capture?.cancel();
       await capture?.dispose();
       await _audio.pause();
-      ref.read(karaokePlaybackActiveProvider.notifier).state = false;
       if (mounted) {
         setState(() {
           _pitchCapture = null;
@@ -532,7 +529,6 @@ class _KaraokePerformanceScreenState
         await capture.dispose();
       }
       if (mounted) {
-        ref.read(karaokePlaybackActiveProvider.notifier).state = false;
         setState(() {});
         _message(karaokeError(error));
       }
@@ -705,10 +701,8 @@ class _KaraokePerformanceScreenState
       if (_audio.playing) {
         _pitchCapture?.setPaused(true);
         await _audio.pause();
-        ref.read(karaokePlaybackActiveProvider.notifier).state = false;
       } else {
         unawaited(_playAndReportError());
-        ref.read(karaokePlaybackActiveProvider.notifier).state = true;
       }
       return;
     }
@@ -720,7 +714,6 @@ class _KaraokePerformanceScreenState
       await _audio.seek(Duration.zero);
     }
     unawaited(_playAndReportError());
-    ref.read(karaokePlaybackActiveProvider.notifier).state = true;
   }
 
   Future<void> _playNext() async {
@@ -743,7 +736,6 @@ class _KaraokePerformanceScreenState
       _microphoneCapture = null;
       if (microphone != null) await _releaseMicrophone(microphone);
       await _audio.stop();
-      ref.read(karaokePlaybackActiveProvider.notifier).state = false;
       if (!mounted) return;
       _leavingForNext = true;
       final nextSongId = widget.nextSongIds.first;
@@ -1059,8 +1051,7 @@ class KaraokeRoomsScreen extends ConsumerStatefulWidget {
 class _KaraokeRoomsScreenState extends ConsumerState<KaraokeRoomsScreen> {
   Future<List<Map<String, dynamic>>>? _rooms;
   Map<String, dynamic>? _joined;
-  late final AudioPlayer _roomAudio;
-  late final StateController<bool> _karaokePlaybackActive;
+  late final KaraokePlayback _roomAudio;
   String? _roomRunId;
   DateTime? _roomSnapshotAt;
   Timer? _roomPoll;
@@ -1088,9 +1079,10 @@ class _KaraokeRoomsScreenState extends ConsumerState<KaraokeRoomsScreen> {
   @override
   void initState() {
     super.initState();
-    _roomAudio = ref.read(karaokeAudioPlayerProvider);
-    _karaokePlaybackActive = ref.read(karaokePlaybackActiveProvider.notifier);
-    _rooms = ref.read(karaokeRepositoryProvider).rooms();
+    _roomAudio = ref.read(karaokePlaybackFactoryProvider)();
+    if (ref.read(sessionControllerProvider).phase == SessionPhase.signedIn) {
+      _rooms = ref.read(karaokeRepositoryProvider).rooms();
+    }
     _roomPoll = Timer.periodic(const Duration(seconds: 4), (_) => _syncRoom());
     _roomScorePoll = Timer.periodic(
       const Duration(seconds: 3),
@@ -1113,9 +1105,6 @@ class _KaraokeRoomsScreenState extends ConsumerState<KaraokeRoomsScreen> {
     unawaited(_voiceEvents?.cancel());
     unawaited(_voice?.dispose());
     unawaited(_roomAudio.stop());
-    if (_karaokePlaybackActive.mounted) {
-      _karaokePlaybackActive.state = false;
-    }
     super.dispose();
   }
 
@@ -1458,7 +1447,6 @@ class _KaraokeRoomsScreenState extends ConsumerState<KaraokeRoomsScreen> {
       await _voice?.dispose();
       _voice = null;
       await _roomAudio.stop();
-      ref.read(karaokePlaybackActiveProvider.notifier).state = false;
       await ref.read(karaokeRepositoryProvider).leaveRoom(id);
       if (mounted) setState(() => _joined = null);
       _refresh();
@@ -1487,6 +1475,7 @@ class _KaraokeRoomsScreenState extends ConsumerState<KaraokeRoomsScreen> {
   }
 
   Future<void> _syncRoomAudio(Map<String, dynamic> room) async {
+    if (!mounted) return;
     final playback = room['playback'] as Map<String, dynamic>? ?? const {};
     final track = playback['track'] as Map<String, dynamic>?;
     final runId = playback['playbackRunId']?.toString();
@@ -1512,7 +1501,6 @@ class _KaraokeRoomsScreenState extends ConsumerState<KaraokeRoomsScreen> {
       if (_roomAudio.playing) await _roomAudio.stop();
       if (!mounted) return;
       _roomRunId = null;
-      ref.read(karaokePlaybackActiveProvider.notifier).state = false;
       return;
     }
     final url = Uri.tryParse(track['instrumentalUrl']?.toString() ?? '');
@@ -1532,7 +1520,7 @@ class _KaraokeRoomsScreenState extends ConsumerState<KaraokeRoomsScreen> {
     try {
       if (!sameRun) {
         await ref.read(playerControllerProvider.notifier).pause();
-        await _roomAudio.setUrl(url.toString());
+        await _roomAudio.loadTrack(track);
         await _roomAudio.seek(target);
         _roomRunId = runId;
       } else if ((_roomAudio.position - target).inMilliseconds.abs() > 1800) {
@@ -1544,8 +1532,6 @@ class _KaraokeRoomsScreenState extends ConsumerState<KaraokeRoomsScreen> {
       if (status == 'PAUSED' && _roomAudio.playing) await _roomAudio.pause();
       if (!mounted) return;
       _roomSnapshotAt = now;
-      ref.read(karaokePlaybackActiveProvider.notifier).state =
-          status == 'PLAYING';
     } catch (error) {
       if (mounted) _message(karaokeError(error));
     }
@@ -1704,7 +1690,6 @@ class _KaraokeRoomsScreenState extends ConsumerState<KaraokeRoomsScreen> {
       _voice = null;
       await _roomAudio.stop();
       if (!mounted) return;
-      ref.read(karaokePlaybackActiveProvider.notifier).state = false;
       await ref.read(karaokeRepositoryProvider).closeRoom(id);
       if (mounted) {
         setState(() => _joined = null);
@@ -1731,7 +1716,7 @@ class _KaraokeRoomsScreenState extends ConsumerState<KaraokeRoomsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (ref.watch(sessionControllerProvider).phase == SessionPhase.signedOut) {
+    if (ref.watch(sessionControllerProvider).phase != SessionPhase.signedIn) {
       return Scaffold(
         appBar: AppBar(title: const Text('Phòng hát')),
         body: _SignInPrompt(
@@ -1964,7 +1949,7 @@ class _RoomDetailView extends StatelessWidget {
     required this.onMemberTap,
   });
   final Map<String, dynamic> room;
-  final AudioPlayer audio;
+  final KaraokePlayback audio;
   final VoidCallback onRefresh;
   final VoidCallback onAddTrack;
   final ValueChanged<String> onCommand;

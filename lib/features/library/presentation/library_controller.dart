@@ -5,6 +5,26 @@ import '../../auth/presentation/session_controller.dart';
 import '../../catalog/domain/catalog_models.dart';
 import '../data/library_repository.dart';
 
+final favoriteAlbumsProvider =
+    FutureProvider.autoDispose<List<MusicCollection>>((ref) {
+      final user = ref.watch(
+        sessionControllerProvider.select((s) => s.session?.user.id),
+      );
+      if (user == null) return [];
+      return ref.watch(libraryRepositoryProvider).favoriteAlbums();
+    });
+
+final albumFavoriteProvider = FutureProvider.autoDispose.family<bool, String>((
+  ref,
+  id,
+) {
+  final user = ref.watch(
+    sessionControllerProvider.select((s) => s.session?.user.id),
+  );
+  if (user == null) return false;
+  return ref.watch(libraryRepositoryProvider).albumFavorite(id);
+});
+
 final libraryControllerProvider =
     StateNotifierProvider.autoDispose<LibraryController, LibraryState>((ref) {
       final user = ref.watch(
@@ -59,6 +79,7 @@ class LibraryController extends StateNotifier<LibraryState> {
     : super(const LibraryState());
   final LibraryRepository repository;
   final bool authenticated;
+  MusicCollection? createdPlaylist;
   Future<void> load({bool more = false}) async {
     if (!authenticated ||
         state.loading ||
@@ -102,7 +123,7 @@ class LibraryController extends StateNotifier<LibraryState> {
       if (!mounted) return false;
       state = state.copy(busy: false);
       await load();
-      return true;
+      return mounted;
     } catch (error) {
       if (mounted) {
         state = state.copy(busy: false, failure: AppFailure.from(error));
@@ -130,6 +151,7 @@ class LibraryController extends StateNotifier<LibraryState> {
   });
   Future<bool> create(String name) => _mutate(() async {
     final playlist = await repository.create(name);
+    if (mounted) createdPlaylist = playlist;
     if (mounted) state = state.copy(playlists: [...state.playlists, playlist]);
   });
   Future<bool> add(String id, Track track) =>

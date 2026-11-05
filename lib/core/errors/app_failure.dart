@@ -36,7 +36,9 @@ class AppFailure implements Exception {
     }
     if (error is DioException) {
       if (error.error is AppFailure) return error.error! as AppFailure;
-      if (error.type == DioExceptionType.cancel) return sessionChanged;
+      if (error.type == DioExceptionType.cancel) {
+        return const AppFailure('Thao tác đã được hủy.', code: 'CANCELLED');
+      }
       final response = error.response;
       final body = response?.data;
       final code = body is Map ? body['error']?.toString() : null;
@@ -61,6 +63,8 @@ class AppFailure implements Exception {
         400 => 'Thông tin gửi lên chưa hợp lệ. Vui lòng kiểm tra lại.',
         401 => 'Phiên đăng nhập không hợp lệ. Vui lòng đăng nhập lại.',
         403 => 'Tài khoản không có quyền thực hiện thao tác này.',
+        404 => 'Nội dung này không còn khả dụng.',
+        410 => 'Quyền tải tạm đã hết hạn. Vui lòng thử lại.',
         409 => 'Thông tin này đã tồn tại. Vui lòng kiểm tra lại.',
         429 => 'Bạn thao tác quá nhanh. Vui lòng thử lại sau.',
         >= 500 => 'Máy chủ đang gặp sự cố. Vui lòng thử lại sau.',

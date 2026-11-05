@@ -170,6 +170,7 @@ Confirm response: `success`, `message`, `trackId`. Chỉ confirm sau tải/mã h
 Verify thường trả `deviceActive`, `isPremium`, `subscriptionExpiresAt`, `validTrackIds`,
 `expiredTrackIds`, `revokedTrackIds`, `serverTime`; nhánh device revoked có thể khác, phải đọc service.
 My-downloads: `tracks`, `quota`, `isPremium`, tùy nhánh có `subscriptionExpiresAt`.
+Flutter preflight (05/11/2026): đọc `quota.used/max` là số nguyên không âm và `isPremium` từ my-downloads theo deviceUuid; kết hợp `isPremium`, `entitlements.offlineAllowed`, `packageName`, optional `expiresAt` từ subscriptions/me. Chỉ cho xin lượt tải khi cả hai response xác nhận quyền và quota chưa đầy; thiếu field/lỗi mạng là chưa kiểm tra được, không đổi thành quota0 hoặc quyền miễn phí. Request-download/confirm/verify vẫn là nguồn quyết định cuối cùng. Bộ nhớ bản tải trên UI tính từ manifest/fileSize local, không lấy quota server làm số file trên máy.
 Renew-all: `success`, `renewedCount`, `newExpiresAt`, `message`.
 Key/ticket không ghi log hoặc fixture. Metadata/file local phải scope user+device và dọn theo lifecycle.
 Mã hóa, playback offline, hết hạn/thu hồi cần kiểm chứng native; không tự gia hạn license bằng đồng hồ máy.
@@ -210,3 +211,11 @@ Home có sections/items và attribution; queue trả `queueToken` theo track. Gi
 Đây là capability backend, chưa là giấy phép mở rộng phạm vi trước nghiệm thu chuyển đổi.
 Nguồn: `Backend/src/main/java/com/laphuth/moodify/api/RecommendationApi.java`;
 `Backend/src/main/java/com/laphuth/moodify/dto/recommendation/RecommendationTypes.java`.
+
+## 10. Ghi chú tích hợp Flutter ngày 04/11/2026
+
+- Mood recommendation giữ `matchStatus` và emotion label từ DTO; `LIMITED` không được trình bày như đã đạt ngưỡng phù hợp. `empathy` là strategy request, không phải đoạn văn cần tự sinh.
+- Checkout trả ngày bắt đầu/kết thúc gói, không phải hạn QR. Status phải khớp orderCode + amount; chỉ SUCCESS mới refresh quyền. Management là nguồn khôi phục đơn pending sau khi rời màn hình; endpoint status không trả lại thông tin QR/bank để dựng checkout đã đóng.
+- Notification `linkUrl` hiện hỗ trợ đường dẫn web billing `/dashboard/premium` (kể cả `?tab=manage`); Flutter chỉ map đường dẫn relative trong allowlist sang `/subscriptions`, không mở URL tùy ý.
+- Offline client mới mã hóa GCM tại sandbox Flutter; server vẫn nhận hash/size sau mã hóa theo contract cũ. Intent cleanup chỉ chứa track ID và được reconcile qua DELETE `/offline/remove`; không thêm bảng hoặc gọi startup backend.
+- Listening telemetry của account online dùng UUID session, event/positionMs thật tại `/analytics/listening-session`; guest/offline không gửi. Tích hợp quảng cáo/quyền phát thuộc nhánh cộng tác viên và vẫn cần kiểm chứng trước release.
