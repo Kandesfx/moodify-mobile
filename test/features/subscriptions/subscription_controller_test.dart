@@ -95,6 +95,35 @@ void main() {
     },
   );
   test(
+    'manual check on a pending order surfaces feedback while auto checks stay silent',
+    () async {
+      await controller.checkout('1');
+      await controller.check(manual: true);
+      expect(controller.state.pendingNotice, 1);
+      expect(controller.state.lastCheckedAt, isNotNull);
+      await controller.check();
+      expect(controller.state.pendingNotice, 1);
+      repository.paymentStatus = 'SUCCESS';
+      await controller.check(manual: true);
+      expect(controller.state.pendingNotice, 1);
+      expect(controller.state.scheduledPayment, false);
+    },
+  );
+  test(
+    'expired order can recreate a fresh checkout for the same package',
+    () async {
+      await controller.checkout('7');
+      repository.paymentStatus = 'EXPIRED';
+      await controller.check();
+      expect(controller.state.status, 'EXPIRED');
+      repository.paymentStatus = 'PENDING';
+      await controller.recreateOrder();
+      expect(repository.checkouts, 2);
+      expect(controller.state.order, isNotNull);
+      expect(controller.state.status, 'PENDING');
+    },
+  );
+  test(
     'a late status response cannot resurrect a dismissed checkout',
     () async {
       await controller.checkout('1');

@@ -4,9 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app/theme/app_theme.dart';
 import '../../../core/widgets/feedback_panel.dart';
-import '../../../core/widgets/app_motion.dart';
 import 'session_controller.dart';
 import '../../catalog/presentation/catalog_widgets.dart';
+import '../../subscriptions/application/premium_controller.dart';
 
 class AccountScreen extends ConsumerWidget {
   const AccountScreen({super.key});
@@ -22,12 +22,16 @@ class AccountScreen extends ConsumerWidget {
         returnTo: '/account',
       );
     }
+    final premium = ref.watch(premiumProvider);
+    final isPremium = premium.isPremium;
     return Scaffold(
       appBar: AppBar(title: const Text('Tài khoản')),
       body: SafeArea(
         child: RefreshIndicator(
-          onRefresh: () =>
-              ref.read(sessionControllerProvider.notifier).refreshProfile(),
+          onRefresh: () => Future.wait([
+            ref.read(sessionControllerProvider.notifier).refreshProfile(),
+            ref.read(premiumProvider.notifier).refresh(),
+          ]),
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(24),
@@ -37,66 +41,90 @@ class AccountScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    SectionEntrance(
-                      child: Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceRaised,
-                          borderRadius: BorderRadius.circular(16),
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: isPremium
+                              ? const [
+                                  AppColors.vipGradientTop,
+                                  AppColors.vipGradientBottom,
+                                ]
+                              : const [Color(0xFF34234F), Color(0xFF1D1C2B)],
                         ),
-                        child: Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 28,
-                              backgroundColor: const Color(0xFF35264E),
-                              backgroundImage: user.avatarUrl == null
-                                  ? null
-                                  : NetworkImage(user.avatarUrl!),
-                              onBackgroundImageError: user.avatarUrl == null
-                                  ? null
-                                  : (_, _) {},
-                              child: user.avatarUrl != null
-                                  ? null
-                                  : const Icon(
-                                      Icons.person_rounded,
-                                      size: 30,
-                                      color: AppColors.lavender,
-                                    ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    user.fullName,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.titleMedium,
+                        borderRadius: BorderRadius.circular(20),
+                        border: isPremium
+                            ? Border.all(color: AppColors.vipBorder)
+                            : null,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            isPremium
+                                ? Icons.workspace_premium_rounded
+                                : Icons.tune_rounded,
+                            color: isPremium
+                                ? AppColors.vipGold
+                                : AppColors.lavender,
+                            size: 30,
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  isPremium
+                                      ? 'Không gian VIP của bạn'
+                                      : 'Không gian của bạn',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w700,
+                                    color: isPremium
+                                        ? AppColors.vipGoldSoft
+                                        : null,
                                   ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    '@${user.username}',
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      color: AppColors.secondary,
-                                    ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  isPremium
+                                      ? '${premium.packageName ?? 'Gói VIP'}'
+                                            ' • còn ${premium.daysRemaining} ngày'
+                                      : 'Quản lý tài khoản và trải nghiệm nghe',
+                                  style: const TextStyle(
+                                    color: AppColors.secondary,
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 24),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(
+                        Icons.manage_accounts_outlined,
+                        color: AppColors.lavender,
+                      ),
+                      title: const Text('Quản lý tài khoản'),
+                      subtitle: const Text('Chỉnh sửa thông tin cá nhân'),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => context.push('/profile'),
+                    ),
                     const Divider(),
                     ListTile(
                       contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.workspace_premium_outlined),
-                      title: const Text('Gói dịch vụ'),
-                      subtitle: const Text(
-                        'Gói hiện tại, gia hạn và thanh toán',
+                      leading: Icon(
+                        Icons.workspace_premium_outlined,
+                        color: isPremium ? AppColors.vipGold : null,
+                      ),
+                      title: Text(isPremium ? 'Quản lý gói dịch vụ' : 'Gói dịch vụ'),
+                      subtitle: Text(
+                        isPremium
+                            ? 'Gói đang dùng, gia hạn và thanh toán'
+                            : 'Gói miễn phí — Nâng cấp VIP',
                       ),
                       trailing: const Icon(Icons.chevron_right_rounded),
                       onTap: () => context.push('/subscriptions'),
@@ -120,43 +148,13 @@ class AccountScreen extends ConsumerWidget {
                       subtitle: const Text('Các bài đã nghe trên tài khoản'),
                       onTap: () => context.push('/history'),
                     ),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.notifications_none_rounded),
-                      title: const Text('Thông báo'),
-                      trailing: const Icon(Icons.chevron_right_rounded),
-                      onTap: () => context.push('/notifications'),
-                    ),
                     const SizedBox(height: 16),
                     const Divider(),
-                    _detail(context, 'Email', user.email),
-                    if (user.phone != null && user.phone!.isNotEmpty)
-                      _detail(context, 'Số điện thoại', user.phone!),
-                    const Divider(),
                     const SizedBox(height: 24),
-                    if (state.notice != null) ...[
-                      FeedbackPanel(message: state.notice!, isError: false),
-                      const SizedBox(height: 16),
-                    ],
                     if (state.failure != null) ...[
                       FeedbackPanel(message: state.failure!.message),
                       const SizedBox(height: 16),
                     ],
-                    OutlinedButton.icon(
-                      onPressed: state.isBusy
-                          ? null
-                          : () => ref
-                                .read(sessionControllerProvider.notifier)
-                                .refreshProfile(),
-                      icon: state.isBusy
-                          ? const SizedBox.square(
-                              dimension: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.refresh_rounded, size: 20),
-                      label: const Text('Tải lại thông tin tài khoản'),
-                    ),
-                    const SizedBox(height: 12),
                     TextButton.icon(
                       onPressed: () async {
                         final confirmed = await showDialog<bool>(
@@ -196,21 +194,4 @@ class AccountScreen extends ConsumerWidget {
       ),
     );
   }
-
-  Widget _detail(BuildContext context, String label, String value) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 16),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: Theme.of(
-            context,
-          ).textTheme.bodyMedium?.copyWith(color: AppColors.secondary),
-        ),
-        const SizedBox(height: 6),
-        SelectableText(value),
-      ],
-    ),
-  );
 }

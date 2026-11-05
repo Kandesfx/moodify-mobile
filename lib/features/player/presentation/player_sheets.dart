@@ -1,41 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import '../../../app/theme/app_theme.dart';
-import '../../../core/widgets/app_motion.dart';
-import '../../auth/presentation/session_controller.dart';
+import '../../../core/widgets/app_sheets.dart';
 import '../../catalog/presentation/catalog_widgets.dart';
-import '../../subscriptions/data/subscription_repository.dart';
 import '../domain/lyric_line.dart';
 import 'player_controller.dart';
 
-final syncedLyricsAllowedProvider = FutureProvider.autoDispose<bool>((
-  ref,
-) async {
-  final user = ref.watch(
-    sessionControllerProvider.select((s) => s.session?.user.id),
+final playerLyricLinesProvider = Provider.autoDispose<List<LyricLine>>((ref) {
+  final lyrics = ref.watch(
+    playerControllerProvider.select(
+      (state) => (state.track?.lyricsSynced, state.track?.lyrics),
+    ),
   );
-  if (user == null) return false;
-  final current = await ref.watch(subscriptionRepositoryProvider).current();
-  return current.syncedLyrics;
+  final synced = parseLrc(lyrics.$1);
+  return synced.isNotEmpty ? synced : parseLrc(lyrics.$2);
 });
 
-final playerLyricLinesProvider = Provider.autoDispose<List<LyricLine>>(
-  (ref) => parseLrc(
-    ref.watch(
-      playerControllerProvider.select((state) => state.track?.lyricsSynced),
-    ),
-  ),
-);
-
-void showPlayerQueue(BuildContext context) => showModalBottomSheet<void>(
+void showPlayerQueue(BuildContext context) => showAppModalSheet<void>(
   context: context,
   isScrollControlled: true,
   showDragHandle: true,
-  sheetAnimationStyle: AnimationStyle(
-    duration: AppMotion.duration(context, 280),
-    reverseDuration: AppMotion.duration(context, 220),
-  ),
   builder: (_) => const _QueueSheet(),
 );
 
@@ -103,14 +87,10 @@ class _QueueSheet extends ConsumerWidget {
   }
 }
 
-void showPlayerLyrics(BuildContext context) => showModalBottomSheet<void>(
+void showPlayerLyrics(BuildContext context) => showAppModalSheet<void>(
   context: context,
   isScrollControlled: true,
   showDragHandle: true,
-  sheetAnimationStyle: AnimationStyle(
-    duration: AppMotion.duration(context, 280),
-    reverseDuration: AppMotion.duration(context, 220),
-  ),
   builder: (_) => const _LyricsSheet(),
 );
 
@@ -240,14 +220,13 @@ class _LyricsSheetState extends ConsumerState<_LyricsSheet> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(playerControllerProvider);
-    final allowed = ref.watch(syncedLyricsAllowedProvider);
     final lines = ref.watch(playerLyricLinesProvider);
     if (_track != state.track?.id) {
       _track = state.track?.id;
       _follow = true;
       _lastActive = -2;
     }
-    final synced = allowed.valueOrNull == true && lines.isNotEmpty;
+    final synced = lines.isNotEmpty;
     final active = lines.lastIndexWhere((line) => line.at <= state.position);
     return SafeArea(
       child: SizedBox(
@@ -266,28 +245,9 @@ class _LyricsSheetState extends ConsumerState<_LyricsSheet> {
                   ),
                   const SizedBox(height: 8),
                   Text(state.track?.displayName ?? ''),
-                  if (allowed.isLoading) const LinearProgressIndicator(),
-                  if (allowed.hasError)
-                    LoadMessage(
-                      message: 'Chưa kiểm tra được quyền xem lời đồng bộ.',
-                      retry: () => ref.invalidate(syncedLyricsAllowedProvider),
-                    ),
-                  if (!allowed.isLoading && !allowed.hasError && !synced)
-                    Text(
-                      lines.isEmpty
-                          ? 'Bài này chưa có lời đồng bộ.'
-                          : 'Gói hiện tại chưa có quyền xem lời đồng bộ.',
-                    ),
-                  if (!allowed.isLoading &&
-                      !allowed.hasError &&
-                      allowed.valueOrNull == false &&
-                      lines.isNotEmpty)
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        context.push('/subscriptions');
-                      },
-                      child: const Text('Xem gói dịch vụ'),
+                  if (!synced)
+                    const Text(
+                      'Bài này chưa có mốc thời gian cho lời bài hát.',
                     ),
                   if (synced && !_follow)
                     TextButton(
@@ -318,7 +278,7 @@ class _LyricsSheetState extends ConsumerState<_LyricsSheet> {
   }
 }
 
-void showSleepTimer(BuildContext context) => showModalBottomSheet<void>(
+void showSleepTimer(BuildContext context) => showAppModalSheet<void>(
   context: context,
   showDragHandle: true,
   builder: (_) => Consumer(

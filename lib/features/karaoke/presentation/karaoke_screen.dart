@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:just_audio/just_audio.dart';
 
 import '../../../app/theme/app_theme.dart';
+import '../../../core/widgets/app_sheets.dart';
 import '../../auth/domain/session_state.dart';
 import '../../auth/presentation/session_controller.dart';
 import '../../catalog/data/catalog_repository.dart';
@@ -215,9 +216,12 @@ class _KaraokeSoloScreenState extends ConsumerState<KaraokeSoloScreen> {
                   child: TextField(
                     controller: _search,
                     onChanged: _query,
+                    maxLength: 100,
+                    textInputAction: TextInputAction.search,
                     decoration: const InputDecoration(
                       prefixIcon: Icon(Icons.search),
-                      hintText: 'Tìm bài karaoke',
+                      hintText: 'Tìm tên bài hát hoặc nghệ sĩ',
+                      counterText: '',
                     ),
                   ),
                 ),
@@ -1660,7 +1664,7 @@ class _KaraokeRoomsScreenState extends ConsumerState<KaraokeRoomsScreen> {
 
   Future<void> _addTrack() async {
     try {
-      final track = await showModalBottomSheet<Map<String, dynamic>>(
+      final track = await showAppModalSheet<Map<String, dynamic>>(
         context: context,
         isScrollControlled: true,
         backgroundColor: AppColors.surface,
@@ -1702,7 +1706,7 @@ class _KaraokeRoomsScreenState extends ConsumerState<KaraokeRoomsScreen> {
 
   void _showMemberVolume(Map<String, dynamic> member) {
     final currentId = ref.read(sessionControllerProvider).session?.user.id;
-    showModalBottomSheet<void>(
+    showAppModalSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.surface,

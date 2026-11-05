@@ -18,6 +18,34 @@ import '../../support/music_harness.dart';
 
 void main() {
   test(
+    'timed lyrics in the plain field are used when synced field is absent',
+    () async {
+      final repository = MusicRepositoryFake();
+      final engine = PlaybackEngineFake();
+      const track = Track(
+        id: 'timed-plain',
+        spotifyId: 'timed-plain',
+        name: 'Timed lyrics',
+        artist: 'Artist',
+        localPath: 'audio.mp3',
+        lyrics: '[00:12.50]Câu hát',
+      );
+      repository.onTrack = (_) async => track;
+      final player = PlayerController(repository, () async => engine);
+      await player.select([track], 0);
+      final container = ProviderContainer(
+        overrides: [playerControllerProvider.overrideWith((ref) => player)],
+      );
+      final lines = container.read(playerLyricLinesProvider);
+      expect(lines.single.at, const Duration(milliseconds: 12500));
+      expect(lines.single.text, 'Câu hát');
+      container.dispose();
+      await flushMusic();
+      repository.remote.dio.close();
+    },
+  );
+
+  test(
     'queue next and removal preserve active source, position and one engine',
     () async {
       final repository = MusicRepositoryFake();
@@ -139,7 +167,6 @@ void main() {
         ProviderScope(
           overrides: [
             playerControllerProvider.overrideWith((ref) => player),
-            syncedLyricsAllowedProvider.overrideWith((ref) async => true),
           ],
           child: MaterialApp(
             home: Builder(
@@ -161,6 +188,11 @@ void main() {
       await tester.pump();
       await tester.pump();
       expect(find.text('Line 40'), findsOneWidget);
+      expect(
+        tester.widget<Text>(find.text('Line 40')).style?.color,
+        const Color(0xFFC4B5FD),
+      );
+      expect(find.text('Xem gói dịch vụ'), findsNothing);
       final list = find.byType(ListView).last;
       await tester.drag(list, const Offset(0, 120));
       await tester.pumpAndSettle();

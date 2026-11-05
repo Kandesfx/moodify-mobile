@@ -1,5 +1,33 @@
 # Trạng thái hiện tại
 
+## Phân lớp hiển thị: bottom sheet đè lên chrome — 06/11/2026
+
+- Theo yêu cầu sửa sheet bị mini player/thanh điều hướng chồng lên: tạo `showAppModalSheet` tại `lib/core/widgets/app_sheets.dart` khoá `useRootNavigator: true` kèm bảng phân lớp trong doc comment, và chuyển toàn bộ 8 call site `showModalBottomSheet` (catalog: tuỳ chọn bài hát + chọn playlist; player: queue/lyrics/sleep timer; karaoke: chọn bài + volume thành viên; thông báo). Sheet giờ luôn trượt trên chrome kèm scrim toàn màn hình; quyết định ghi ở D33.
+- Kiểm chứng: Flutter analyze sạch toàn `lib`; chưa build/chạy trên thiết bị để nghiệm thu tương tác sheet với mini player.
+
+## Lời đồng bộ cho mọi người dùng — 06/11/2026
+
+- Theo yêu cầu, player và lời xem trước không còn kiểm tra gói dịch vụ để hiển thị lời đồng bộ; kể cả khách có thể xem khi bài có LRC thật. Đã bỏ lời đồng bộ khỏi danh sách quyền lợi VIP. Bài thiếu timestamp vẫn chỉ hiện lời tĩnh, không suy đoán thời gian.
+- Kiểm chứng: Flutter analyze sạch, 4 test continuity đạt, gồm tô dòng theo vị trí mà không cần provider kiểm tra gói; chưa kiểm tra trên thiết bị thật.
+
+## Quản lý tài khoản và trang chủ — 06/11/2026
+
+- Tách `/profile` khỏi màn tổng quan Tài khoản; chỉnh họ tên/số điện thoại qua `PATCH /api/auth/me`, email/tên đăng nhập chỉ xem. API mới dùng các cột sẵn có, chưa triển khai backend hay nghiệm thu tài khoản thật.
+- Làm mới tổng quan tài khoản và thẻ chọn bài trang chủ bằng gradient tĩnh/viền, không thêm animation chạy liên tục. Chưa đo hiệu năng trên thiết bị.
+- Kiểm thử: 13 test AuthenticationService và 5 test hồ sơ/đăng nhập đạt. Flutter analyze còn một cảnh báo import không dùng trong test catalog được chỉnh sửa đồng thời; chưa build/cài hoặc kiểm tra giao diện và hiệu năng thực tế.
+
+## Lịch sử nghe và lời bài hát — 06/11/2026
+
+- Sửa backend `PlatformTrafficService` ánh xạ `track_id` vào `trackId` trước khi lấy metadata lịch sử; test service đạt. Backend đang chạy phải được cập nhật/khởi động lại theo quy trình môi trường trước khi thay đổi có hiệu lực; chưa nghiệm thu với tài khoản thực.
+- Player đọc timestamp LRC thật từ `lyricsSynced`, hoặc từ `lyricsPlain` nếu trường này thực sự chứa LRC; test continuity 4/4 đạt. API local xác nhận bài 10 Ngàn Năm có plain lyrics nhưng không có timestamp trong cả hai trường, vì vậy chưa thể tô chính xác bài này nếu chưa có dữ liệu đồng bộ. Không ước lượng mốc lời.
+- Flutter analyze còn một cảnh báo import không dùng trong test catalog đang chỉnh sửa đồng thời; chưa kiểm tra thiết bị.
+
+## Điều chỉnh tài khoản và tìm kiếm karaoke — 06/11/2026
+
+- Đăng xuất chủ động không còn đưa thông báo “Bạn đã đăng xuất” vào form đăng nhập/đăng ký; thông báo hết hạn và lỗi xóa thông tin đăng nhập vẫn được giữ. Đã bỏ lối vào Thông báo ở tab Tài khoản.
+- Tìm karaoke theo tên bài/nghệ sĩ có hoặc không dấu, duyệt các trang catalog thật trước khi lọc; ô tìm giới hạn 100 ký tự. Phương án này phát sinh nhiều request khi catalog lớn và chưa được nghiệm thu với API/thiết bị thật.
+- Kiểm thử riêng repository karaoke và phiên đăng nhập: 24 test đạt. Analyze và test giao diện bị chặn bởi lỗi biên dịch trong các thay đổi catalog/subscription khác đang có trong workspace; chưa kiểm tra trên thiết bị.
+
 Cập nhật: **05/11/2026**. Snapshot bàn giao; implementation không đồng nghĩa đã nghiệm thu production.
 
 ## Bàn giao GitHub — 05/11/2026
@@ -168,3 +196,7 @@ Người dùng yêu cầu cập nhật GitHub. Đợt cải tiến tải/offline
 - `docs/UX_REVIEW.md` mô tả audit/luồng mới; SOURCE_MAP dẫn tới module đúng. Giữ CONTEXT/STATE ngắn, không nạp toàn workspace cũ, không commit artifacts/build/media/cache. Merge local theo yêu cầu; không push/publish ngoài yêu cầu.
 
 - 06/11/2026: Merge origin/main vào Thuan_Branch (commit 99fc0e5) theo lựa chọn "tích hợp cả hai": player_controller gộp quảng cáo audio với offline/lịch sử nghe/sleep timer/karaokeOwner (quảng cáo bỏ qua offline và karaoke, không ghi listening khi phát ad); player_screen giữ UI mới của main, ghép ad mini-player/artwork/skip/nút nâng cấp; karaoke_screen giữ redesign + chấm điểm chung tự động, nhận KaraokePlayback dùng chung controller, realtime scorer vẫn bị bỏ. Sửa thêm: KaraokePlayback chặn mounted để dispose an toàn, main_shell_test sửa index tab Karaoke. flutter pub get tái tạo lock. flutter analyze 0 lỗi, 121/121 test đạt. Chưa kiểm tra UI gộp trên emulator.
+
+- 06/11/2026: Thiết kế lại 3 giao diện theo mẫu app nhạc thị trường: (1) menu 3-chấm bài hát đổi thành bottom sheet có header artwork + tile icon, cuộn được khi màn thấp, hành động vẫn đi qua performTrackAction; (2) trang Gói dịch vụ: hero card gói hiện tại có chip trạng thái, dải lợi ích, card gói có giá/ngày + chip "Phổ biến nhất" cho gói 90 ngày, lịch sử dạng card với chip trạng thái tint nhẹ; (3) màn thanh toán SePay: pill "Đang chờ thanh toán" + đếm ngược 15 phút từ expiresAt, card thông tin chuyển khoản với copy có icon check đổi 2 giây, nội dung CK được nhấn mạnh "Bắt buộc chính xác", trạng thái thành công có badge check scale-in và phân biệt lịch áp dụng qua isEffectiveNow, hết hạn có nút "Tạo lại mã thanh toán" (controller thêm recreateOrder/lastPackageId). Sửa bug "Kiểm tra thanh toán" không phản hồi: khi manual check trả PENDING giờ hiện snackbar (pendingNotice) + lastCheckedAt; lý do gốc đơn vẫn PENDING là webhook SePay chưa tới backend local — cần ngrok chạy và SePay webhook trỏ đúng. dart format, flutter analyze 0 lỗi, 127/127 test đạt (thêm test pendingNotice/recreateOrder + widget test sheet). Chưa kiểm tra UI trên emulator; chưa commit.
+
+- 06/11/2026: Chẩn đoán màn Lịch sử nghe hiện "Chưa nhận diện được bài hát": truy vấn trực tiếp MySQL/Mongo local cho thấy listening_history lưu đúng ObjectId (24 hex) và track tồn tại trong Mongo music_streaming_1; gọi thử /api/analytics/my-history bằng token chẩn đoán tái hiện được payload "Bài hát #track" + audioUrl rỗng. Nguyên nhân: tiến trình backend khởi động 00:05 build PlatformTrafficService thiếu dòng m.put("trackId", ...) trong row mapper nên vòng enrich theo trackId bị bỏ qua toàn bộ; bản trên đĩa (02:14, chưa commit, 1 dòng) đã có fix. Đã restart backend bằng start-local-api.ps1 và xác minh endpoint trả title/artist/audioUrl đầy đủ (audioUrl là URL moodify.click). Việc còn lại: commit 1 dòng fix PlatformTrafficService này lên backend main (chưa commit, chờ người dùng duyệt).

@@ -372,7 +372,12 @@ class SessionRepository {
   Future<void> expire(String message) async {
     final scope = _newScope();
     _session = null;
-    _emit(SessionState(phase: SessionPhase.signedOut, notice: message));
+    _emit(
+      SessionState(
+        phase: SessionPhase.signedOut,
+        notice: message.isEmpty ? null : message,
+      ),
+    );
     try {
       await _serialize(() async {
         if (scope == _generation) await _storage.clear();
@@ -382,7 +387,7 @@ class SessionRepository {
         _emit(
           SessionState(
             phase: SessionPhase.signedOut,
-            notice: message,
+            notice: message.isEmpty ? null : message,
             failure: const AppFailure(
               'Phiên đã đóng trên ứng dụng nhưng chưa thể xóa dữ liệu đăng nhập trên thiết bị. Vui lòng thử đăng xuất lại.',
               code: 'STORAGE_CLEAR',
@@ -395,7 +400,7 @@ class SessionRepository {
 
   Future<void> logout() async {
     final token = _session?.accessToken;
-    await expire('Bạn đã đăng xuất.');
+    await expire('');
     if (token != null) {
       // Local cleanup is authoritative; backend logout currently does not revoke issued JWTs.
       try {

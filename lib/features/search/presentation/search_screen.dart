@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../core/widgets/app_motion.dart';
+import '../../../core/widgets/app_sheets.dart';
 
 import '../../catalog/presentation/catalog_widgets.dart';
+import '../../subscriptions/application/premium_controller.dart';
 import 'search_controller.dart';
 import 'search_history_controller.dart';
 import '../../auth/presentation/session_controller.dart';
@@ -27,6 +30,60 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     ref.read(searchControllerProvider.notifier).submit(recordHistory: true);
   }
 
+  void _showMoodUpsell(BuildContext context) {
+    showAppModalSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        // Cuộn được để không tràn ở cỡ chữ lớn hoặc màn hình thấp.
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Icon(
+                Icons.workspace_premium_rounded,
+                color: AppColors.vipGold,
+                size: 34,
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Tìm kiếm theo cảm xúc là đặc quyền VIP',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Mô tả cảm xúc của bạn để Moodify gợi ý bài hát phù hợp '
+                '— chỉ dành riêng cho tài khoản Moodify VIP.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.5,
+                  color: AppColors.secondary,
+                ),
+              ),
+              const SizedBox(height: 18),
+              FilledButton.icon(
+                onPressed: () {
+                  Navigator.of(sheetContext).pop();
+                  context.push('/subscriptions');
+                },
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.vipGold,
+                  foregroundColor: const Color(0xFF1A1710),
+                ),
+                icon: const Icon(Icons.workspace_premium_rounded, size: 20),
+                label: const Text('Nâng cấp VIP'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(searchControllerProvider);
@@ -34,7 +91,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final signedIn = ref.watch(
       sessionControllerProvider.select((s) => s.session != null),
     );
+    final isPremium = ref.watch(premiumProvider.select((s) => s.isPremium));
     final history = ref.watch(searchHistoryProvider);
+    // Phòng hờ: đang ở chế độ Cảm xúc mà gói hết hạn → tự về chế độ Bài hát.
+    if (!isPremium && state.mood) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) ref.read(searchControllerProvider.notifier).mode(false);
+      });
+    }
     return Scaffold(
       appBar: AppBar(title: const Text('Tìm kiếm')),
       body: ListView(
@@ -68,21 +132,48 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                 child: Material(
                                   type: MaterialType.transparency,
                                   child: Pressable(
-                                    onTap: () => controller.mode(mode),
+                                    onTap: () {
+                                      // Parity web: tìm kiếm theo cảm xúc
+                                      // chỉ dành cho tài khoản VIP.
+                                      if (mode && !isPremium) {
+                                        _showMoodUpsell(context);
+                                        return;
+                                      }
+                                      controller.mode(mode);
+                                    },
                                     child: Padding(
                                       padding: const EdgeInsets.symmetric(
                                         vertical: 13,
                                         horizontal: 8,
                                       ),
-                                      child: Text(
-                                        mode ? 'Cảm xúc' : 'Bài hát',
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w700,
-                                          color: state.mood == mode
-                                              ? Colors.white
-                                              : AppColors.secondary,
+                                      // FittedBox giữ nút không tràn khi
+                                      // người dùng đặt cỡ chữ lớn.
+                                      child: FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            if (mode && !isPremium) ...[
+                                              const Icon(
+                                                Icons.lock_rounded,
+                                                size: 13,
+                                                color: AppColors.secondary,
+                                              ),
+                                              const SizedBox(width: 5),
+                                            ],
+                                            Text(
+                                              mode ? 'Cảm xúc' : 'Bài hát',
+                                              textAlign: TextAlign.center,
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w700,
+                                                color: state.mood == mode
+                                                    ? Colors.white
+                                                    : AppColors.secondary,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
                                     ),
@@ -146,7 +237,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           if (state.moodResult?.emotion != null)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              child: Text('Cảm xúc nhận diện: ${state.moodResult!.emotion}'),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Cảm xúc nhận diện: ${state.moodResult!.emotion}',
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const _MoodVipTag(),
+                ],
+              ),
             ),
           ...[
             if (!state.submitted && signedIn && !state.mood) ...[
@@ -286,4 +387,27 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       ),
     );
   }
+}
+
+/// Nhãn đánh dấu kết quả tìm kiếm theo cảm xúc là đặc quyền VIP
+/// (parity banner "Chế độ: Tìm kiếm theo cảm xúc (VIP)" bên web).
+class _MoodVipTag extends StatelessWidget {
+  const _MoodVipTag();
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+    decoration: BoxDecoration(
+      color: AppColors.vipGradientBottom,
+      borderRadius: BorderRadius.circular(999),
+      border: Border.all(color: AppColors.vipBorder),
+    ),
+    child: const Text(
+      'Đặc quyền VIP',
+      style: TextStyle(
+        fontSize: 10,
+        fontWeight: FontWeight.w700,
+        color: AppColors.vipGold,
+      ),
+    ),
+  );
 }

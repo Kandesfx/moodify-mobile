@@ -82,6 +82,7 @@ Các API mobile còn tập trung trong `Mobile/src/services/api.ts`, web trong `
 | Home, search, library | `lib/features/home/`, `search/`, `library/` |
 | Audio coordinator/queue/telemetry | `lib/features/player/` |
 | Account UI và inbox | `lib/features/auth/presentation/account_screen.dart`, `lib/features/notifications/` |
+| Quản lý thông tin tài khoản | `lib/features/auth/presentation/profile_screen.dart`, `lib/features/auth/data/profile_repository.dart`, `PATCH /api/auth/me` |
 | Packages/checkout/entitlement | `lib/features/subscriptions/` |
 | Download/license/files | `lib/features/offline/` |
 | Solo/room/pitch/voice/scoring | `lib/features/karaoke/` |

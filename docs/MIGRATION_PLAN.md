@@ -79,6 +79,8 @@ Trạng thái: **DONE cho tài liệu/source audit**, không phải app migratio
 
 Trạng thái Flutter: **IN_PROGRESS**. Password auth/session/profile/logout cơ sở `IMPLEMENTED`; social auth chưa bắt đầu do chưa có native OAuth config. Router hiện chỉ có auth/restore/account; shell nhạc chuyển tại M2.
 
+06/11: bổ sung màn quản lý tài khoản và contract sửa họ tên/số điện thoại; cần cập nhật backend và kiểm tra trên thiết bị/tài khoản thật trước nghiệm thu.
+
 - Đã có 31 test đạt, `flutter analyze` sạch; debug APK arm64 build thành công với cấu hình public production.
 - Thiết bị Android đã kết nối: Samsung SM-A235F, Android 14/API 34. Kết quả kiểm tra thiết bị chi tiết và phần chưa xác minh nằm ở `ai/STATE.md`.
 - Chỉ probe đọc API: catalog 200 đúng envelope, `/auth/me` không token 401. Chưa gọi đăng ký/checkout hoặc tự tạo user thật.
@@ -95,7 +97,7 @@ Trạng thái Flutter: **IN_PROGRESS**. Password auth/session/profile/logout cơ
 
 ## 6. M2 — core parity nghe nhạc và thư viện
 
-Trạng thái Flutter: **IN_PROGRESS**. Đã có shell 5 tab sau merge karaoke, khách duyệt/phát qua API public, catalog/filter/phân trang, album/artist detail, search thường/cảm xúc/history, liked tracks/favorite albums, playlist create/add/remove/delete/visibility. Player có queue/seek/shuffle/repeat, volume, sleep, share metadata qua native sheet và lyrics với timestamp thật theo entitlement. Một engine/OS coordinator và listening telemetry từ sự kiện native; không gửi doanh thu cho guest/offline. Home, library, account và player đã được tổ chức lại theo UX_REVIEW.
+Trạng thái Flutter: **IN_PROGRESS**. Đã có shell 5 tab sau merge karaoke, khách duyệt/phát qua API public, catalog/filter/phân trang, album/artist detail, search thường/cảm xúc/history, liked tracks/favorite albums, playlist create/add/remove/delete/visibility. Player có queue/seek/shuffle/repeat, volume, sleep, share metadata qua native sheet và lời đồng bộ với timestamp thật cho mọi người dùng. Một engine/OS coordinator và listening telemetry từ sự kiện native; không gửi doanh thu cho guest/offline. Home, library, account và player đã được tổ chức lại theo UX_REVIEW.
 
 Thiết kế đã điều chỉnh lại theo source RN theo yêu cầu người dùng: quick grid/spotlight/shelves, mini-player nổi, full-player nền artwork mờ và slide-up; motion có reduced-motion và test màn nhỏ. Không thay engine hay kiến trúc.
 

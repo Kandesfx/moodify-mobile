@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
-
-import '../../../app/bootstrap.dart';
 
 import '../../../app/theme/app_theme.dart';
 import '../../../core/widgets/app_motion.dart';
@@ -13,7 +10,7 @@ import '../../catalog/domain/catalog_models.dart';
 import '../../catalog/presentation/artwork_backdrop.dart';
 import '../../catalog/presentation/catalog_widgets.dart';
 import '../../library/presentation/library_controller.dart';
-import '../domain/lyric_line.dart';
+import '../../subscriptions/application/premium_controller.dart';
 import 'player_controller.dart';
 import 'player_sheets.dart';
 
@@ -22,55 +19,15 @@ String playbackTime(Duration duration) {
   return '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
 }
 
-final premiumUrlLauncherProvider = Provider<Future<bool> Function(Uri)>(
-  (ref) =>
-      (uri) => launchUrl(uri, mode: LaunchMode.externalApplication),
-);
-
-class _UpgradeButton extends ConsumerStatefulWidget {
+/// CTA nâng cấp trên các bề mặt quảng cáo — dẫn thẳng đến màn Gói dịch vụ
+/// trong app (đã có checkout QR SePay) thay vì mở trang web như trước.
+class _UpgradeButton extends StatelessWidget {
   const _UpgradeButton({required this.isBasic});
   final bool isBasic;
 
   @override
-  ConsumerState<_UpgradeButton> createState() => _UpgradeButtonState();
-}
-
-class _UpgradeButtonState extends ConsumerState<_UpgradeButton> {
-  bool _opening = false;
-
-  Future<void> _open() async {
-    final uri = ref.read(appConfigProvider).premiumWebUri;
-    if (uri == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Trang nâng cấp chưa được cấu hình.')),
-      );
-      return;
-    }
-    final controller = ref.read(playerControllerProvider.notifier);
-    final generation = controller.playbackGeneration;
-    setState(() => _opening = true);
-    var opened = false;
-    try {
-      opened = await ref.read(premiumUrlLauncherProvider)(uri);
-    } catch (_) {
-      opened = false;
-    }
-    if (!mounted) return;
-    setState(() => _opening = false);
-    if (!opened) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Không mở được trang nâng cấp. Vui lòng thử lại.'),
-        ),
-      );
-      return;
-    }
-    await controller.skipAdForUpgrade(generation);
-  }
-
-  @override
   Widget build(BuildContext context) => FilledButton.icon(
-    onPressed: _opening ? null : _open,
+    onPressed: () => context.push('/subscriptions'),
     style: FilledButton.styleFrom(
       backgroundColor: const Color(0xFF8B72F6),
       foregroundColor: Colors.white,
@@ -79,7 +36,43 @@ class _UpgradeButtonState extends ConsumerState<_UpgradeButton> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     ),
     icon: const Icon(Icons.workspace_premium_rounded, size: 18),
-    label: Text(widget.isBasic ? 'Lên FULL' : 'Nâng VIP'),
+    label: Text(isBasic ? 'Lên FULL' : 'Nâng VIP'),
+  );
+}
+
+/// Badge vàng Hoàng Kim trên player khi gói VIP đang hiệu lực
+/// (parity badge "VIP" cạnh volume trên web).
+class _PlayerVipBadge extends StatelessWidget {
+  const _PlayerVipBadge();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+    decoration: BoxDecoration(
+      gradient: const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [AppColors.vipGradientTop, AppColors.vipGradientBottom],
+      ),
+      borderRadius: BorderRadius.circular(999),
+      border: Border.all(color: AppColors.vipBorder),
+    ),
+    child: const Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.workspace_premium_rounded, size: 13, color: AppColors.vipGold),
+        SizedBox(width: 4),
+        Text(
+          'VIP',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            letterSpacing: .4,
+            color: AppColors.vipGold,
+          ),
+        ),
+      ],
+    ),
   );
 }
 
@@ -229,13 +222,6 @@ class _AdMiniPlayer extends StatelessWidget {
                               ? 'Bỏ qua'
                               : 'Bỏ qua sau ${5 - state.position.inSeconds}s',
                         ),
-                      )
-                    else
-                      Text(
-                        'Nghe hết quảng cáo',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.secondary,
-                        ),
                       ),
                     _UpgradeButton(isBasic: state.adCanSkip),
                   ],
@@ -382,6 +368,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(playerControllerProvider);
     final controller = ref.read(playerControllerProvider.notifier);
+    final isPremium = ref.watch(premiumProvider.select((s) => s.isPremium));
     final track = state.track;
     final duration = state.duration.inMilliseconds.toDouble();
     return Scaffold(
@@ -577,14 +564,31 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                                   ),
                                                 ),
                                                 const SizedBox(height: 6),
-                                                Text(
-                                                  state.isAd
-                                                      ? 'Tiếp theo: ${track.displayName}'
-                                                      : track.artist,
-                                                  style: const TextStyle(
-                                                    fontSize: 14,
-                                                    color: AppColors.secondary,
-                                                  ),
+                                                Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: Text(
+                                                        state.isAd
+                                                            ? 'Tiếp theo: ${track.displayName}'
+                                                            : track.artist,
+                                                        maxLines: 1,
+                                                        overflow:
+                                                            TextOverflow
+                                                                .ellipsis,
+                                                        style: const TextStyle(
+                                                          fontSize: 14,
+                                                          color:
+                                                              AppColors
+                                                                  .secondary,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    if (!state.isAd &&
+                                                        isPremium) ...[
+                                                      const SizedBox(width: 8),
+                                                      const _PlayerVipBadge(),
+                                                    ],
+                                                  ],
                                                 ),
                                               ],
                                             ),
@@ -946,10 +950,9 @@ class _LikeButton extends ConsumerWidget {
     final liked = library?.likedIds.contains(track.spotifyId) == true;
     return IconButton(
       tooltip: liked ? 'Bỏ lưu yêu thích' : 'Lưu vào yêu thích',
-      onPressed:
-          library?.busy == true ||
-              library?.loading == true ||
-              library?.failure != null
+      // Chỉ khoá khi một thao tác like/unlike đang chạy; failure của lần
+      // tải thư viện nền không được khoá nút vĩnh viễn.
+      onPressed: library?.busy == true
           ? null
           : () => performTrackAction(context, ref, track, 'like'),
       icon: AnimatedSwitcher(
@@ -1001,8 +1004,7 @@ class _LyricsPreview extends ConsumerWidget {
     final position = ref.watch(
       playerControllerProvider.select((s) => s.position),
     );
-    final allowed = ref.watch(syncedLyricsAllowedProvider).valueOrNull == true;
-    final lines = allowed ? ref.watch(playerLyricLinesProvider) : <LyricLine>[];
+    final lines = ref.watch(playerLyricLinesProvider);
     final active = lines.lastIndexWhere((line) => line.at <= position);
     final preview = lines.isNotEmpty
         ? active < 0

@@ -41,12 +41,37 @@ class LibraryScreen extends ConsumerWidget {
               onPressed: () => context.push('/offline'),
               icon: const Icon(Icons.download_for_offline_outlined),
             ),
-            IconButton(
-              tooltip: 'Tạo playlist',
-              onPressed: state.busy || state.loading
-                  ? null
-                  : () => showCreatePlaylist(context),
-              icon: const Icon(Icons.add_rounded),
+            // Nút tạo playlist chỉ nằm ở tab Playlist; ở tab khác nó thu
+            // gọn và mờ dần để nút tải nhạc vào sát góc phải.
+            Builder(
+              builder: (context) {
+                final tabController = DefaultTabController.of(context);
+                return AnimatedBuilder(
+                  animation: tabController,
+                  builder: (context, _) {
+                    final onPlaylistTab = tabController.index == 0;
+                    return AnimatedSize(
+                      duration: AppMotion.duration(context),
+                      curve: Curves.easeOutCubic,
+                      alignment: Alignment.centerRight,
+                      child: AnimatedOpacity(
+                        duration: AppMotion.duration(context),
+                        opacity: onPlaylistTab ? 1 : 0,
+                        child: SizedBox(
+                          width: onPlaylistTab ? null : 0,
+                          child: IconButton(
+                            tooltip: 'Tạo playlist',
+                            onPressed: state.busy || state.loading
+                                ? null
+                                : () => showCreatePlaylist(context),
+                            icon: const Icon(Icons.add_rounded),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
             ),
           ],
           bottom: const TabBar(

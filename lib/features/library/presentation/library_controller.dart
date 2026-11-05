@@ -116,7 +116,9 @@ class LibraryController extends StateNotifier<LibraryState> {
   }
 
   Future<bool> _mutate(Future<void> Function() operation) async {
-    if (!authenticated || state.busy || state.loading) return false;
+    // Cho phép thao tác cả khi lần tải thư viện nền chưa xong hoặc đã lỗi:
+    // like/unlike là optimistic + idempotent, thành công sẽ tự load() lại.
+    if (!authenticated || state.busy) return false;
     state = state.copy(busy: true);
     try {
       await operation();

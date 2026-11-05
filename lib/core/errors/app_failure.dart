@@ -58,6 +58,12 @@ class AppFailure implements Exception {
         'Phone number already exists': 'Số điện thoại này đã được sử dụng.',
         'Passwords do not match': 'Mật khẩu xác nhận chưa khớp.',
         'Confirm password does not match': 'Mật khẩu xác nhận chưa khớp.',
+        'Vui lòng nhập mật khẩu hiện tại.': 'Vui lòng nhập mật khẩu hiện tại.',
+        'Mật khẩu mới phải có ít nhất 6 ký tự.':
+            'Mật khẩu mới phải có ít nhất 6 ký tự.',
+        'Mật khẩu hiện tại không đúng.': 'Mật khẩu hiện tại không đúng.',
+        'Mật khẩu mới phải khác mật khẩu hiện tại.':
+            'Mật khẩu mới phải khác mật khẩu hiện tại.',
       };
       final fallback = switch (response?.statusCode ?? 0) {
         400 => 'Thông tin gửi lên chưa hợp lệ. Vui lòng kiểm tra lại.',

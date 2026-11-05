@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/formatters/display_date.dart';
 import '../../../core/errors/app_failure.dart';
+import '../../../core/widgets/app_sheets.dart';
 import '../../auth/presentation/session_controller.dart';
 import '../../catalog/presentation/catalog_widgets.dart';
 import '../data/notification_repository.dart';
@@ -136,7 +137,7 @@ class NotificationScreen extends ConsumerWidget {
                   if (!item.read) {
                     ref.read(inboxProvider.notifier).read(item.id);
                   }
-                  showModalBottomSheet<void>(
+                  showAppModalSheet<void>(
                     context: context,
                     isScrollControlled: true,
                     builder: (sheetContext) => SafeArea(

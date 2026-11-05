@@ -444,6 +444,7 @@ void main() {
       await h.repository.logout();
       expect(await h.storage.read(), isNull);
       expect(h.repository.state.phase, SessionPhase.signedOut);
+      expect(h.repository.state.notice, isNull);
       expect(
         h.store.values.length,
         1,

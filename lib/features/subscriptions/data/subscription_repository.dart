@@ -35,6 +35,12 @@ class SubscriptionRepository {
       )).data,
     ),
   );
+
+  /// Mở lại đơn PENDING còn hạn theo orderCode (payload như checkout).
+  /// Khi đơn không còn hiệu lực, server trả {success: false, message} —
+  /// phần parse/hiển thị do controller xử lý nên trả Map thô.
+  Future<Map<String, dynamic>> resume(String code) =>
+      get('subscriptions/checkout/${segment(code)}');
   Future<Map<String, dynamic>> status(String code) =>
       get('subscriptions/payment-status/${segment(code)}');
   Future<void> cancel(String id) async =>

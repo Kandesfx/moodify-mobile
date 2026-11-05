@@ -53,6 +53,7 @@ Nguồn: `Backend/src/main/java/com/laphuth/moodify/config/GlobalExceptionHandle
 | POST | `/api/auth/login` | `identifier`, `password`; tùy chọn `deviceUuid`, `deviceName`, `platform` |
 | POST | `/api/auth/register` | Theo `RegisterRequest`; không tự đổi tên field |
 | POST | `/api/auth/refresh` | Body `refreshToken` |
+| PATCH | `/api/auth/me` | `fullName`, `phone`; trả hồ sơ hiện tại. Mới có trong source backend, chưa xác minh triển khai. |
 | POST | `/api/auth/google` | Theo `GoogleAuthRequest` |
 | POST | `/api/auth/google/code` | `code`, `codeVerifier`, `redirectUri`, `clientId`, device metadata |
 | POST | `/api/auth/facebook` | Theo `FacebookAuthRequest` |

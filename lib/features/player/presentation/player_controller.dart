@@ -588,14 +588,6 @@ class PlayerController extends StateNotifier<PlayerState> {
     await _select(state.queue, nextIndex);
   }
 
-  int get playbackGeneration => _generation;
-
-  /// Mirrors the web upgrade action for the current advertisement only.
-  Future<void> skipAdForUpgrade(int generation) async {
-    if (!mounted || generation != _generation || !state.isAd) return;
-    await _finishAd();
-  }
-
   Future<void> skipAd() async {
     if (!state.isAd ||
         !state.adCanSkip ||

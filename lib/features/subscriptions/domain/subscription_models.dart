@@ -4,12 +4,19 @@ class SubscriptionInfo {
   SubscriptionInfo.fromJson(Map<String, dynamic> json)
     : name = requiredText(json, 'packageName'),
       premium = json['isPremium'] == true,
+      tier = optionalText(json['tier']) ?? 'FREE',
+      daysRemaining = json['daysRemaining'] is num
+          ? (json['daysRemaining'] as num).toInt()
+          : 0,
       expiresAt = optionalText(json['expiresAt']),
       syncedLyrics =
           json['entitlements'] is Map &&
           json['entitlements']['syncedLyrics'] == true;
   final String name;
   final String? expiresAt;
+  // Ví dụ 'FREE' | 'INDIVIDUAL_BASIC' | 'INDIVIDUAL_FULL' | 'FAMILY'.
+  final String tier;
+  final int daysRemaining;
   final bool premium, syncedLyrics;
 }
 
@@ -67,8 +74,12 @@ class PaymentOrder {
       bank = requiredText(json, 'bankName'),
       owner = requiredText(json, 'accountName'),
       content = requiredText(json, 'transferContent'),
+      packageId = optionalText(json['packageId']),
       startAt = optionalText(json['startAt']),
-      expiresAt = optionalText(json['expiresAt']) {
+      expiresAt = optionalText(json['expiresAt']),
+      // Hạn chót của cửa sổ QR (15 phút kể từ lúc tạo đơn) — nguồn cho pill
+      // đếm ngược; "expiresAt" là ngày kết thúc kỳ hạn dịch vụ.
+      paymentExpiresAt = optionalText(json['paymentExpiresAt']) {
     if (json['success'] != true ||
         qr.scheme != 'https' ||
         qr.host.isEmpty ||
@@ -77,7 +88,7 @@ class PaymentOrder {
     }
   }
   final String code, packageName, account, bank, owner, content;
-  final String? startAt, expiresAt;
+  final String? packageId, startAt, expiresAt, paymentExpiresAt;
   final num amount;
   final Uri qr;
 }

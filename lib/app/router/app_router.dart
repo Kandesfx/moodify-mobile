@@ -7,6 +7,7 @@ import '../../core/widgets/app_motion.dart';
 import '../../core/widgets/feedback_panel.dart';
 import '../../features/auth/domain/session_state.dart';
 import '../../features/auth/presentation/account_screen.dart';
+import '../../features/auth/presentation/profile_screen.dart';
 import '../../features/auth/presentation/auth_screen.dart';
 import '../../features/auth/presentation/session_controller.dart';
 import '../../features/catalog/presentation/detail_screen.dart';
@@ -164,6 +165,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             _slidePage(context, route, const SubscriptionScreen()),
       ),
       GoRoute(path: '/devices', builder: (_, _) => const DeviceScreen()),
+      GoRoute(path: '/profile', builder: (_, _) => const ProfileScreen()),
       GoRoute(
         path: '/history',
         pageBuilder: (context, route) =>

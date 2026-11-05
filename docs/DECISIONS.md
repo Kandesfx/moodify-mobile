@@ -38,6 +38,7 @@ Baseline ngày **04/11/2026**. Đã có implementation M1; phân biệt lựa ch
 | D30 | Merge `Thuan_Branch` vào main theo yêu cầu người dùng | Nguồn `9b070ec`, giữ checkpoint UI/core `f0b1669`. Shell có 5 tab theo nhánh karaoke: Trang chủ/Tìm kiếm/Karaoke/Thư viện/Tài khoản. Giữ UI/motion và toàn bộ M2–M4 hiện tại; ID D24–D27 bên nhánh karaoke được hợp nhất vào D30–D32, không ghi đè quyết định offline/payment |
 | D31 | Nhạc nền karaoke dùng engine và coordinator hiện có | `KaraokePlayback` chuyển DTO/controls sang `PlayerController.loadKaraoke`; source KARAOKE dùng instrumental HTTPS thuộc moodify.click, không resolver catalog, không revenue nghe nhạc, không repeat/auto-next queue nhạc thường. OS play/pause/seek dùng cùng handler. Adapter theo ownership token ổn định qua OS retry/restart ngăn màn cũ dừng/tua màn mới; thoát tab reset stack karaoke; đổi user remount màn/capture |
 | D32 | Giữ luồng solo/phòng cuối cùng của nhánh karaoke | Solo scorable tạo session/capture pitch/reference và submit khi hết bài; mic-check riêng, không raw audio. Giữ cách pause/resume/cancel thực tế trong source, chưa gọi là nghiệm thu parity web. Rooms có REST polling 4 giây, mediasoup/WebRTC voice và contribution/finish; state WebSocket/reconnect và hai máy/mic/score cần kiểm chứng. Các quyết định mic-only trước đó ở nhánh nguồn đã được thay thế |
+| D33 | Phân lớp hiển thị: mọi modal bottom sheet đẩy lên root navigator | Người dùng yêu cầu loại chồng chéo sheet bị mini player/thanh điều hướng đè. Flutter mặc định `useRootNavigator: false` khiến sheet rơi vào branch navigator, dưới chrome của `MainShell`. Mọi sheet mở qua `showAppModalSheet` (`core/widgets/app_sheets.dart`) khoá `useRootNavigator: true`; trật tự lớp: nội dung tab → chrome shell → route/modal trên root navigator (sheet, player, dialog, snackbar theo thứ tự mở). Sheet mới không được gọi `showModalBottomSheet` trực tiếp |
 
 ## 2. Các quyết định còn mở trước bước liên quan
 
@@ -65,3 +66,10 @@ Quyết định nhỏ trong baseline: ghi ID, lý do, hệ quả, ngày và bằ
 - D35 (05/11): Pending guest action chỉ là RAM TTL10phút gồm track/action/return route, không persist credential hoặc tự replay mutation khi auth. User xác nhận tại continuation page; clear khi account đổi, kiểm tra liked trước thao tác lưu để tránh toggle ngược.
 - D36 (05/11): Queue thêm/bỏ tương lai trong controller hiện có, giữ native source/position; LRC follow dùng chiều cao đo có cache và lazy builder, không thêm package animation/scroll/engine. Mini gắn vào scaffold các trang detail để không che nội dung/CTA.
 - D37 (05/11): Download preflight đọc entitlement từ subscriptions/me và quota current-device từ offline/my-downloads, làm mới trước mỗi lượt tải; không dùng tên gói hoặc cache để suy quyền. Thiếu quyền/full quota chặn trước request-download, lỗi mạng/contract giữ trạng thái chưa xác minh. UI tách bộ nhớ file local và quota server; task/lỗi được ưu tiên trước thống kê, thành công chỉ sau confirm/verify hiện có. Không đổi DB/backend hoặc thêm engine/download framework; background durable, byte resume và queue nhiều job chưa triển khai.
+# 06/11/2026 — Quản lý hồ sơ
+
+Trang quản lý tài khoản sửa họ tên và số điện thoại qua endpoint xác thực dùng cột sẵn có. Email và tên đăng nhập giữ chỉ đọc vì là thông tin định danh; không bổ sung quy trình đổi định danh hoặc đổi schema trong đợt này.
+
+# 06/11/2026 — Lời đồng bộ
+
+Theo yêu cầu người dùng, hiển thị lời có timestamp cho mọi người dùng, không kiểm tra gói; dữ liệu lời tĩnh vẫn không được tự suy ra mốc thời gian.

@@ -13,20 +13,49 @@ class KaraokeRepository {
   final Dio _dio;
 
   Future<List<Map<String, dynamic>>> tracks({String query = ''}) async {
-    final response = await _dio.get<Object?>(
-      'karaoke/tracks',
-      queryParameters: {
-        'page': 0,
-        'size': 40,
-        if (query.trim().isNotEmpty) 'query': query.trim(),
-      },
-    );
-    final body = _map(response.data);
+    final needle = _foldVietnamese(query.trim());
+    if (needle.isNotEmpty) {
+      final matches = <Map<String, dynamic>>[];
+      var page = 0;
+      int totalPages;
+      do {
+        final body = await _trackPage(page);
+        final rows = body['content'];
+        if (rows is! List || body['totalPages'] is! num) {
+          throw const FormatException('Danh sách karaoke không hợp lệ.');
+        }
+        matches.addAll(
+          rows
+              .map(_map)
+              .where(
+                (row) =>
+                    _foldVietnamese(
+                      row['title']?.toString() ?? '',
+                    ).contains(needle) ||
+                    _foldVietnamese(
+                      row['artist']?.toString() ?? '',
+                    ).contains(needle),
+              ),
+        );
+        totalPages = (body['totalPages'] as num).toInt();
+        page++;
+      } while (page < totalPages);
+      return matches;
+    }
+    final body = await _trackPage(0);
     final rows = body['content'];
     if (rows is! List) {
       throw const FormatException('Danh sách karaoke không hợp lệ.');
     }
     return rows.map(_map).toList(growable: false);
+  }
+
+  Future<Map<String, dynamic>> _trackPage(int page) async {
+    final response = await _dio.get<Object?>(
+      'karaoke/tracks',
+      queryParameters: {'page': page, 'size': 50},
+    );
+    return _map(response.data);
   }
 
   Future<Map<String, dynamic>> track(String id) async => _map(
@@ -155,6 +184,25 @@ class KaraokeRepository {
       'karaoke/rooms/$roomId/score-sessions/${Uri.encodeComponent(sessionId)}',
     )).data,
   );
+}
+
+String _foldVietnamese(String value) {
+  const groups = <String, String>{
+    'a': 'àáạảãâầấậẩẫăằắặẳẵ',
+    'e': 'èéẹẻẽêềếệểễ',
+    'i': 'ìíịỉĩ',
+    'o': 'òóọỏõôồốộổỗơờớợởỡ',
+    'u': 'ùúụủũưừứựửữ',
+    'y': 'ỳýỵỷỹ',
+    'd': 'đ',
+  };
+  var result = value.toLowerCase();
+  for (final entry in groups.entries) {
+    for (final rune in entry.value.runes) {
+      result = result.replaceAll(String.fromCharCode(rune), entry.key);
+    }
+  }
+  return result.replaceAll(RegExp(r'[\u0300-\u036f]'), '');
 }
 
 Map<String, dynamic> _map(Object? value) {

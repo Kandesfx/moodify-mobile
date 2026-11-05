@@ -12,6 +12,14 @@ abstract final class AppColors {
   static const lavender = Color(0xFFC4B5FD);
   static const liked = Color(0xFFEC4899);
   static const error = Color(0xFFFF8796);
+
+  // Đặc quyền VIP (chủ đề Hoàng Kim) — chỉ áp dụng khi isPremium,
+  // user miễn phí giữ nguyên tông tím mặc định.
+  static const vipGold = Color(0xFFD4AF37);
+  static const vipGoldSoft = Color(0xFFF0D98C);
+  static const vipBorder = Color(0xFF6B5A2A);
+  static const vipGradientTop = Color(0xFF3A2E1A);
+  static const vipGradientBottom = Color(0xFF1A1710);
 }
 
 ThemeData buildAppTheme() {

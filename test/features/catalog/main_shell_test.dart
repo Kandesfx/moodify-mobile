@@ -135,16 +135,14 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.byType(TextField), findsOneWidget);
         expect(tester.takeException(), isNull);
+        // Parity web: tìm kiếm theo cảm xúc là đặc quyền VIP — guest bấm
+        // 'Cảm xúc' chỉ thấy sheet nâng cấp, không được chuyển chế độ.
         await tester.tap(find.text('Cảm xúc'));
         await tester.pumpAndSettle();
-        tester.view.viewInsets = const FakeViewPadding(bottom: 280);
-        addTearDown(tester.view.resetViewInsets);
-        await tester.tap(find.byType(TextField));
-        await tester.enterText(
-          find.byType(TextField),
-          'Hôm nay tôi muốn nghe nhạc nhẹ',
+        expect(
+          find.text('Tìm kiếm theo cảm xúc là đặc quyền VIP'),
+          findsOneWidget,
         );
-        await tester.pump();
         expect(tester.takeException(), isNull);
       },
     );

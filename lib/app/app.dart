@@ -10,6 +10,7 @@ import '../features/auth/domain/session_state.dart';
 import '../features/auth/presentation/session_controller.dart';
 import '../features/offline/presentation/offline_controller.dart';
 import '../features/player/presentation/player_controller.dart';
+import '../features/subscriptions/application/premium_controller.dart';
 import 'router/app_router.dart';
 import 'theme/app_theme.dart';
 
@@ -35,6 +36,9 @@ class _AppRootState extends ConsumerState<MoodifyApp>
     if (state == AppLifecycleState.resumed &&
         ref.read(sessionControllerProvider).phase == SessionPhase.signedIn) {
       unawaited(ref.read(sessionControllerProvider.notifier).refreshProfile());
+      // Bắt kịp thay đổi gói khi app rời nền: mua trên web, gia hạn hoặc
+      // gói hết hạn trong lúc thiết bị im lặng.
+      unawaited(ref.read(premiumProvider.notifier).refresh());
       unawaited(_verifyOffline());
     }
   }
