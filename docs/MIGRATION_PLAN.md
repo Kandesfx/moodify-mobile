@@ -126,7 +126,7 @@ Trạng thái Flutter: **IN_PROGRESS**. Có typed current/quotes/management, xá
 
 ## 8. M4 — tải và nghe offline
 
-Trạng thái Flutter: **IN_PROGRESS**. Có tải HTTPS giới hạn 40 MiB/1 lượt, file AES-256-GCM riêng sandbox Flutter, manifest/key trong secure storage theo API+user+device, `.part`/rename, confirm/verify, expiry/revocation/renew/remove. Cleanup intent giới hạn phục hồi reservation qua DELETE hiện có; không lưu ticket hoặc tạo outbox nghiệp vụ. Có cổng phát offline dùng chung engine và mở thư viện khi restore lỗi mạng. Test filesystem/crypto đạt theo STATE; native, RAM bài lớn và tài khoản Premium chưa nghiệm thu.
+Trạng thái Flutter: **IN_PROGRESS**. Đợt 05/11 đã thêm phase/bytes/hủy/retry/lỗi theo bài, nút/menu tải có trạng thái và xóa local offline với cleanup quota; transfer không khóa playback, confirm mơ hồ đọc verify thật. Có tải HTTPS giới hạn 40 MiB/1 lượt, file AES-256-GCM riêng sandbox Flutter, manifest/key trong secure storage theo API+user+device, `.part`/rename, confirm/verify, expiry/revocation/renew/remove. Cleanup intent giới hạn phục hồi reservation qua DELETE hiện có; không lưu ticket hoặc tạo outbox nghiệp vụ. Có cổng phát offline dùng chung engine và mở thư viện khi restore lỗi mạng. Test filesystem/crypto đạt theo STATE; native, RAM bài lớn và tài khoản Premium chưa nghiệm thu.
 
 - Đọc contract backend và MFY1 (format file local do client mã hóa); đánh giá tương thích và không quảng bá CTR hiện tại như DRM hoàn chỉnh. Không mặc định app Flutter mới truy cập được file/token trong sandbox Expo cũ.
 - Manifest versioned theo user, key secure storage, file private, `.part` và rename atomically.
@@ -195,3 +195,13 @@ Trạng thái: **DEFERRED**, chưa triển khai; chỉ mở sau parity ACCEPTED 
 4. Kiểm tra đúng rủi ro đã thay đổi; không viết test chỉ để lặp lại implementation hoặc tạo data giả trong release.
 5. Cập nhật trạng thái/bằng chứng/blocker; tiếp tục module độc lập nếu blocker không ảnh hưởng nó.
 6. Chỉ mở phạm vi mới sau gate; không biến việc cần hỏi schema/kiến trúc thành approval cho mọi tác vụ thường ngày.
+
+## Ưu tiên bổ sung 05/11/2026
+
+Lịch sử nghe GET/phân trang/phát lại/xóa và search history cảm xúc/selection đã có source Flutter. Đây là IN_PROGRESS, cần account/API/device evidence. Giữ các module còn lại theo bảng kế hoạch, đặc biệt recommendation/attribution, social OAuth, karaoke/ads và nghiệm thu release. Chi tiết đợt tại `UX_PRIORITY_IMPLEMENTATION.md`.
+
+Đợt continuity 05/11: đã thêm source mini-player trên detail, pending guest action xác nhận sau auth, LRC follow/recenter với trạng thái quyền rõ và enqueue/play-next/remove-upcoming. M2 vẫn IN_PROGRESS; 91tests/analyze không thay thế bằng chứng thiết bị/account. Phần còn lại xem UX_PRIORITY_IMPLEMENTATION.
+
+Đợt artist/device và Samsung05/11: artist public profile/follow và followed-library; collection lazy/play-shuffle-share; account avatar/devices list-revoke đã có source. Guest smoke playback/queue/download auth boundary/artist/search và fix rootBack có bằng chứng máy tại DEVICE_REVIEW_2026-11-05.md. Protected API/device mutation/download thật chưa nghiệm thu; M1–M6 vẫn IN_PROGRESS.
+
+Đợt thiết kế tải05/11: màn `/offline` mới có tác vụ ưu tiên, dung lượng local, entitlement/quota theo thiết bị và thư viện tìm/lọc/phát/xác minh/gia hạn/xóa. Preflight quyền/quota thật trước request-download, hủy trong lúc kiểm tra quyền; không coi lỗi quyền là quota0. 100tests/analyze/build đạt, đã cài và kiểm tra gói Miễn phí + gate tải đúng bài trên Samsung. M4 vẫn IN_PROGRESS: cần account có offline entitlement để nghiệm thu transfer/license/phát mất mạng/native failure, không có background durable/byte resume/multi-job queue.

@@ -46,14 +46,22 @@ class AccountScreen extends ConsumerWidget {
                         ),
                         child: Row(
                           children: [
-                            const CircleAvatar(
+                            CircleAvatar(
                               radius: 28,
-                              backgroundColor: Color(0xFF35264E),
-                              child: Icon(
-                                Icons.person_rounded,
-                                size: 30,
-                                color: AppColors.lavender,
-                              ),
+                              backgroundColor: const Color(0xFF35264E),
+                              backgroundImage: user.avatarUrl == null
+                                  ? null
+                                  : NetworkImage(user.avatarUrl!),
+                              onBackgroundImageError: user.avatarUrl == null
+                                  ? null
+                                  : (_, _) {},
+                              child: user.avatarUrl != null
+                                  ? null
+                                  : const Icon(
+                                      Icons.person_rounded,
+                                      size: 30,
+                                      color: AppColors.lavender,
+                                    ),
                             ),
                             const SizedBox(width: 16),
                             Expanded(
@@ -100,6 +108,17 @@ class AccountScreen extends ConsumerWidget {
                       subtitle: const Text('Bộ nhớ và bản quyền trên thiết bị'),
                       trailing: const Icon(Icons.chevron_right_rounded),
                       onTap: () => context.push('/offline'),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.devices),
+                      title: const Text('Thiết bị đăng nhập'),
+                      onTap: () => context.push('/devices'),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.history_rounded),
+                      title: const Text('Lịch sử nghe'),
+                      subtitle: const Text('Các bài đã nghe trên tài khoản'),
+                      onTap: () => context.push('/history'),
                     ),
                     ListTile(
                       contentPadding: EdgeInsets.zero,

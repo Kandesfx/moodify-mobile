@@ -4,12 +4,23 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/errors/app_failure.dart';
+import 'search_history_controller.dart';
 import '../../catalog/data/catalog_repository.dart';
 import '../../catalog/domain/catalog_models.dart';
 
 final searchControllerProvider =
     StateNotifierProvider.autoDispose<SearchController, SearchState>(
-      (ref) => SearchController(ref.watch(catalogRepositoryProvider)),
+      (ref) => SearchController(
+        ref.watch(catalogRepositoryProvider),
+        onSubmitted: (query, mood, result) => ref
+            .read(searchHistoryProvider.notifier)
+            .record(
+              query,
+              mood,
+              emotion: result?.emotion,
+              confidence: result?.confidence,
+            ),
+      ),
     );
 
 class SearchState {
@@ -33,8 +44,10 @@ class SearchState {
 }
 
 class SearchController extends StateNotifier<SearchState> {
-  SearchController(this.repository) : super(const SearchState());
+  SearchController(this.repository, {this.onSubmitted})
+    : super(const SearchState());
   final CatalogRepository repository;
+  final Future<void> Function(String, bool, MoodResult?)? onSubmitted;
   Timer? _timer;
   CancelToken? _cancel;
   int _generation = 0;
@@ -56,7 +69,7 @@ class SearchController extends StateNotifier<SearchState> {
     if (!mood && state.query.trim().isNotEmpty) unawaited(submit());
   }
 
-  Future<void> submit({bool more = false}) async {
+  Future<void> submit({bool more = false, bool recordHistory = false}) async {
     _timer?.cancel();
     if (state.query.trim().isEmpty ||
         (more && (state.loading || !state.hasMore))) {
@@ -102,6 +115,13 @@ class SearchController extends StateNotifier<SearchState> {
         hasMore: page?.hasMore ?? false,
         moodResult: moodResult,
       );
+      if (recordHistory && !more) {
+        await onSubmitted?.call(
+          previous.query.trim(),
+          previous.mood,
+          moodResult,
+        );
+      }
     } catch (error) {
       if (!mounted || generation != _generation) return;
       state = SearchState(

@@ -4,6 +4,9 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moodify_flutter/features/auth/data/device_identity.dart';
 import 'package:moodify_flutter/features/offline/data/offline_repository.dart';
+import 'package:moodify_flutter/features/offline/data/offline_access_repository.dart';
+import 'package:moodify_flutter/core/errors/app_failure.dart';
+import 'package:moodify_flutter/features/offline/presentation/offline_controller.dart';
 import '../../support/auth_harness.dart';
 import '../../support/music_harness.dart';
 
@@ -15,6 +18,7 @@ void main() {
   late OfflineRepository repository;
   var revoked = false, confirmationFails = false;
   var removed = 0;
+  var ambiguousConfirmation = false;
   Completer<void>? pendingConfirmation;
   const raw = <int>[73, 68, 51, 1, 2, 3, 4, 5, 6];
   final key = List.filled(32, 'ab').join();
@@ -49,6 +53,7 @@ void main() {
     confirmationFails = false;
     pendingConfirmation = null;
     removed = 0;
+    ambiguousConfirmation = false;
     api = Dio(BaseOptions(baseUrl: 'https://api.example.test/api/'));
     api.httpClientAdapter = TestAdapter((options) async {
       if (options.path.endsWith('offline/remove')) removed++;
@@ -64,6 +69,12 @@ void main() {
         });
       }
       if (options.path.endsWith('confirm-download')) {
+        if (ambiguousConfirmation) {
+          throw DioException(
+            requestOptions: options,
+            type: DioExceptionType.receiveTimeout,
+          );
+        }
         await pendingConfirmation?.future;
         return jsonResponse({'success': !confirmationFails});
       }
@@ -223,4 +234,198 @@ void main() {
       );
     },
   );
+  test(
+    'download phases reflect work and completion follows license verification',
+    () async {
+      final phases = <DownloadPhase>[];
+      await repository.download(
+        firstTrack,
+        (_) {},
+        onUpdate: (update) => phases.add(update.phase),
+      );
+      expect(phases.first, DownloadPhase.preparing);
+      expect(
+        phases,
+        containsAllInOrder([
+          DownloadPhase.encrypting,
+          DownloadPhase.confirming,
+          DownloadPhase.verifying,
+        ]),
+      );
+      expect(await repository.entries(), hasLength(1));
+    },
+  );
+
+  test(
+    'cancel during confirmation cleans private file and retry reconciles reservation',
+    () async {
+      pendingConfirmation = Completer<void>();
+      final reached = Completer<void>();
+      final operation = repository.download(
+        firstTrack,
+        (_) {},
+        onUpdate: (update) {
+          if (update.phase == DownloadPhase.confirming &&
+              !reached.isCompleted) {
+            reached.complete();
+          }
+        },
+      );
+      final expectation = expectLater(
+        operation,
+        throwsA(isA<AppFailure>().having((e) => e.code, 'code', 'CANCELLED')),
+      );
+      await reached.future;
+      repository.cancelDownload();
+      pendingConfirmation!.complete();
+      await expectation;
+      expect(await repository.entries(), isEmpty);
+      expect(await repository.pendingCleanup(), 1);
+      pendingConfirmation = null;
+      await repository.download(firstTrack, (_) {});
+      expect(removed, 1);
+      expect(await repository.entries(), hasLength(1));
+    },
+  );
+
+  test(
+    'local removal requires no network and reconciles on explicit verify',
+    () async {
+      await repository.download(firstTrack, (_) {});
+      await repository.remove(firstTrack.id);
+      expect(removed, 0);
+      expect(await repository.entries(), isEmpty);
+      expect(await repository.pendingCleanup(), 1);
+      await repository.close();
+      repository = create('api|user-one');
+      expect(await repository.pendingCleanup(), 1);
+      await repository.verify();
+      expect(removed, 1);
+      expect(await repository.pendingCleanup(), 0);
+    },
+  );
+
+  test('controller preserves downloaded library when a retry fails', () async {
+    await repository.download(firstTrack, (_) {});
+    final controller = OfflineController(repository);
+    await controller.load();
+    final success = await controller.download(firstTrack);
+    expect(success, false);
+    expect(controller.state.entries, hasLength(1));
+    expect(controller.state.track?.id, firstTrack.id);
+    expect(controller.state.failure, isNotNull);
+    expect(controller.state.busy, false);
+    controller.dispose();
+  });
+  test(
+    'existing offline playback does not wait for another download confirmation',
+    () async {
+      await repository.download(firstTrack, (_) {});
+      pendingConfirmation = Completer<void>();
+      final reached = Completer<void>();
+      final transfer = repository.download(
+        secondTrack,
+        (_) {},
+        onUpdate: (update) {
+          if (update.phase == DownloadPhase.confirming &&
+              !reached.isCompleted) {
+            reached.complete();
+          }
+        },
+      );
+      final cancelled = expectLater(transfer, throwsA(isA<AppFailure>()));
+      await reached.future;
+      final source = await repository
+          .playback(firstTrack, required: true)
+          .timeout(const Duration(seconds: 2));
+      expect(await File.fromUri(source!.uri).readAsBytes(), raw);
+      await repository.releasePlayback();
+      repository.cancelDownload();
+      pendingConfirmation!.complete();
+      await cancelled;
+      expect((await repository.entries()).single.track.id, firstTrack.id);
+    },
+  );
+  test(
+    'ambiguous confirmation reconciles a server-verified download without requesting another ticket',
+    () async {
+      ambiguousConfirmation = true;
+      await repository.download(firstTrack, (_) {});
+      expect(await repository.entries(), hasLength(1));
+      expect(await repository.pendingCleanup(), 0);
+      expect(removed, 0);
+    },
+  );
+  test(
+    'offline request refusal has a permission state and never completes a download',
+    () async {
+      api.httpClientAdapter = TestAdapter(
+        (options) => jsonResponse({'message': 'forbidden'}, status: 403),
+      );
+      final controller = OfflineController(repository);
+      expect(await controller.download(firstTrack), false);
+      expect(controller.state.failure?.code, 'OFFLINE_FORBIDDEN');
+      expect(controller.state.entries, isEmpty);
+      expect(controller.state.busy, false);
+      controller.dispose();
+    },
+  );
+  test(
+    'preflight denies free and full quota without requesting media or reservation',
+    () async {
+      var requests = 0;
+      api.httpClientAdapter = TestAdapter((r) {
+        requests++;
+        return jsonResponse({});
+      });
+      for (final allowed in [false, true]) {
+        final controller = OfflineController(
+          repository,
+          accessLoader: () async => OfflineAccess(
+            packageName: 'Test',
+            allowed: allowed,
+            used: 2,
+            maximum: 2,
+            checkedAt: DateTime.now(),
+          ),
+        );
+        expect(await controller.download(firstTrack), false);
+        expect(
+          controller.state.failure?.code,
+          allowed ? 'DOWNLOAD_LIMIT' : 'OFFLINE_FORBIDDEN',
+        );
+        expect(requests, 0);
+        expect(await repository.entries(), isEmpty);
+        controller.dispose();
+      }
+    },
+  );
+  test('cancel while access check pending never starts the download', () async {
+    final access = Completer<OfflineAccess>();
+    final reached = Completer<void>();
+    final controller = OfflineController(
+      repository,
+      accessLoader: () {
+        reached.complete();
+        return access.future;
+      },
+    );
+    final work = controller.download(firstTrack);
+    await reached.future;
+    controller.cancel();
+    access.complete(
+      OfflineAccess(
+        packageName: 'Test',
+        allowed: true,
+        used: 0,
+        maximum: 2,
+        checkedAt: DateTime.now(),
+      ),
+    );
+    expect(await work, false);
+    expect(controller.state.failure, isNull);
+    expect(controller.state.notice, 'Đã hủy tải.');
+    expect(await repository.entries(), isEmpty);
+    controller.dispose();
+  });
 }

@@ -319,20 +319,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                               ],
                                             ),
                                           ),
-                                          IconButton(
-                                            tooltip: 'Tải để nghe offline',
-                                            onPressed: () => performTrackAction(
-                                              context,
-                                              ref,
-                                              track,
-                                              'download',
-                                            ),
-                                            icon: const Icon(
-                                              Icons.arrow_circle_down_outlined,
-                                              color: AppColors.secondary,
-                                              size: 27,
-                                            ),
-                                          ),
+                                          TrackDownloadButton(track: track),
                                           _LikeButton(track: track),
                                         ],
                                       ),

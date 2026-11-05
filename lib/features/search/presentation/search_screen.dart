@@ -24,9 +24,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   void _submit() {
     FocusScope.of(context).unfocus();
-    final state = ref.read(searchControllerProvider);
-    ref.read(searchControllerProvider.notifier).submit();
-    ref.read(searchHistoryProvider.notifier).record(state.query, state.mood);
+    ref.read(searchControllerProvider.notifier).submit(recordHistory: true);
   }
 
   @override
@@ -140,6 +138,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             ),
           ),
           if (state.loading) const LinearProgressIndicator(),
+          if (state.submitted && history.hasError)
+            const LoadMessage(
+              message:
+                  'Kết quả tìm kiếm vẫn dùng được. Chưa lưu hoặc đồng bộ được lịch sử tìm kiếm.',
+            ),
+          if (state.moodResult?.emotion != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              child: Text('Cảm xúc nhận diện: ${state.moodResult!.emotion}'),
+            ),
           ...[
             if (!state.submitted && signedIn && !state.mood) ...[
               Padding(
@@ -255,7 +263,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 ),
               ),
             for (var i = 0; i < state.tracks.length; i++)
-              TrackTile(track: state.tracks[i], queue: state.tracks, index: i),
+              TrackTile(
+                track: state.tracks[i],
+                queue: state.tracks,
+                index: i,
+                onSelected: () => ref
+                    .read(searchHistoryProvider.notifier)
+                    .select(state.query, state.mood, state.tracks[i].id),
+              ),
             if (state.hasMore)
               Padding(
                 padding: const EdgeInsets.all(20),

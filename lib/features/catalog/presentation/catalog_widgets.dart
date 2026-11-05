@@ -10,6 +10,7 @@ import '../../../core/widgets/app_motion.dart';
 import '../../auth/presentation/session_controller.dart';
 import '../../library/presentation/library_controller.dart';
 import '../../library/presentation/playlist_dialog.dart';
+import '../../library/presentation/pending_track_action.dart';
 import '../../player/presentation/player_controller.dart';
 import '../data/catalog_repository.dart';
 import '../domain/catalog_models.dart';
@@ -66,11 +67,13 @@ class TrackTile extends ConsumerWidget {
     required this.queue,
     required this.index,
     this.remove,
+    this.onSelected,
   });
   final Track track;
   final List<Track> queue;
   final int index;
   final VoidCallback? remove;
+  final VoidCallback? onSelected;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final active = ref.watch(
@@ -94,6 +97,7 @@ class TrackTile extends ConsumerWidget {
         overflow: TextOverflow.ellipsis,
       ),
       onTap: () {
+        onSelected?.call();
         final path = GoRouterState.of(context).uri.path;
         final source = path.startsWith('/album/')
             ? 'ALBUM'
@@ -131,6 +135,8 @@ class TrackOptionsButton extends ConsumerWidget {
     final library = userId == null
         ? null
         : ref.watch(libraryControllerProvider);
+    final downloads = ref.watch(offlineControllerProvider);
+    final downloaded = downloads.entries.any((e) => e.track.id == track.id);
     return PopupMenuButton<String>(
       tooltip: 'Tùy chọn cho ${track.displayName}',
       onSelected: (action) => action == 'remove'
@@ -152,10 +158,20 @@ class TrackOptionsButton extends ConsumerWidget {
           value: 'playlist',
           child: Text('Thêm vào playlist'),
         ),
-        const PopupMenuItem(
-          value: 'download',
-          child: Text('Tải để nghe offline'),
+        PopupMenuItem(
+          value: downloaded || downloads.downloading == track.id
+              ? 'downloads'
+              : 'download',
+          child: Text(
+            downloaded
+                ? 'Xem bản đã tải'
+                : downloads.downloading == track.id
+                ? 'Xem tiến độ tải'
+                : 'Tải để nghe offline',
+          ),
         ),
+        const PopupMenuItem(value: 'queue', child: Text('Thêm vào hàng đợi')),
+        const PopupMenuItem(value: 'next', child: Text('Phát tiếp theo')),
         const PopupMenuItem(value: 'share', child: Text('Chia sẻ bài hát')),
         if (remove != null)
           const PopupMenuItem(value: 'remove', child: Text('Bỏ khỏi playlist')),
@@ -172,6 +188,27 @@ Future<void> performTrackAction(
   Track track,
   String action,
 ) async {
+  if (action == 'queue' || action == 'next') {
+    final success = await ref
+        .read(playerControllerProvider.notifier)
+        .enqueue(track, next: action == 'next');
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            success
+                ? 'Đã thêm vào hàng đợi.'
+                : 'Chưa thêm được. Bài có thể đã trong hàng đợi, hàng đợi đã đầy hoặc đang dùng chế độ offline/karaoke.',
+          ),
+        ),
+      );
+    }
+    return;
+  }
+  if (action == 'downloads') {
+    context.push('/offline');
+    return;
+  }
   if (action == 'share') {
     try {
       final box = context.findRenderObject() as RenderBox?;
@@ -203,10 +240,15 @@ Future<void> performTrackAction(
     return;
   }
   if (ref.read(sessionControllerProvider).session == null) {
+    ref.read(pendingTrackActionProvider.notifier).state = PendingTrackAction(
+      track,
+      action,
+      GoRouterState.of(context).uri.toString(),
+    );
     context.push(
       Uri(
         path: '/sign-in',
-        queryParameters: {'from': GoRouterState.of(context).uri.toString()},
+        queryParameters: {'from': '/continue-action'},
       ).toString(),
     );
     return;
@@ -221,18 +263,9 @@ Future<void> performTrackAction(
   }
   if (action == 'download') {
     final controller = ref.read(offlineControllerProvider.notifier);
-    final success = await controller.download(track);
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          success
-              ? 'Đã tải và xác minh bản quyền trên thiết bị.'
-              : ref.read(offlineControllerProvider).failure?.message ??
-                    'Đang có thao tác tải xuống. Vui lòng thử lại.',
-        ),
-      ),
-    );
+    final operation = controller.download(track);
+    context.push('/offline');
+    await operation;
     return;
   }
   final controller = ref.read(libraryControllerProvider.notifier);
@@ -419,4 +452,40 @@ class GuestPrompt extends StatelessWidget {
       ),
     ),
   );
+}
+
+class TrackDownloadButton extends ConsumerWidget {
+  const TrackDownloadButton({super.key, required this.track});
+  final Track track;
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final downloads = ref.watch(offlineControllerProvider);
+    final ready = downloads.entries.any((e) => e.track.id == track.id);
+    final active = downloads.busy && downloads.downloading == track.id;
+    return IconButton(
+      tooltip: ready
+          ? 'Xem bản đã tải'
+          : active
+          ? 'Xem tiến độ tải'
+          : 'Tải để nghe offline',
+      onPressed: () => performTrackAction(
+        context,
+        ref,
+        track,
+        ready || active ? 'downloads' : 'download',
+      ),
+      icon: active
+          ? const SizedBox.square(
+              dimension: 22,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Icon(
+              ready
+                  ? Icons.download_done_rounded
+                  : Icons.arrow_circle_down_outlined,
+              color: ready ? AppColors.lavender : AppColors.secondary,
+              size: 27,
+            ),
+    );
+  }
 }

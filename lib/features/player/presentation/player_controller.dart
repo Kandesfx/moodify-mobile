@@ -478,6 +478,65 @@ class PlayerController extends StateNotifier<PlayerState> {
     await _select(state.queue, nextIndex);
   }
 
+  Future<void> playCollection(
+    List<Track> tracks, {
+    bool shuffled = false,
+    String source = 'OTHER',
+  }) async {
+    if (tracks.isEmpty) return;
+    final index = shuffled ? Random().nextInt(tracks.length) : 0;
+    if (state.shuffle != shuffled) toggleShuffle();
+    await select(tracks, index, source: source);
+  }
+
+  Future<bool> enqueue(Track track, {bool next = false}) async {
+    if (state.offline ||
+        state.source == 'KARAOKE' ||
+        state.loading ||
+        state.queue.length >= 200) {
+      return false;
+    }
+    if (state.queue.any((item) => item.id == track.id)) return false;
+    if (state.track == null) {
+      await select([track], 0);
+      return state.failure == null;
+    }
+    final queue = [...state.queue];
+    final insertion = next ? state.index + 1 : queue.length;
+    queue.insert(insertion, track);
+    for (var i = 0; i < _history.length; i++) {
+      if (_history[i] >= insertion) _history[i]++;
+    }
+    state = state.copy(queue: List.unmodifiable(queue));
+    _resetShuffle(queue.length, state.index);
+    return true;
+  }
+
+  bool removeUpcoming(int index) {
+    if (state.source == 'KARAOKE' ||
+        state.loading ||
+        index <= state.index ||
+        index >= state.queue.length) {
+      return false;
+    }
+    final queue = [...state.queue]..removeAt(index);
+    final history = <int>[];
+    var cursor = -1;
+    for (var i = 0; i < _history.length; i++) {
+      final item = _history[i];
+      if (item == index) continue;
+      history.add(item > index ? item - 1 : item);
+      if (i <= _historyCursor) cursor = history.length - 1;
+    }
+    _history
+      ..clear()
+      ..addAll(history);
+    _historyCursor = cursor;
+    state = state.copy(queue: List.unmodifiable(queue));
+    _resetShuffle(queue.length, state.index);
+    return true;
+  }
+
   void cycleRepeat() => state = state.copy(
     repeat: PlaybackRepeat
         .values[(state.repeat.index + 1) % PlaybackRepeat.values.length],

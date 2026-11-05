@@ -1,3 +1,4 @@
+import '../../player/presentation/player_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -10,6 +11,8 @@ import '../../player/presentation/player_controller.dart';
 import '../domain/catalog_models.dart';
 import 'catalog_controller.dart';
 import 'catalog_widgets.dart';
+import '../data/artist_repository.dart';
+import 'package:share_plus/share_plus.dart';
 
 class CollectionScreen extends ConsumerWidget {
   const CollectionScreen({super.key, required this.id, required this.album});
@@ -27,7 +30,12 @@ class CollectionScreen extends ConsumerWidget {
         ? ref.watch(albumFavoriteProvider(id)).valueOrNull
         : null;
     return Scaffold(
+      bottomNavigationBar: const MiniPlayer(),
       appBar: AppBar(
+        leading: BackButton(
+          onPressed: () =>
+              context.canPop() ? context.pop() : context.go('/home'),
+        ),
         title: Text(album ? 'Album' : 'Playlist'),
         actions: [
           if (album)
@@ -133,62 +141,98 @@ class CollectionScreen extends ConsumerWidget {
       ),
       body: data.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, _) => LoadMessage(
-          message: 'Không tải được nội dung này.',
+        error: (error, _) => LoadMessage(
+          message: AppFailure.from(error).message,
           retry: () => ref.invalidate(collectionProvider(key)),
         ),
-        data: (item) => ListView(
-          children: [
-            if (actions.isLoading) const LinearProgressIndicator(),
-            if (actions.hasError)
-              LoadMessage(message: AppFailure.from(actions.error!).message),
-            Padding(
-              padding: const EdgeInsets.all(24),
+        data: (item) => CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Center(child: MusicArtwork(image: item.image, size: 224)),
-                  const SizedBox(height: 24),
-                  Text(
-                    item.title,
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                  if (item.author != null) Text(item.author!),
-                  if (item.description != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 12),
-                      child: Text(item.description!),
+                  if (actions.isLoading) const LinearProgressIndicator(),
+                  if (actions.hasError)
+                    LoadMessage(
+                      message: AppFailure.from(actions.error!).message,
                     ),
-                  const SizedBox(height: 16),
-                  Text(
-                    '${item.tracks.length} bài hát${album
-                        ? ''
-                        : item.isPublic
-                        ? ' · Công khai'
-                        : ' · Riêng tư'}',
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Center(
+                          child: MusicArtwork(image: item.image, size: 224),
+                        ),
+                        const SizedBox(height: 24),
+                        Text(
+                          item.title,
+                          style: Theme.of(context).textTheme.headlineMedium,
+                        ),
+                        if (item.author != null) Text(item.author!),
+                        if (item.description != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 12),
+                            child: Text(item.description!),
+                          ),
+                        const SizedBox(height: 16),
+                        Text(
+                          '${item.tracks.length} bài hát${album
+                              ? ''
+                              : item.isPublic
+                              ? ' · Công khai'
+                              : ' · Riêng tư'}',
+                        ),
+                        if (item.tracks.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 16),
+                            child: FilledButton.icon(
+                              onPressed: () => ref
+                                  .read(playerControllerProvider.notifier)
+                                  .playCollection(
+                                    item.tracks,
+                                    source: album ? 'ALBUM' : 'PLAYLIST',
+                                  ),
+                              icon: const Icon(Icons.play_arrow_rounded),
+                              label: const Text('Phát'),
+                            ),
+                          ),
+                        if (item.tracks.isNotEmpty)
+                          TextButton.icon(
+                            onPressed: () => ref
+                                .read(playerControllerProvider.notifier)
+                                .playCollection(
+                                  item.tracks,
+                                  shuffled: true,
+                                  source: album ? 'ALBUM' : 'PLAYLIST',
+                                ),
+                            icon: const Icon(Icons.shuffle),
+                            label: const Text('Trộn bài'),
+                          ),
+                        TextButton.icon(
+                          onPressed: () => SharePlus.instance.share(
+                            ShareParams(
+                              text:
+                                  '${item.title} — ${item.author ?? 'Moodify'}',
+                            ),
+                          ),
+                          icon: const Icon(Icons.share_outlined),
+                          label: const Text('Chia sẻ'),
+                        ),
+                      ],
+                    ),
                   ),
-                  if (item.tracks.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 16),
-                      child: FilledButton.icon(
-                        onPressed: () => ref
-                            .read(playerControllerProvider.notifier)
-                            .select(item.tracks, 0),
-                        icon: const Icon(Icons.play_arrow_rounded),
-                        label: const Text('Phát'),
-                      ),
+                  if (item.tracks.isEmpty)
+                    LoadMessage(
+                      message: 'Chưa có bài hát trong danh sách này.',
+                      retry: owned ? () => context.go('/search') : null,
+                      retryLabel: 'Tìm bài hát',
                     ),
                 ],
               ),
             ),
-            if (item.tracks.isEmpty)
-              LoadMessage(
-                message: 'Chưa có bài hát trong danh sách này.',
-                retry: owned ? () => context.go('/search') : null,
-                retryLabel: 'Tìm bài hát',
-              ),
-            for (var i = 0; i < item.tracks.length; i++)
-              TrackTile(
+            SliverList.builder(
+              itemCount: item.tracks.length,
+              itemBuilder: (_, i) => TrackTile(
                 track: item.tracks[i],
                 queue: item.tracks,
                 index: i,
@@ -203,6 +247,7 @@ class CollectionScreen extends ConsumerWidget {
                       }
                     : null,
               ),
+            ),
           ],
         ),
       ),
@@ -216,34 +261,172 @@ class ArtistScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final query = (genre: null, query: null, artistId: id);
-    final state = ref.watch(catalogControllerProvider(query));
+    final tracks = ref.watch(catalogControllerProvider(query));
+    final profile = ref.watch(artistProfileProvider(id));
+    final action = ref.watch(artistFollowActionProvider(id));
+    final user = ref.watch(sessionControllerProvider).session?.user.id;
     return Scaffold(
-      appBar: AppBar(title: Text(name)),
-      body: ListView(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Text(
-              'Bài hát',
-              style: Theme.of(context).textTheme.titleLarge,
+      bottomNavigationBar: const MiniPlayer(),
+      appBar: AppBar(
+        leading: BackButton(
+          onPressed: () =>
+              context.canPop() ? context.pop() : context.go('/home'),
+        ),
+        title: Text(profile.valueOrNull?.name ?? name),
+      ),
+      body: CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (profile.isLoading) const LinearProgressIndicator(),
+                  if (profile.hasError)
+                    LoadMessage(
+                      message: AppFailure.from(profile.error!).message,
+                      retry: () => ref.invalidate(artistProfileProvider(id)),
+                    ),
+                  if (profile.valueOrNull case final person?) ...[
+                    Center(
+                      child: MusicArtwork(
+                        image: person.image,
+                        size: 180,
+                        round: true,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      person.name,
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
+                    if (person.followers != null)
+                      Text('${person.followers} người theo dõi'),
+                    if (person.bio != null)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Text(person.bio!),
+                      ),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: action.isLoading
+                              ? null
+                              : () {
+                                  if (user == null) {
+                                    context.push(
+                                      '/sign-in?from=${Uri.encodeComponent('/artist/${segment(id)}')}',
+                                    );
+                                    return;
+                                  }
+                                  ref
+                                      .read(
+                                        artistFollowActionProvider(id).notifier,
+                                      )
+                                      .run();
+                                },
+                          icon: Icon(
+                            person.followed
+                                ? Icons.check
+                                : Icons.person_add_outlined,
+                          ),
+                          label: Text(
+                            person.followed ? 'Đang theo dõi' : 'Theo dõi',
+                          ),
+                        ),
+                        TextButton.icon(
+                          onPressed: () => SharePlus.instance.share(
+                            ShareParams(text: '${person.name} — Moodify'),
+                          ),
+                          icon: const Icon(Icons.share_outlined),
+                          label: const Text('Chia sẻ'),
+                        ),
+                      ],
+                    ),
+                    if (action.hasError)
+                      LoadMessage(
+                        message: AppFailure.from(action.error!).message,
+                      ),
+                  ],
+                  if (tracks.tracks.isNotEmpty)
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        FilledButton.icon(
+                          onPressed: () => ref
+                              .read(playerControllerProvider.notifier)
+                              .playCollection(tracks.tracks, source: 'ARTIST'),
+                          icon: const Icon(Icons.play_arrow),
+                          label: const Text('Phát danh sách'),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: () => ref
+                              .read(playerControllerProvider.notifier)
+                              .playCollection(
+                                tracks.tracks,
+                                shuffled: true,
+                                source: 'ARTIST',
+                              ),
+                          icon: const Icon(Icons.shuffle),
+                          label: const Text('Trộn bài'),
+                        ),
+                      ],
+                    ),
+                  if (tracks.hasMore)
+                    const Text(
+                      'Phát các bài đã tải trong danh sách. Chọn Xem thêm để tải tiếp.',
+                    ),
+                  if (profile.valueOrNull?.albums.isNotEmpty == true) ...[
+                    const SizedBox(height: 24),
+                    Text(
+                      'Album',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    for (final album in profile.valueOrNull!.albums)
+                      ListTile(
+                        leading: MusicArtwork(image: album.image),
+                        title: Text(album.title),
+                        onTap: () =>
+                            context.push('/album/${segment(album.id)}'),
+                      ),
+                  ],
+                  const SizedBox(height: 20),
+                  Text(
+                    'Bài hát',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  if (tracks.loading) const LinearProgressIndicator(),
+                  if (tracks.failure != null)
+                    LoadMessage(
+                      message: tracks.failure!.message,
+                      retry: () => ref
+                          .read(catalogControllerProvider(query).notifier)
+                          .load(),
+                    ),
+                  if (!tracks.loading &&
+                      tracks.failure == null &&
+                      tracks.tracks.isEmpty)
+                    const LoadMessage(
+                      message: 'Chưa có bài hát của nghệ sĩ này.',
+                    ),
+                ],
+              ),
             ),
           ),
-          if (state.loading) const LinearProgressIndicator(),
-          if (state.failure != null)
-            LoadMessage(
-              message: state.failure!.message,
-              retry: () =>
-                  ref.read(catalogControllerProvider(query).notifier).load(),
+          SliverList.builder(
+            itemCount: tracks.tracks.length,
+            itemBuilder: (_, i) => TrackTile(
+              track: tracks.tracks[i],
+              queue: tracks.tracks,
+              index: i,
             ),
-          if (!state.loading && state.failure == null && state.tracks.isEmpty)
-            const LoadMessage(message: 'Chưa có bài hát của nghệ sĩ này.'),
-          for (var i = 0; i < state.tracks.length; i++)
-            TrackTile(track: state.tracks[i], queue: state.tracks, index: i),
-          if (state.hasMore && state.tracks.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: OutlinedButton(
-                onPressed: state.loading
+          ),
+          if (tracks.hasMore)
+            SliverToBoxAdapter(
+              child: TextButton(
+                onPressed: tracks.loading
                     ? null
                     : () => ref
                           .read(catalogControllerProvider(query).notifier)

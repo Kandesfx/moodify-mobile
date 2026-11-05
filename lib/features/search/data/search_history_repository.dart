@@ -34,10 +34,28 @@ class SearchHistoryRepository {
         .toList();
   }
 
-  Future<void> record(String keyword, bool mood) async {
-    await dio.post<Object?>(
+  Future<String> record(
+    String keyword,
+    bool mood, {
+    String? emotion,
+    double? confidence,
+  }) async {
+    final response = await dio.post<Object?>(
       'users/me/search-history',
-      data: {'keyword': keyword, 'searchType': mood ? 'EMOTION' : 'TRACK'},
+      data: {
+        'keyword': keyword,
+        'searchType': mood ? 'EMOTION' : 'TRACK',
+        if (mood) 'detectedEmotion': emotion,
+        if (mood) 'emotionConfidence': confidence,
+      },
+    );
+    return requiredText(objectJson(response.data), 'id');
+  }
+
+  Future<void> select(String historyId, String trackId) async {
+    await dio.patch<Object?>(
+      'users/me/search-history/${segment(historyId)}/selection',
+      data: {'targetType': 'TRACK', 'targetId': trackId},
     );
   }
 

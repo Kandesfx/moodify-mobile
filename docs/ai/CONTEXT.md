@@ -1,6 +1,8 @@
 # Ngữ cảnh nhanh
 
-Cập nhật: **04/11/2026**. Đọc tiếp `STATE.md` để biết việc thực sự đã hoàn thành.
+Cập nhật: **05/11/2026**. Đọc tiếp `STATE.md` để biết việc thực sự đã hoàn thành. Đợt đang ưu tiên: tải/offline, lỗi/ràng buộc và lịch sử/hành vi; xem `../UX_PRIORITY_IMPLEMENTATION.md`.
+
+Màn tải đã thiết kế lại và cài Samsung: quyền/quota thật trước khi xin tải, tác vụ có tên và lỗi/hành động, quản lý thư viện local. Tài khoản máy hiện tại Miễn phí nên chỉ kiểm chứng gate quyền; chưa nghiệm thu tải Premium thành công. Không đánh dấu toàn bộ audit hoàn tất.
 
 ## Mục tiêu
 

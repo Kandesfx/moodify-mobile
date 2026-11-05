@@ -110,7 +110,12 @@ class MusicCollection {
 }
 
 class MoodResult {
-  const MoodResult({required this.tracks, this.matchStatus, this.emotion});
+  const MoodResult({
+    required this.tracks,
+    this.matchStatus,
+    this.emotion,
+    this.confidence,
+  });
   factory MoodResult.fromJson(Map<String, dynamic> json) {
     if (json['tracks'] is! List) {
       throw const FormatException('Invalid recommendations');
@@ -121,6 +126,9 @@ class MoodResult {
         (json['tracks'] as List).map((e) => Track.fromJson(objectJson(e))),
       ),
       matchStatus: optionalText(json['matchStatus']),
+      confidence: emotion is Map && emotion['confidence'] is num
+          ? (emotion['confidence'] as num).toDouble()
+          : null,
       emotion: emotion is Map<String, dynamic>
           ? optionalText(emotion['label'])
           : null,
@@ -128,6 +136,7 @@ class MoodResult {
   }
   final List<Track> tracks;
   final String? matchStatus, emotion;
+  final double? confidence;
 }
 
 class Artist {

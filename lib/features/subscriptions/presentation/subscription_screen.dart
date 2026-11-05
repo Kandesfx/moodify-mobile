@@ -1,3 +1,4 @@
+import '../../player/presentation/player_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -58,6 +59,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen>
         if (!popped && order != null) controller.closeCheckout();
       },
       child: Scaffold(
+        bottomNavigationBar: const MiniPlayer(),
         appBar: AppBar(
           title: Text(order == null ? 'Gói dịch vụ' : 'Thanh toán'),
           leading: order == null

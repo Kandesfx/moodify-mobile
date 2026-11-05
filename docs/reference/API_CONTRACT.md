@@ -170,6 +170,7 @@ Confirm response: `success`, `message`, `trackId`. Chỉ confirm sau tải/mã h
 Verify thường trả `deviceActive`, `isPremium`, `subscriptionExpiresAt`, `validTrackIds`,
 `expiredTrackIds`, `revokedTrackIds`, `serverTime`; nhánh device revoked có thể khác, phải đọc service.
 My-downloads: `tracks`, `quota`, `isPremium`, tùy nhánh có `subscriptionExpiresAt`.
+Flutter preflight (05/11/2026): đọc `quota.used/max` là số nguyên không âm và `isPremium` từ my-downloads theo deviceUuid; kết hợp `isPremium`, `entitlements.offlineAllowed`, `packageName`, optional `expiresAt` từ subscriptions/me. Chỉ cho xin lượt tải khi cả hai response xác nhận quyền và quota chưa đầy; thiếu field/lỗi mạng là chưa kiểm tra được, không đổi thành quota0 hoặc quyền miễn phí. Request-download/confirm/verify vẫn là nguồn quyết định cuối cùng. Bộ nhớ bản tải trên UI tính từ manifest/fileSize local, không lấy quota server làm số file trên máy.
 Renew-all: `success`, `renewedCount`, `newExpiresAt`, `message`.
 Key/ticket không ghi log hoặc fixture. Metadata/file local phải scope user+device và dọn theo lifecycle.
 Mã hóa, playback offline, hết hạn/thu hồi cần kiểm chứng native; không tự gia hạn license bằng đồng hồ máy.

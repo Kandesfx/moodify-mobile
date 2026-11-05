@@ -9,6 +9,8 @@ import '../../catalog/domain/catalog_models.dart';
 import 'playlist_dialog.dart';
 import '../../catalog/presentation/catalog_widgets.dart';
 import 'library_controller.dart';
+import '../../catalog/data/artist_repository.dart';
+import '../../player/presentation/player_controller.dart';
 
 class LibraryScreen extends ConsumerWidget {
   const LibraryScreen({super.key});
@@ -28,7 +30,7 @@ class LibraryScreen extends ConsumerWidget {
     final controller = ref.read(libraryControllerProvider.notifier);
     final albums = ref.watch(favoriteAlbumsProvider);
     return DefaultTabController(
-      length: 3,
+      length: 4,
       animationDuration: AppMotion.duration(context),
       child: Scaffold(
         appBar: AppBar(
@@ -64,6 +66,7 @@ class LibraryScreen extends ConsumerWidget {
               Tab(text: 'Playlist'),
               Tab(text: 'Yêu thích'),
               Tab(text: 'Album'),
+              Tab(text: 'Nghệ sĩ'),
             ],
           ),
         ),
@@ -137,6 +140,33 @@ class LibraryScreen extends ConsumerWidget {
                   if (i == 0) {
                     return Column(
                       children: [
+                        if (state.tracks.isNotEmpty)
+                          Wrap(
+                            spacing: 8,
+                            children: [
+                              TextButton.icon(
+                                onPressed: () => ref
+                                    .read(playerControllerProvider.notifier)
+                                    .playCollection(
+                                      state.tracks,
+                                      source: 'LIBRARY',
+                                    ),
+                                icon: const Icon(Icons.play_arrow),
+                                label: const Text('Phát danh sách'),
+                              ),
+                              TextButton.icon(
+                                onPressed: () => ref
+                                    .read(playerControllerProvider.notifier)
+                                    .playCollection(
+                                      state.tracks,
+                                      shuffled: true,
+                                      source: 'LIBRARY',
+                                    ),
+                                icon: const Icon(Icons.shuffle),
+                                label: const Text('Trộn bài'),
+                              ),
+                            ],
+                          ),
                         if (state.loading) const LinearProgressIndicator(),
                         if (state.failure != null)
                           LoadMessage(
@@ -228,9 +258,50 @@ class LibraryScreen extends ConsumerWidget {
                 ),
               ),
             ),
+            const FollowedArtistsView(),
           ],
         ),
       ),
     );
   }
+}
+
+class FollowedArtistsView extends ConsumerWidget {
+  const FollowedArtistsView({super.key});
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => ref
+      .watch(followedArtistsProvider)
+      .when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => LoadMessage(
+          message: 'Chưa tải được nghệ sĩ đã theo dõi.',
+          retry: () => ref.invalidate(followedArtistsProvider),
+        ),
+        data: (items) => items.isEmpty
+            ? LoadMessage(
+                message: 'Nghệ sĩ bạn theo dõi sẽ xuất hiện ở đây.',
+                retry: () => context.go('/search'),
+                retryLabel: 'Tìm nghệ sĩ',
+              )
+            : RefreshIndicator(
+                onRefresh: () async {
+                  ref.invalidate(followedArtistsProvider);
+                  await ref.read(followedArtistsProvider.future);
+                },
+                child: ListView.builder(
+                  itemCount: items.length,
+                  itemBuilder: (_, i) => ListTile(
+                    leading: MusicArtwork(image: items[i].image, round: true),
+                    title: Text(items[i].name),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push(
+                      Uri(
+                        path: '/artist/${segment(items[i].id)}',
+                        queryParameters: {'name': items[i].name},
+                      ).toString(),
+                    ),
+                  ),
+                ),
+              ),
+      );
 }

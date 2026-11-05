@@ -101,3 +101,15 @@ rg --files lib/features/auth
 Không search ổ đĩa hoặc parent workspace bằng `--hidden --no-ignore` nếu không có lý do cụ thể. Không đọc `.env`, key, database dump hoặc export catalog để hiểu API. File generated bị loại khỏi search mặc định vẫn có thể đọc đúng đường dẫn khi chẩn đoán cần thiết; không sửa trực tiếp generated code.
 
 `.gitignore` phục vụ Git; `.ignore` phục vụ công cụ tìm kiếm có hỗ trợ; VS Code settings phục vụ search/watcher/editor. Không giả định ba file đó cấu hình được mọi agent indexer. Source map và chọn đúng workspace là cơ chế giới hạn ngữ cảnh chính.
+
+## Bổ sung ưu tiên 05/11/2026
+
+- Lịch sử nghe `/history`, GET/DELETE analytics và phát lại: `lib/features/player/presentation/listening_history_screen.dart`; entry Account/router. Provider theo user; dữ liệu từ server.
+- Tải: `DownloadUpdate/DownloadPhase` trong offline repository, state/controller và offline screen. Transfer không chiếm serial playback; manifest writes được serialize. Xóa local + cleanup quota theo verify/download.
+- Quyền/quota tải: `offline/data/offline_access_repository.dart`, GET subscriptions/me + offline/my-downloads theo deviceUuid; preflight trong OfflineController, phân biệt quota server với dung lượng bản tải local. Test `test/features/offline/offline_access_test.dart` và offline_repository_test/offline_screen_test.
+- Search history/selection: `features/search/data/search_history_repository.dart`, `search_history_controller.dart`, hook explicit-submit trong search controller và `TrackTile.onSelected`.
+- Kiểm thử mới: `test/features/search/search_history_test.dart`, `test/features/offline/offline_screen_test.dart` và mở rộng offline_repository_test. Bằng chứng/giới hạn tại `docs/UX_PRIORITY_IMPLEMENTATION.md`.
+
+- Đợt continuity: `library/presentation/pending_track_action.dart` (RAM TTL/user cleanup), `continue_track_action_screen.dart` và route `/continue-action`; `PlayerController.enqueue/removeUpcoming`, `player_sheets.dart` cho queue/LRC follow; mini gắn vào detail/inbox/subscriptions. Test `test/features/player/continuity_test.dart`.
+
+- Artist/profile/follow: `catalog/data/artist_repository.dart`, `detail_screen.dart`; followed tab ở Library. Device API/schema client: `auth/data/device_repository.dart`, `auth/presentation/device_screen.dart`, route `/devices` và entry Account. Tests `test/features/catalog/artist_device_test.dart`.

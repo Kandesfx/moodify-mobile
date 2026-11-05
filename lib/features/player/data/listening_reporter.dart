@@ -79,9 +79,22 @@ class ListeningReporter {
     _serial = _serial.then((_) async {
       try {
         if (!_disposed) {
-          await dio.post<Object?>('analytics/listening-session', data: body);
+          final response = await dio.post<Object?>(
+            'analytics/listening-session',
+            data: body,
+          );
+          if (kDebugMode) {
+            debugPrint(
+              'Listening observation: ${event.event} HTTP ${response.statusCode}, accepted=${response.data is Map ? (response.data as Map)['success'] : 'unknown'}',
+            );
+          }
         }
-      } catch (_) {
+      } catch (error) {
+        if (kDebugMode) {
+          debugPrint(
+            'Listening observation failed: ${event.event}, HTTP ${error is DioException ? error.response?.statusCode : 'unknown'}',
+          );
+        }
         /* No replay or fabricated listening after a failed observation. */
       } finally {
         _pending--;

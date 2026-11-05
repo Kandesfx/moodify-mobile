@@ -16,10 +16,13 @@ import '../../features/search/presentation/search_screen.dart';
 import '../../features/library/presentation/library_screen.dart';
 import '../../features/karaoke/presentation/karaoke_screen.dart';
 import '../../features/player/presentation/player_screen.dart';
+import '../../features/player/presentation/listening_history_screen.dart';
 import '../../features/notifications/presentation/notification_screen.dart';
 import '../../features/subscriptions/presentation/subscription_screen.dart';
 import '../../features/offline/presentation/offline_screen.dart';
 import '../main_shell.dart';
+import '../../features/auth/presentation/device_screen.dart';
+import '../../features/library/presentation/continue_track_action_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final refresh = _RouterRefresh();
@@ -53,6 +56,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/continue-action',
+        builder: (_, _) => const ContinueTrackActionScreen(),
+      ),
       GoRoute(path: '/', redirect: (_, _) => '/home'),
       GoRoute(path: '/restoring', builder: (_, _) => const _RestoringScreen()),
       GoRoute(
@@ -155,6 +162,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/subscriptions',
         pageBuilder: (context, route) =>
             _slidePage(context, route, const SubscriptionScreen()),
+      ),
+      GoRoute(path: '/devices', builder: (_, _) => const DeviceScreen()),
+      GoRoute(
+        path: '/history',
+        pageBuilder: (context, route) =>
+            _slidePage(context, route, const _HistorySessionPage()),
       ),
       GoRoute(
         path: '/offline',
@@ -261,6 +274,9 @@ String _destination(Uri uri) {
         '/account',
         '/player',
         '/notifications',
+        '/history',
+        '/devices',
+        '/continue-action',
         '/subscriptions',
         '/offline',
       }.contains(parsed.path) ||
@@ -340,5 +356,16 @@ class _RestoringScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+}
+
+class _HistorySessionPage extends ConsumerWidget {
+  const _HistorySessionPage();
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(
+      sessionControllerProvider.select((s) => s.session?.user.id),
+    );
+    return ListeningHistoryScreen(key: ValueKey(user));
   }
 }

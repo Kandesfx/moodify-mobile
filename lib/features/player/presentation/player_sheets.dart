@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../core/widgets/app_motion.dart';
 import '../../auth/presentation/session_controller.dart';
@@ -75,6 +76,14 @@ class _QueueSheet extends ConsumerWidget {
                   selectedColor: AppColors.primary,
                   trailing: i == state.index
                       ? const Icon(Icons.graphic_eq_rounded)
+                      : i > state.index
+                      ? IconButton(
+                          tooltip: 'Bỏ bài sắp phát',
+                          onPressed: () => ref
+                              .read(playerControllerProvider.notifier)
+                              .removeUpcoming(i),
+                          icon: const Icon(Icons.close),
+                        )
                       : null,
                   onTap: () => ref
                       .read(playerControllerProvider.notifier)
@@ -105,13 +114,139 @@ void showPlayerLyrics(BuildContext context) => showModalBottomSheet<void>(
   builder: (_) => const _LyricsSheet(),
 );
 
-class _LyricsSheet extends ConsumerWidget {
+class _LyricsSheet extends ConsumerStatefulWidget {
   const _LyricsSheet();
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_LyricsSheet> createState() => _LyricsSheetState();
+}
+
+class _LyricsSheetState extends ConsumerState<_LyricsSheet> {
+  final _scroll = ScrollController();
+  bool _follow = true;
+  int _lastActive = -2;
+  String? _track;
+  Object? _measureKey;
+  List<double> _heights = [];
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  Widget _lines(
+    List<LyricLine> lines,
+    int active,
+    bool loading,
+  ) => LayoutBuilder(
+    builder: (context, constraints) {
+      final style = TextStyle(
+        fontFamily: Theme.of(context).textTheme.bodyMedium?.fontFamily,
+        fontSize: 20,
+        height: 1.5,
+        fontWeight: FontWeight.w700,
+      );
+      final measureKey = (
+        lines,
+        constraints.maxWidth,
+        MediaQuery.textScalerOf(context),
+        Directionality.of(context),
+        style.fontFamily,
+      );
+      if (_measureKey != measureKey) {
+        _measureKey = measureKey;
+        _heights = lines.map((line) {
+          final painter =
+              TextPainter(
+                text: TextSpan(text: line.text, style: style),
+                textDirection: Directionality.of(context),
+                textScaler: MediaQuery.textScalerOf(context),
+              )..layout(
+                maxWidth: (constraints.maxWidth - 48).clamp(1, double.infinity),
+              );
+          final height = painter.height + 32;
+          painter.dispose();
+          return height < 56 ? 56.0 : height;
+        }).toList();
+        _lastActive = -2;
+      }
+      final heights = _heights;
+      if (_lastActive != active) {
+        _lastActive = active;
+        if (_follow && active >= 0) {
+          final target =
+              heights
+                  .take(active)
+                  .fold<double>(0, (sum, value) => sum + value) -
+              constraints.maxHeight * .3;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted ||
+                !_follow ||
+                !_scroll.hasClients ||
+                _lastActive != active) {
+              return;
+            }
+            final offset = target.clamp(0.0, _scroll.position.maxScrollExtent);
+            if (MediaQuery.disableAnimationsOf(context)) {
+              _scroll.jumpTo(offset);
+            } else {
+              _scroll.animateTo(
+                offset,
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+              );
+            }
+          });
+        }
+      }
+      return NotificationListener<ScrollStartNotification>(
+        onNotification: (event) {
+          if (event.dragDetails != null && _follow) {
+            setState(() => _follow = false);
+          }
+          return false;
+        },
+        child: ListView.builder(
+          controller: _scroll,
+          itemCount: lines.length,
+          itemBuilder: (_, i) => SizedBox(
+            height: heights[i],
+            child: InkWell(
+              onTap: loading
+                  ? null
+                  : () => ref
+                        .read(playerControllerProvider.notifier)
+                        .seek(lines[i].at),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 16,
+                ),
+                child: Text(
+                  lines[i].text,
+                  style: style.copyWith(
+                    color: i == active
+                        ? AppColors.lavender
+                        : AppColors.secondary,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    },
+  );
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(playerControllerProvider);
     final allowed = ref.watch(syncedLyricsAllowedProvider);
     final lines = ref.watch(playerLyricLinesProvider);
+    if (_track != state.track?.id) {
+      _track = state.track?.id;
+      _follow = true;
+      _lastActive = -2;
+    }
     final synced = allowed.valueOrNull == true && lines.isNotEmpty;
     final active = lines.lastIndexWhere((line) => line.at <= state.position);
     return SafeArea(
@@ -132,48 +267,42 @@ class _LyricsSheet extends ConsumerWidget {
                   const SizedBox(height: 8),
                   Text(state.track?.displayName ?? ''),
                   if (allowed.isLoading) const LinearProgressIndicator(),
-                  if (synced)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 20),
-                      child: Text(
-                        active < 0 ? 'Nhạc dạo' : lines[active].text,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: const Color(0xFFC5B7FF),
-                        ),
-                      ),
+                  if (allowed.hasError)
+                    LoadMessage(
+                      message: 'Chưa kiểm tra được quyền xem lời đồng bộ.',
+                      retry: () => ref.invalidate(syncedLyricsAllowedProvider),
+                    ),
+                  if (!allowed.isLoading && !allowed.hasError && !synced)
+                    Text(
+                      lines.isEmpty
+                          ? 'Bài này chưa có lời đồng bộ.'
+                          : 'Gói hiện tại chưa có quyền xem lời đồng bộ.',
+                    ),
+                  if (!allowed.isLoading &&
+                      !allowed.hasError &&
+                      allowed.valueOrNull == false &&
+                      lines.isNotEmpty)
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        context.push('/subscriptions');
+                      },
+                      child: const Text('Xem gói dịch vụ'),
+                    ),
+                  if (synced && !_follow)
+                    TextButton(
+                      onPressed: () => setState(() {
+                        _follow = true;
+                        _lastActive = -2;
+                      }),
+                      child: const Text('Về câu đang phát'),
                     ),
                 ],
               ),
             ),
             Expanded(
               child: synced
-                  ? ListView.builder(
-                      itemCount: lines.length,
-                      itemBuilder: (_, i) => ListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 8,
-                        ),
-                        selected: i == active,
-                        title: Text(
-                          lines[i].text,
-                          style: TextStyle(
-                            color: i == active
-                                ? const Color(0xFFC5B7FF)
-                                : AppColors.secondary,
-                            fontSize: 20,
-                            fontWeight: i == active
-                                ? FontWeight.w700
-                                : FontWeight.w400,
-                          ),
-                        ),
-                        onTap: state.loading
-                            ? null
-                            : () => ref
-                                  .read(playerControllerProvider.notifier)
-                                  .seek(lines[i].at),
-                      ),
-                    )
+                  ? _lines(lines, active, state.loading)
                   : SingleChildScrollView(
                       padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
                       child: SelectableText(

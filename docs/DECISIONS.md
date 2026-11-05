@@ -56,3 +56,12 @@ Không cần chốt tất cả để bắt đầu code M1; tiếp tục phần �
 ## 3. Cách cập nhật
 
 Quyết định nhỏ trong baseline: ghi ID, lý do, hệ quả, ngày và bằng chứng. Thay đổi schema hoặc kiến trúc tổ chức lớn: ghi đề xuất và câu hỏi cụ thể, chờ người dùng chốt trước phần phụ thuộc. Không ghi “đã được duyệt” nếu chỉ do AI tự chọn. Quyết định bị thay thế giữ tham chiếu ngắn đến quyết định mới, không nối toàn bộ cuộc trao đổi.
+
+## Bổ sung ngày 05/11/2026
+
+- D33: Một transfer tải trong OfflineRepository hiện có chạy độc lập với serial playback; secure manifest writes được serialize. Không thêm download framework/engine. Xóa local trước, cleanup quota bền vững qua API sẵn có lúc verify/download; lỗi đồng bộ không được coi file chưa xóa. Ticket/confirm/verify vẫn bắt buộc trước completed.
+- D34: Search history chỉ ghi khi submit thành công hoặc chọn kết quả có chủ đích; mood ghi nhãn/confidence thật, selection dùng history ID từ server. Reporter nghe giữ từ engine thật, không bổ sung click/timer giả vào đường doanh thu. Lịch sử nghe chỉ đọc/xóa qua API hiện có; snapshot local không thay server history.
+
+- D35 (05/11): Pending guest action chỉ là RAM TTL10phút gồm track/action/return route, không persist credential hoặc tự replay mutation khi auth. User xác nhận tại continuation page; clear khi account đổi, kiểm tra liked trước thao tác lưu để tránh toggle ngược.
+- D36 (05/11): Queue thêm/bỏ tương lai trong controller hiện có, giữ native source/position; LRC follow dùng chiều cao đo có cache và lazy builder, không thêm package animation/scroll/engine. Mini gắn vào scaffold các trang detail để không che nội dung/CTA.
+- D37 (05/11): Download preflight đọc entitlement từ subscriptions/me và quota current-device từ offline/my-downloads, làm mới trước mỗi lượt tải; không dùng tên gói hoặc cache để suy quyền. Thiếu quyền/full quota chặn trước request-download, lỗi mạng/contract giữ trạng thái chưa xác minh. UI tách bộ nhớ file local và quota server; task/lỗi được ưu tiên trước thống kê, thành công chỉ sau confirm/verify hiện có. Không đổi DB/backend hoặc thêm engine/download framework; background durable, byte resume và queue nhiều job chưa triển khai.

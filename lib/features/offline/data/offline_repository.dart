@@ -44,6 +44,17 @@ final offlineRepositoryProvider = Provider<OfflineRepository?>((ref) {
   return repository;
 });
 
+enum DownloadPhase { preparing, receiving, encrypting, confirming, verifying }
+
+class DownloadUpdate {
+  const DownloadUpdate(this.phase, {this.received = 0, this.total});
+  final DownloadPhase phase;
+  final int received;
+  final int? total;
+  double? get fraction =>
+      total != null && total! > 0 ? (received / total!).clamp(0, 1) : null;
+}
+
 class OfflineEntry {
   const OfflineEntry(this.track, this.expiresAt, this.fileSize);
   final Track track;
@@ -112,6 +123,8 @@ class OfflineRepository implements OfflinePlaybackAccess {
   Future<void>? _initializing;
   Future<void>? _closing;
   Future<void> _serial = Future.value();
+  Future<void> _saving = Future.value();
+  Future<void>? _downloadFuture;
 
   Future<T> _run<T>(Future<T> Function() action) {
     final result = _serial.then((_) async {
@@ -162,18 +175,22 @@ class OfflineRepository implements OfflinePlaybackAccess {
       }
     }
   }();
-  Future<void> _save() async {
-    _guard();
-    final now = DateTime.now().toUtc();
-    if (_highWater == null || now.isAfter(_highWater!)) _highWater = now;
-    await store.write(
-      _manifestKey!,
-      jsonEncode({
-        'lastSeen': _highWater?.toIso8601String(),
-        'entries': _manifest,
-        'cleanup': _cleanupIds.toList(),
-      }),
-    );
+  Future<void> _save() {
+    final work = _saving.then((_) async {
+      _guard();
+      final now = DateTime.now().toUtc();
+      if (_highWater == null || now.isAfter(_highWater!)) _highWater = now;
+      await store.write(
+        _manifestKey!,
+        jsonEncode({
+          'lastSeen': _highWater?.toIso8601String(),
+          'entries': _manifest,
+          'cleanup': _cleanupIds.toList(),
+        }),
+      );
+    });
+    _saving = work.then<void>((_) {}, onError: (Object _, StackTrace _) {});
+    return work;
   }
 
   Future<File> _file(String id) async =>
@@ -187,12 +204,45 @@ class OfflineRepository implements OfflinePlaybackAccess {
     () async => _manifest.values.map((e) => _entry(objectJson(e))).toList(),
   );
 
+  void cancelDownload() => _downloadCancel.cancel('USER_CANCELLED');
+  void _checkDownload() {
+    _guard();
+    if (_downloadCancel.isCancelled) {
+      throw const AppFailure('Đã hủy tải.', code: 'CANCELLED');
+    }
+  }
+
   Future<void> download(
     Track summary,
-    void Function(double) progress,
-  ) => _run(() async {
+    void Function(double) progress, {
+    void Function(DownloadUpdate)? onUpdate,
+  }) {
+    if (_downloadFuture != null) {
+      return Future.error(
+        const AppFailure(
+          'Đang có một bài được tải. Hãy chờ hoặc hủy bài đang tải.',
+          code: 'DOWNLOAD_BUSY',
+        ),
+      );
+    }
+    final work = _transfer(summary, progress, onUpdate: onUpdate);
+    _downloadFuture = work;
+    return work.whenComplete(() {
+      _downloadFuture = null;
+    });
+  }
+
+  Future<void> _transfer(
+    Track summary,
+    void Function(double) progress, {
+    void Function(DownloadUpdate)? onUpdate,
+  }) async {
+    await _init();
+    _guard();
     _downloadCancel = CancelToken();
+    onUpdate?.call(const DownloadUpdate(DownloadPhase.preparing));
     await _flushCleanup();
+    _checkDownload();
     if (_manifest.containsKey(summary.id)) {
       throw const AppFailure(
         'Bài hát đã có trên thiết bị. Xóa bản cũ trước khi tải lại.',
@@ -202,6 +252,7 @@ class OfflineRepository implements OfflinePlaybackAccess {
     if (!track.hasAudio) {
       throw const AppFailure('Bài hát chưa có nguồn âm thanh để tải.');
     }
+    _checkDownload();
     final device = await devices.load();
     // A bounded cleanup intent survives an app kill without keeping tickets.
     _cleanupIds.add(track.id);
@@ -212,7 +263,7 @@ class OfflineRepository implements OfflinePlaybackAccess {
         data: {'trackId': track.id, ...device.toJson()},
       )).data,
     );
-    _guard();
+    _checkDownload();
     if (ticket['success'] != true) {
       throw const FormatException('Download refused');
     }
@@ -237,7 +288,16 @@ class OfflineRepository implements OfflinePlaybackAccess {
           ),
           cancelToken: _downloadCancel,
           onReceiveProgress: (received, total) {
-            if (received > 40 * 1024 * 1024) _downloadCancel.cancel();
+            if (received > 40 * 1024 * 1024) {
+              _downloadCancel.cancel('FILE_TOO_LARGE');
+            }
+            onUpdate?.call(
+              DownloadUpdate(
+                DownloadPhase.receiving,
+                received: received,
+                total: total > 0 ? total : null,
+              ),
+            );
             if (total > 0) progress((received / total).clamp(0, 1) * .8);
           },
         );
@@ -266,7 +326,10 @@ class OfflineRepository implements OfflinePlaybackAccess {
           'Nguồn tải không hợp lệ hoặc file vượt quá 40 MB.',
         );
       }
+      _checkDownload();
+      onUpdate?.call(const DownloadUpdate(DownloadPhase.encrypting));
       final encrypted = await OfflineCipher.encrypt(bytes, key);
+      _checkDownload();
       _guard();
       await partial.writeAsBytes(encrypted, flush: true);
       _guard();
@@ -275,21 +338,42 @@ class OfflineRepository implements OfflinePlaybackAccess {
       final hash = (await Sha256().hash(
         encrypted,
       )).bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
-      final confirmation = objectJson(
-        (await api.post<Object?>(
-          'offline/confirm-download',
-          data: {
-            'downloadToken': requiredText(ticket, 'downloadToken'),
-            'fileHash': hash,
-            'fileSize': encrypted.length,
-            'localPath': file.uri.toString(),
-          },
-        )).data,
-      );
-      if (confirmation['success'] != true) {
-        throw const FormatException('Unconfirmed download');
+      _checkDownload();
+      onUpdate?.call(const DownloadUpdate(DownloadPhase.confirming));
+      Map<String, dynamic>? recoveredVerification;
+      try {
+        final confirmation = objectJson(
+          (await api.post<Object?>(
+            'offline/confirm-download',
+            data: {
+              'downloadToken': requiredText(ticket, 'downloadToken'),
+              'fileHash': hash,
+              'fileSize': encrypted.length,
+              'localPath': file.uri.toString(),
+            },
+          )).data,
+        );
+        if (confirmation['success'] != true) {
+          throw const FormatException('Unconfirmed download');
+        }
+      } on DioException catch (error) {
+        _checkDownload();
+        final ambiguous =
+            error.response == null || (error.response?.statusCode ?? 0) >= 500;
+        if (!ambiguous) rethrow;
+        final checked = await _verify([track.id]);
+        if (checked['deviceActive'] != true ||
+            checked['isPremium'] != true ||
+            !(checked['validTrackIds'] is List &&
+                (checked['validTrackIds'] as List).contains(track.id))) {
+          rethrow;
+        }
+        recoveredVerification = checked;
       }
-      final verification = await _verify([track.id]);
+      _checkDownload();
+      onUpdate?.call(const DownloadUpdate(DownloadPhase.verifying));
+      final verification = recoveredVerification ?? await _verify([track.id]);
+      _checkDownload();
       final valid = verification['validTrackIds'] as List? ?? [];
       if (verification['deviceActive'] != true ||
           verification['isPremium'] != true ||
@@ -315,14 +399,25 @@ class OfflineRepository implements OfflinePlaybackAccess {
       _cleanupIds.remove(track.id);
       await _save();
       progress(1);
-    } catch (_) {
+    } catch (error) {
       _manifest.remove(track.id);
       _cleanupIds.add(track.id);
       if (await file.exists()) await file.delete();
       if (await partial.exists()) await partial.delete();
+      if (!_closed) await _save();
+      if (_closed) throw AppFailure.sessionChanged;
+      if (_downloadCancel.cancelError?.error == 'FILE_TOO_LARGE') {
+        throw const AppFailure(
+          'Bản tải vượt giới hạn 40 MiB của ứng dụng.',
+          code: 'FILE_TOO_LARGE',
+        );
+      }
+      if (_downloadCancel.isCancelled) {
+        throw const AppFailure('Đã hủy tải.', code: 'CANCELLED');
+      }
       rethrow;
     }
-  });
+  }
 
   DateTime _serverExpiry(String expires, String serverTime) {
     // Both backend values are timezone-less LocalDateTime; compare their delta.
@@ -339,6 +434,12 @@ class OfflineRepository implements OfflinePlaybackAccess {
     )).data,
   );
   Future<void> verify({bool renew = false}) => _run(() async {
+    if (_downloadFuture != null) {
+      throw const AppFailure(
+        'Chờ tải xong hoặc hủy trước khi xác minh.',
+        code: 'DOWNLOAD_BUSY',
+      );
+    }
     await _flushCleanup();
     if (_manifest.isEmpty) return;
     String? newExpiry;
@@ -381,46 +482,54 @@ class OfflineRepository implements OfflinePlaybackAccess {
     await _save();
   });
   @override
-  Future<OfflineSource?> playback(Track track, {bool required = false}) =>
-      _run(() async {
-        final raw = _manifest[track.id];
-        if (raw == null) {
-          if (required) {
-            throw const AppFailure('Bài hát chưa được tải trên thiết bị.');
-          }
-          return null;
-        }
-        final json = objectJson(raw);
-        final entry = _entry(json);
-        final now = DateTime.now().toUtc();
-        if (_highWater != null &&
-            now.isBefore(_highWater!.subtract(const Duration(minutes: 2)))) {
-          throw const AppFailure(
-            'Giờ thiết bị đã thay đổi. Kết nối mạng để xác minh lại bản quyền.',
-          );
-        }
-        if (entry.expired) {
-          throw const AppFailure(
-            'Bản quyền offline đã hết hạn. Kết nối mạng để gia hạn.',
-          );
-        }
-        final file = await _file(track.id);
-        if (!await file.exists()) {
-          throw const AppFailure(
-            'File đã tải không còn trên thiết bị. Vui lòng tải lại.',
-          );
-        }
-        final bytes = await OfflineCipher.decrypt(
-          await file.readAsBytes(),
-          requiredText(json, 'key'),
-        );
-        _guard();
-        await _cleanPlayback();
-        final playback = File('${_temp!.path}/current.mp3');
-        await playback.writeAsBytes(bytes, flush: true);
-        await _save();
-        return (uri: playback.uri, expiresAt: entry.expiresAt);
-      });
+  Future<OfflineSource?> playback(
+    Track track, {
+    bool required = false,
+  }) => _run(() async {
+    final raw = _manifest[track.id];
+    if (raw == null) {
+      if (required) {
+        throw const AppFailure('Bài hát chưa được tải trên thiết bị.');
+      }
+      return null;
+    }
+    final json = objectJson(raw);
+    final entry = _entry(json);
+    final now = DateTime.now().toUtc();
+    if (_highWater != null &&
+        now.isBefore(_highWater!.subtract(const Duration(minutes: 2)))) {
+      throw const AppFailure(
+        'Giờ thiết bị đã thay đổi. Kết nối mạng để xác minh lại bản quyền.',
+      );
+    }
+    if (entry.expired) {
+      throw const AppFailure(
+        'Bản quyền offline đã hết hạn. Kết nối mạng để gia hạn.',
+      );
+    }
+    final file = await _file(track.id);
+    if (!await file.exists()) {
+      throw const AppFailure(
+        'File đã tải không còn trên thiết bị. Vui lòng tải lại.',
+      );
+    }
+    final encrypted = await file.readAsBytes();
+    late final List<int> bytes;
+    try {
+      bytes = await OfflineCipher.decrypt(encrypted, requiredText(json, 'key'));
+    } catch (_) {
+      throw const AppFailure(
+        'Không mở được bản tải này. File hoặc khóa lưu trên máy không hợp lệ. Xóa bản tải và tải lại khi có mạng.',
+        code: 'OFFLINE_CORRUPT',
+      );
+    }
+    _guard();
+    await _cleanPlayback();
+    final playback = File('${_temp!.path}/current.mp3');
+    await playback.writeAsBytes(bytes, flush: true);
+    await _save();
+    return (uri: playback.uri, expiresAt: entry.expiresAt);
+  });
   @override
   Future<void> releasePlayback() => _run(_cleanPlayback);
   Future<void> _cleanPlayback() async {
@@ -429,25 +538,22 @@ class OfflineRepository implements OfflinePlaybackAccess {
   }
 
   Future<void> remove(String id) => _run(() async {
-    // Server-confirmed removal keeps the device quota consistent.
-    final result = objectJson(
-      (await api.delete<Object?>(
-        'offline/remove',
-        queryParameters: {
-          'deviceUuid': (await devices.load()).uuid,
-          'trackId': id,
-        },
-      )).data,
-    );
-    if (result['success'] != true) {
-      throw const FormatException('Remove refused');
+    if (_downloadFuture != null) {
+      throw const AppFailure(
+        'Chờ tải xong hoặc hủy trước khi xóa.',
+        code: 'DOWNLOAD_BUSY',
+      );
     }
-    _guard();
-    _manifest.remove(id);
+    if (!_manifest.containsKey(id)) return;
+    _cleanupIds.add(id);
     await _save();
     final file = await _file(id);
     if (await file.exists()) await file.delete();
+    _manifest.remove(id);
+    await _save();
   });
+  Future<void> synchronizeRemovals() => _run(_flushCleanup);
+  Future<int> pendingCleanup() => _run(() async => _cleanupIds.length);
   Future<void> _purgeEntries() async {
     _manifest.clear();
     _cleanupIds.clear();
@@ -488,7 +594,14 @@ class OfflineRepository implements OfflinePlaybackAccess {
       _closed = true;
       _downloadCancel.cancel();
       _media.close(force: true);
-      _closing = _serial;
+      _closing = Future.wait<void>([
+        _serial,
+        if (_downloadFuture != null)
+          _downloadFuture!.then<void>(
+            (_) {},
+            onError: (Object _, StackTrace _) {},
+          ),
+      ]).then((_) {});
     }
     // Logout can request a purge after a normal provider disposal has begun.
     return _closing = _closing!.then((_) async {
