@@ -153,6 +153,15 @@ class SessionRepository {
     (device, cancel) => _remote.login(identifier, password, device, cancel),
   );
 
+  Future<void> socialLogin(
+    String provider,
+    Future<String> Function() getToken,
+  ) => _authenticate((device, cancel) async {
+    final token = await getToken();
+    if (cancel.isCancelled) throw AppFailure.sessionChanged;
+    return _remote.socialLogin(provider, token, device, cancel);
+  });
+
   Future<void> register(Registration input) => _authenticate(
     (_, cancel) => _remote.register(input, cancel),
     registration: true,

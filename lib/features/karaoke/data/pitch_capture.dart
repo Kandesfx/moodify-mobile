@@ -3,6 +3,8 @@ import 'dart:isolate';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, TargetPlatform;
 import 'package:record/record.dart';
 
 /// Captures the same 22.05 kHz, 2048/512 YIN feature grid used by the web client.
@@ -33,7 +35,9 @@ class PitchCapture {
   int _realSamples = 0, _frames = 0, _audioSamples = 0, _clipped = 0;
   double _sumSquares = 0;
   bool _paused = false;
+  bool _muted = false;
   Object? failure;
+  void Function(Object error)? onFailure;
   void Function(int frameIndex, double? pitch, double confidence)? onFrame;
 
   int get completedFrameCount => _f0.length;
@@ -72,24 +76,36 @@ class PitchCapture {
       _workerMessages.sendPort,
     );
     _workerCommands = await workerReady.future;
+    await _openInput();
+  }
+
+  Future<void> _openInput() async {
     final stream = await _recorder.startStream(
-      const RecordConfig(
+      RecordConfig(
         encoder: AudioEncoder.pcm16bits,
         sampleRate: sampleRate,
         numChannels: 1,
         autoGain: false,
         echoCancel: false,
         noiseSuppress: false,
+        // The player owns Android audio focus while recording and playback
+        // run together; a second focus request would pause the player.
+        audioInterruption: defaultTargetPlatform == TargetPlatform.android
+            ? AudioInterruptionMode.none
+            : AudioInterruptionMode.pause,
       ),
     );
     _subscription = stream.listen(
       _onBytes,
-      onError: (Object error) => failure = error,
+      onError: (Object error) {
+        failure = error;
+        onFailure?.call(error);
+      },
     );
   }
 
   void _onBytes(List<int> bytes) {
-    if (_paused) return;
+    if (_paused || _muted) return;
     for (var i = 0; i + 1 < bytes.length; i += 2) {
       var sample = (bytes[i] & 0xff) | ((bytes[i + 1] & 0xff) << 8);
       if (sample >= 0x8000) sample -= 0x10000;
@@ -123,8 +139,28 @@ class PitchCapture {
 
   void setPaused(bool paused) => _paused = paused;
 
-  Future<Map<String, dynamic>> finish({required int startOffsetMs}) async {
+  Future<void> mute() async {
+    _muted = true;
     await _recorder.stop();
+    await _subscription?.cancel();
+    _subscription = null;
+  }
+
+  Future<void> unmute(Duration Function() silentDuration) async {
+    await _openInput();
+    addSilence(silentDuration());
+    _muted = false;
+  }
+
+  void addSilence(Duration duration) {
+    final samples = (duration.inMicroseconds * sampleRate / 1000000).round();
+    for (var i = 0; i < samples; i++) {
+      _append(0);
+    }
+  }
+
+  Future<Map<String, dynamic>> finish({required int startOffsetMs}) async {
+    if (!_muted) await _recorder.stop();
     await _subscription?.cancel();
     final expectedFrames = (_realSamples / hopSize).ceil();
     while (_frames < expectedFrames) {

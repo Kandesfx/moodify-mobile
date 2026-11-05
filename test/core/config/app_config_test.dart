@@ -43,4 +43,33 @@ void main() {
       );
     },
   );
+  test('upgrade page requires an HTTP URL and HTTPS in release', () {
+    expect(
+      AppConfig(apiBaseUrl: 'https://api.example.test').premiumWebUri,
+      isNull,
+    );
+    expect(
+      AppConfig(
+        apiBaseUrl: 'https://api.example.test',
+        premiumWebUrl: 'https://example.test/dashboard/premium',
+        release: true,
+      ).premiumWebUri!.host,
+      'example.test',
+    );
+    for (final value in [
+      'http://example.test',
+      'https://user:pass@example.test',
+      'https://example.test?token=x',
+      'file:///test',
+    ]) {
+      expect(
+        () => AppConfig(
+          apiBaseUrl: 'https://api.example.test',
+          premiumWebUrl: value,
+          release: true,
+        ),
+        throwsFormatException,
+      );
+    }
+  });
 }

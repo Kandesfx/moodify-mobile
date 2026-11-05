@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="Moodify (production API)" type="FlutterRunConfigurationType" factoryName="Flutter">
-    <option name="additionalArgs" value="--dart-define-from-file=config/production.json" />
+    <option name="additionalArgs" value="--dart-define-from-file=config/production.json --dart-define=GOOGLE_SERVER_CLIENT_ID=711124485487-2qb1s0uqa7e1uja1qio1kjggqgqdka7i.apps.googleusercontent.com" />
     <option name="filePath" value="$PROJECT_DIR$/lib/main.dart" />
     <method v="2" />
   </configuration>

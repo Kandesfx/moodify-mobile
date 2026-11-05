@@ -21,6 +21,7 @@ class KaraokeVoiceClient {
   final _consumers = <String, Consumer>{};
   final _idsByUser = <String, String>{};
   final _usersByProducer = <String, String>{};
+  final _userVolumes = <String, double>{};
   final _consumerWaiters = <String, Completer<Consumer>>{};
   WebSocket? _socket;
   StreamSubscription<dynamic>? _subscription;
@@ -34,6 +35,39 @@ class KaraokeVoiceClient {
   bool get microphoneOn => _producer != null;
   final onChanged = StreamController<void>.broadcast();
   final remoteUserIds = <String>{};
+
+  bool hasRemoteAudio(String userId) =>
+      connected &&
+      _usersByProducer.entries.any(
+        (entry) => entry.value == userId && _consumers.containsKey(entry.key),
+      );
+
+  double userVolume(String userId) => _userVolumes[userId] ?? 1.0;
+
+  /// Adjusts only the local playback of this participant's remote audio tracks.
+  Future<void> setUserVolume(String userId, double volume) async {
+    if (!volume.isFinite || volume < 0 || volume > 1) {
+      throw ArgumentError.value(volume, 'volume');
+    }
+    final tracks = _usersByProducer.entries
+        .where((entry) => entry.value == userId)
+        .map((entry) => _consumers[entry.key])
+        .whereType<Consumer>()
+        .where((consumer) => !consumer.closed)
+        .map((consumer) => consumer.track)
+        .toList();
+    if (!connected || tracks.isEmpty) {
+      throw StateError('Thành viên chưa phát âm thanh trong phòng.');
+    }
+    for (final track in tracks) {
+      await Helper.setVolume(volume, track);
+    }
+    if (!hasRemoteAudio(userId)) {
+      throw StateError('Âm thanh thành viên đã ngắt kết nối.');
+    }
+    _userVolumes[userId] = volume;
+    _notify();
+  }
 
   void _notify() {
     if (!onChanged.isClosed) onChanged.add(null);
@@ -275,11 +309,17 @@ class KaraokeVoiceClient {
       _consumers[producerId] = consumer;
       _idsByUser[userId] = producerId;
       remoteUserIds.add(userId);
+      final volume = _userVolumes[userId];
+      if (volume != null) await Helper.setVolume(volume, consumer.track);
       await _request('resume-consumer', {'consumerId': consumer.id});
       _notify();
     } catch (e) {
       _consumerWaiters.remove(producerId);
-      _usersByProducer.remove(producerId);
+      if (_consumers.containsKey(producerId)) {
+        _closeRemote(producerId);
+      } else {
+        _usersByProducer.remove(producerId);
+      }
       error = 'Không nhận được âm thanh thành viên: $e';
       _notify();
     }
@@ -290,8 +330,10 @@ class KaraokeVoiceClient {
     if (consumer != null) {
       final userId = _usersByProducer.remove(producerId);
       if (userId != null) {
-        _idsByUser.remove(userId);
-        remoteUserIds.remove(userId);
+        if (!_usersByProducer.containsValue(userId)) {
+          _idsByUser.remove(userId);
+          remoteUserIds.remove(userId);
+        }
       }
       consumer.close();
     }
@@ -342,6 +384,7 @@ class KaraokeVoiceClient {
     _consumers.clear();
     _idsByUser.clear();
     _usersByProducer.clear();
+    _userVolumes.clear();
     _consumerWaiters.clear();
     remoteUserIds.clear();
     _send?.close();

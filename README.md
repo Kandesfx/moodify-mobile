@@ -32,6 +32,10 @@ flutter run -d <device-id> --dart-define-from-file=config/production.json
 
 Trong Android Studio, chọn **Moodify (production API)** để dùng backend production, hoặc **Moodify (local API)** để emulator gọi backend local tại `10.0.2.2:8088`. Backend local cần đang chạy và trỏ tới MongoDB/media local của bạn. Nút Run của cấu hình `main.dart` mặc định không tự nạp file JSON; nếu tạo cấu hình riêng, thêm `--dart-define-from-file` cùng file môi trường tương ứng vào **Additional run args**.
 
+Trên Windows, chạy `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-local-api.ps1` trong terminal ở thư mục mobile trước khi chạy cấu hình local. Script kiểm tra API và chỉ khởi động backend cạnh repo mobile nếu chưa chạy, chờ API sẵn sàng và ghi log vào `build/local-api/`. Cần MySQL, MongoDB và cấu hình backend local hoạt động; một số tính năng như chấm điểm karaoke còn cần dịch vụ riêng. Script tắt tự cập nhật schema, seed, scheduling, maintenance và Docker Compose. Backend vẫn khôi phục trạng thái phòng khi khởi động: phòng đang phát bị tạm dừng và thành viên đang hoạt động được đánh dấu đã rời phòng.
+
+Để Android Studio chạy script này trước nút Run, tạo một **External Tool** trong Settings → Tools → External Tools với Program `powershell.exe`, Arguments `-NoProfile -ExecutionPolicy Bypass -File "$ProjectFileDir$\scripts\start-local-api.ps1"`, Working directory `$ProjectFileDir$`. Trong Run → Edit Configurations, chọn cấu hình Flutter local, thêm External Tool đó vào **Before launch**, rồi Apply. Nếu backend không khởi động, kiểm tra thông báo và log trước khi chạy lại.
+
 `config/production.json` chứa URL public `https://api.moodify.click/api`, không có credential. App gọi backend hiện có; không cần khởi động backend cũ. Không tự tạo tài khoản production để kiểm thử.
 
 Cho môi trường local, tạo file JSON trong `config/local/` theo `config/development.example.json` rồi truyền bằng `--dart-define-from-file`. `10.0.2.2` chỉ dành cho Android emulator; máy thật cần địa chỉ LAN/tunnel có thể truy cập từ điện thoại. Không cấu hình URL thì app báo lỗi rõ, không tự fallback. Release bắt buộc HTTPS; HTTP chỉ được Android debug cho phép để phát triển.
@@ -48,3 +52,11 @@ APK ở `build/app/outputs/flutter-apk/app-debug.apk`. Không đưa build/cache 
 Repo đích được người dùng chỉ định: `Kandesfx/moodify-mobile`. Chỉ đưa nội dung dự án Flutter này lên repo, không đưa các checkout web/backend/React Native, media tải xuống hoặc APK/cache. Trạng thái bàn giao thực tế nằm ở `docs/ai/STATE.md`.
 
 Điểm vào cho AI ở phiên sau: **“Đọc AGENTS.md, CONTEXT.md và STATE.md; tiếp tục milestone còn dở trong MIGRATION_PLAN, chuyển chức năng cũ trước khi mở rộng.”** Tài liệu chi tiết được tra theo SOURCE_MAP, không cần nạp toàn bộ workspace cũ mỗi phiên.
+
+### Đăng nhập Google và Facebook trên Android
+
+Các nút cần cấu hình nhà cung cấp trước khi sử dụng. Google cần OAuth client Android ứng với `dev.moodify.moodify_flutter` và SHA-1 của bản build; truyền web/server client ID được backend tin cậy bằng `--dart-define=GOOGLE_SERVER_CLIENT_ID=...`. Facebook cần đăng ký package, activity và key hash trong Meta Developer; đặt `facebookAppId` và `facebookClientToken` trong Gradle user properties, rồi bật `--dart-define=FACEBOOK_LOGIN_CONFIGURED=true`. Chỉ bật cờ khi cả hai giá trị đã được cấu hình đúng. Các giá trị mặc định không kích hoạt đăng nhập. Không đưa client secret vào ứng dụng.
+
+Cấu hình iOS và đăng nhập với tài khoản thật chưa được kiểm chứng. Backend Facebook hiện cần được rà soát xác minh token thuộc đúng ứng dụng Meta trước khi triển khai production.
+
+Nút nâng cấp trong quảng cáo mở `PREMIUM_WEB_URL` bằng trình duyệt. Cấu hình local dành cho emulator trỏ tới `10.0.2.2:3000`, cần frontend web local hoạt động và kết nối đúng backend local; bản production trỏ tới trang Premium production. Trình duyệt có phiên đăng nhập riêng. Mở trang chỉ bỏ qua quảng cáo hiện tại như web, không xác nhận mua gói; app kiểm tra lại quyền qua backend khi chọn bài tiếp theo.

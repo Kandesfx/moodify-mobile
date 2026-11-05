@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../../../app/bootstrap.dart';
 
 import '../../../app/theme/app_theme.dart';
 import '../../../core/widgets/feedback_panel.dart';
@@ -11,6 +14,233 @@ import 'player_controller.dart';
 String playbackTime(Duration duration) {
   final seconds = duration.inSeconds.clamp(0, 86400);
   return '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
+}
+
+final premiumUrlLauncherProvider = Provider<Future<bool> Function(Uri)>(
+  (ref) =>
+      (uri) => launchUrl(uri, mode: LaunchMode.externalApplication),
+);
+
+class _UpgradeButton extends ConsumerStatefulWidget {
+  const _UpgradeButton({required this.isBasic});
+  final bool isBasic;
+
+  @override
+  ConsumerState<_UpgradeButton> createState() => _UpgradeButtonState();
+}
+
+class _UpgradeButtonState extends ConsumerState<_UpgradeButton> {
+  bool _opening = false;
+
+  Future<void> _open() async {
+    final uri = ref.read(appConfigProvider).premiumWebUri;
+    if (uri == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Trang nâng cấp chưa được cấu hình.')),
+      );
+      return;
+    }
+    final controller = ref.read(playerControllerProvider.notifier);
+    final generation = controller.playbackGeneration;
+    setState(() => _opening = true);
+    var opened = false;
+    try {
+      opened = await ref.read(premiumUrlLauncherProvider)(uri);
+    } catch (_) {
+      opened = false;
+    }
+    if (!mounted) return;
+    setState(() => _opening = false);
+    if (!opened) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Không mở được trang nâng cấp. Vui lòng thử lại.'),
+        ),
+      );
+      return;
+    }
+    await controller.skipAdForUpgrade(generation);
+  }
+
+  @override
+  Widget build(BuildContext context) => FilledButton.icon(
+    onPressed: _opening ? null : _open,
+    style: FilledButton.styleFrom(
+      backgroundColor: const Color(0xFF8B72F6),
+      foregroundColor: Colors.white,
+      minimumSize: const Size(48, 48),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    ),
+    icon: const Icon(Icons.workspace_premium_rounded, size: 18),
+    label: Text(widget.isBasic ? 'Lên FULL' : 'Nâng VIP'),
+  );
+}
+
+class _AdMiniPlayer extends StatelessWidget {
+  const _AdMiniPlayer({required this.state, required this.controller});
+
+  final PlayerState state;
+  final PlayerController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final isIdent = state.position < const Duration(milliseconds: 9500);
+    final durationMs = state.duration.inMilliseconds;
+    final progress = durationMs > 0
+        ? (state.position.inMilliseconds / durationMs).clamp(0.0, 1.0)
+        : 0.0;
+    final remaining = state.duration > Duration.zero
+        ? ((state.duration - state.position).inMilliseconds / 1000)
+              .ceil()
+              .clamp(0, 999)
+        : null;
+    return Material(
+      color: AppColors.background,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF272238), Color(0xFF17151F)],
+            ),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFF494058)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    InkWell(
+                      onTap: () => context.push('/player'),
+                      borderRadius: BorderRadius.circular(12),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.asset(
+                          isIdent
+                              ? 'assets/ads/moodify_brand_ident_art.jpg'
+                              : 'assets/ads/moodify_vip_premium_art.jpg',
+                          width: 52,
+                          height: 52,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => const SizedBox.square(
+                            dimension: 52,
+                            child: Icon(Icons.campaign_outlined),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => context.push('/player'),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Quảng cáo',
+                              style: Theme.of(context).textTheme.labelLarge
+                                  ?.copyWith(
+                                    color: const Color(0xFFE3DAFF),
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              state.failure != null
+                                  ? 'Chưa phát được · Chạm để xem'
+                                  : 'Tiếp theo: ${state.track!.displayName}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: AppColors.secondary),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (state.loading)
+                      const Padding(
+                        padding: EdgeInsets.all(14),
+                        child: SizedBox.square(
+                          dimension: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    else
+                      IconButton(
+                        tooltip: state.playing ? 'Tạm dừng' : 'Phát',
+                        onPressed: state.playing
+                            ? controller.pause
+                            : controller.play,
+                        icon: Icon(
+                          state.playing
+                              ? Icons.pause_rounded
+                              : Icons.play_arrow_rounded,
+                        ),
+                        color: AppColors.text,
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 3,
+                    color: const Color(0xFFB8A7FF),
+                    backgroundColor: const Color(0xFF484255),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    Text(
+                      remaining == null
+                          ? 'Đang tải thời lượng'
+                          : 'Còn ${remaining}s',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.secondary,
+                      ),
+                    ),
+                    if (state.adCanSkip)
+                      TextButton(
+                        onPressed: state.position >= const Duration(seconds: 5)
+                            ? controller.skipAd
+                            : null,
+                        child: Text(
+                          state.position >= const Duration(seconds: 5)
+                              ? 'Bỏ qua'
+                              : 'Bỏ qua sau ${5 - state.position.inSeconds}s',
+                        ),
+                      )
+                    else
+                      Text(
+                        'Nghe hết quảng cáo',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.secondary,
+                        ),
+                      ),
+                    _UpgradeButton(isBasic: state.adCanSkip),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class MiniPlayer extends ConsumerWidget {
@@ -24,6 +254,9 @@ class MiniPlayer extends ConsumerWidget {
     final track = state.track;
     if (track == null) return const SizedBox.shrink();
     final controller = ref.read(playerControllerProvider.notifier);
+    if (state.isAd) {
+      return _AdMiniPlayer(state: state, controller: controller);
+    }
     return Material(
       color: AppColors.surfaceRaised,
       child: Column(
@@ -86,7 +319,9 @@ class MiniPlayer extends ConsumerWidget {
                     ),
                   IconButton(
                     tooltip: 'Bài tiếp theo',
-                    onPressed: state.loading ? null : controller.next,
+                    onPressed: state.loading || state.isAd
+                        ? null
+                        : controller.next,
                     icon: const Icon(Icons.skip_next_rounded),
                   ),
                 ],
@@ -153,19 +388,43 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Center(
-                            child: MusicArtwork(
-                              image: track.image,
-                              size: (bounds.maxWidth - 56).clamp(180, 360),
-                            ),
+                            child: state.isAd
+                                ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(16),
+                                    child: Image.asset(
+                                      state.position <
+                                              const Duration(milliseconds: 9500)
+                                          ? 'assets/ads/moodify_brand_ident_art.jpg'
+                                          : 'assets/ads/moodify_vip_premium_art.jpg',
+                                      width: (bounds.maxWidth - 56).clamp(
+                                        180,
+                                        360,
+                                      ),
+                                      height: (bounds.maxWidth - 56).clamp(
+                                        180,
+                                        360,
+                                      ),
+                                      fit: BoxFit.cover,
+                                    ),
+                                  )
+                                : MusicArtwork(
+                                    image: track.image,
+                                    size: (bounds.maxWidth - 56).clamp(
+                                      180,
+                                      360,
+                                    ),
+                                  ),
                           ),
                           const SizedBox(height: 28),
                           Text(
-                            track.displayName,
+                            state.isAd ? 'Quảng cáo' : track.displayName,
                             style: Theme.of(context).textTheme.titleLarge,
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            track.artist,
+                            state.isAd
+                                ? 'Tiếp theo: ${track.displayName}'
+                                : track.artist,
                             style: const TextStyle(color: AppColors.secondary),
                           ),
                           if (state.failure != null)
@@ -187,7 +446,8 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                               Duration(milliseconds: value.round()),
                             ),
                             onChanged:
-                                state.loading ||
+                                state.isAd ||
+                                    state.loading ||
                                     duration <= 0 ||
                                     state.failure != null
                                 ? null
@@ -212,6 +472,29 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                               Text(playbackTime(state.duration)),
                             ],
                           ),
+                          if (state.isAd) ...[
+                            const SizedBox(height: 12),
+                            if (state.adCanSkip)
+                              OutlinedButton(
+                                onPressed:
+                                    state.position >= const Duration(seconds: 5)
+                                    ? controller.skipAd
+                                    : null,
+                                child: Text(
+                                  state.position >= const Duration(seconds: 5)
+                                      ? 'Bỏ qua quảng cáo'
+                                      : 'Bỏ qua sau ${5 - state.position.inSeconds}s',
+                                ),
+                              )
+                            else
+                              const Text(
+                                'Quảng cáo sẽ phát hết trước bài hát tiếp theo.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: AppColors.secondary),
+                              ),
+                            const SizedBox(height: 8),
+                            _UpgradeButton(isBasic: state.adCanSkip),
+                          ],
                           const SizedBox(height: 12),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -228,7 +511,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                               ),
                               IconButton(
                                 tooltip: 'Bài trước',
-                                onPressed: state.loading
+                                onPressed: state.loading || state.isAd
                                     ? null
                                     : controller.previous,
                                 icon: const Icon(
@@ -261,7 +544,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                               ),
                               IconButton(
                                 tooltip: 'Bài tiếp theo',
-                                onPressed: state.loading
+                                onPressed: state.loading || state.isAd
                                     ? null
                                     : controller.next,
                                 icon: const Icon(
@@ -288,21 +571,22 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                             ],
                           ),
                           const SizedBox(height: 24),
-                          ExpansionTile(
-                            tilePadding: EdgeInsets.zero,
-                            title: const Text('Lời bài hát'),
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
+                          if (!state.isAd)
+                            ExpansionTile(
+                              tilePadding: EdgeInsets.zero,
+                              title: const Text('Lời bài hát'),
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 16,
+                                  ),
+                                  child: SelectableText(
+                                    track.lyrics ??
+                                        'Chưa có lời cho bài hát này.',
+                                  ),
                                 ),
-                                child: SelectableText(
-                                  track.lyrics ??
-                                      'Chưa có lời cho bài hát này.',
-                                ),
-                              ),
-                            ],
-                          ),
+                              ],
+                            ),
                           ExpansionTile(
                             tilePadding: EdgeInsets.zero,
                             title: Text('Hàng đợi · ${state.queue.length} bài'),

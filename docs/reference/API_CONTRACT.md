@@ -3,7 +3,7 @@
 Khảo sát source ngày **04/11/2026**, từ working tree hiện có. Phần lớn **chưa kiểm chứng runtime/deployment**. Probe đọc cùng ngày tại `https://api.moodify.click/api`: `/tracks?page=0&size=1` trả 200 đúng envelope, `/auth/me` không token trả 401. Chưa xác minh password auth thành công trên server thật.
 Endpoint tồn tại trong source không chứng minh dịch vụ hoặc plugin native đang hoạt động.
 
-Probe M2 cùng ngày: catalog có 538 bài, albums total 0, artists query trả list thật. Stream trả 302 HTTPS sang media host; Range trên file hợp lệ trả 206 audio/mpeg. `03 Hay Là` và `1-800-LOVE` trả 404 tại media, `10 Ngàn Năm`/`1000 Ánh Mắt`/`2 4` trả 206. Đây là snapshot, không đảm bảo mọi bài có localPath đều tồn tại. Không sửa DB hoặc dùng fallback để che lỗi. Android đã phát `10 Ngàn Năm`; mood/auth/library cần xác minh luồng thật riêng.
+Probe production ngày 04/11/2026: catalog có 538 bài. `03 Hay Là` trả `localPath` thuộc thư mục HIEUTHUHAI; stream trả 302 tới media host nhưng Range tại file trả 404. `10 Ngàn Năm` trả 206 audio/mpeg. Local backend trên cổng 8088 hiện trả 200 cho tracks/albums/artists; với `03 Hay Là`, file không nằm trong các thư mục local mà backend tìm nên route vẫn redirect tới media production và nhận 404. Local API GET đã kiểm tra; emulator chưa xác nhận sau khi bấm thử lại. Không sửa DB hoặc dùng fallback để che lỗi.
 `Backend/` là alias repo backend trong `../ai/SOURCE_MAP.md`, không phải thư mục sẽ copy vào repo Flutter.
 Mọi đường dẫn source bên dưới tính từ alias đó; mở controller và DTO liên quan trước khi triển khai.
 Không khởi động backend để đọc contract: có auto-DDL/seed, xem `LEGACY_AUDIT.md`.
@@ -116,7 +116,7 @@ Nguồn: `Backend/src/main/java/com/laphuth/moodify/api/`:
 ## 5. Streaming và telemetry
 
 `GET /api/tracks/{id}/stream` có alias `/api/tracks/stream/{id}`.
-Backend kiểm tra public/license; thường trả **302** tới remote audio, local fallback hỗ trợ Range/206.
+Backend kiểm tra public/license; local source hiện phục vụ file có sẵn trên filesystem trước (Range trả **206**), nếu không tìm thấy thì chuyển hướng **302** tới `AUDIO_SERVER_BASE_URL`. File path trong MongoDB chỉ là metadata; redirect có thể vẫn trỏ tới host khác và host đó có thể trả 404.
 Contract này không có signed streaming URL; không tự thêm cơ chế ký URL hoặc bypass quyền.
 Ảnh/media có thể là absolute URL hoặc path `/uploads`, `/data`; resolve theo host đúng môi trường.
 **Blocker kế thừa:** `AudioUrlResolver.resolve()` có fallback một bài cố định khi thiếu `localPath`.

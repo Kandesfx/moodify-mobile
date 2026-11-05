@@ -93,3 +93,5 @@ rg --files lib/features/auth
 Không search ổ đĩa hoặc parent workspace bằng `--hidden --no-ignore` nếu không có lý do cụ thể. Không đọc `.env`, key, database dump hoặc export catalog để hiểu API. File generated bị loại khỏi search mặc định vẫn có thể đọc đúng đường dẫn khi chẩn đoán cần thiết; không sửa trực tiếp generated code.
 
 `.gitignore` phục vụ Git; `.ignore` phục vụ công cụ tìm kiếm có hỗ trợ; VS Code settings phục vụ search/watcher/editor. Không giả định ba file đó cấu hình được mọi agent indexer. Source map và chọn đúng workspace là cơ chế giới hạn ngữ cảnh chính.
+
+- Quảng cáo Flutter: `lib/features/player/data/ad_policy.dart`, `lib/features/player/data/playback_engine.dart`, `lib/features/player/presentation/player_controller.dart`, `lib/features/player/presentation/player_screen.dart`; MP3/artwork ở `assets/ads/`. Đối chiếu web `components/dashboard/player-context.tsx` và `components/dashboard/ad-interstitial-banner.tsx`.

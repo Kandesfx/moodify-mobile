@@ -1,4 +1,7 @@
 {
   "APP_ENV": "production",
-  "API_BASE_URL": "https://api.moodify.click/api"
+  "API_BASE_URL": "https://api.moodify.click/api",
+  "GOOGLE_SERVER_CLIENT_ID": "711124485487-2qb1s0uqa7e1uja1qio1kjggqgqdka7i.apps.googleusercontent.com",
+  "FACEBOOK_LOGIN_CONFIGURED": true,
+  "PREMIUM_WEB_URL": "https://moodify.click/dashboard/premium"
 }

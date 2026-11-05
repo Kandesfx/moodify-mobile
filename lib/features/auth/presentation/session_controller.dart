@@ -27,6 +27,10 @@ class SessionController extends Notifier<SessionState> {
   Future<void> restore() => _repository.restore();
   Future<void> login(String identifier, String password) =>
       _repository.login(identifier, password);
+  Future<void> socialLogin(
+    String provider,
+    Future<String> Function() getToken,
+  ) => _repository.socialLogin(provider, getToken);
   Future<void> register(Registration input) => _repository.register(input);
   Future<void> refreshProfile() => _repository.refreshProfile();
   Future<void> logout() => _repository.logout();

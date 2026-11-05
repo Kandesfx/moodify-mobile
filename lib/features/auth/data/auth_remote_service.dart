@@ -25,6 +25,22 @@ class AuthRemoteService {
     ),
   );
 
+  Future<Map<String, dynamic>> socialLogin(
+    String provider,
+    String token,
+    DeviceIdentity device,
+    CancelToken cancel,
+  ) async => _object(
+    await _dio.post<dynamic>(
+      'auth/$provider',
+      data: {
+        provider == 'google' ? 'idToken' : 'accessToken': token,
+        ...device.toJson(),
+      },
+      cancelToken: cancel,
+    ),
+  );
+
   Future<Map<String, dynamic>> register(
     Registration input,
     CancelToken cancel,

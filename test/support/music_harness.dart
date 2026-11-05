@@ -68,6 +68,7 @@ class PlaybackEngineFake implements PlaybackEngine {
   int resumes = 0, pauses = 0, stops = 0;
   bool disposed = false;
   Duration sought = Duration.zero;
+  Duration resumeDuration = const Duration(minutes: 2);
   PlayerCommands? commands;
   @override
   Stream<EngineEvent> get events => controller.stream;
@@ -78,12 +79,17 @@ class PlaybackEngineFake implements PlaybackEngine {
     loaded.add(track.id);
   }
 
+  final ads = <String>[];
+  @override
+  Future<Duration?> loadAd(String asset) async {
+    ads.add(asset);
+    return const Duration(seconds: 30);
+  }
+
   @override
   Future<void> resume() async {
     resumes++;
-    controller.add(
-      const EngineEvent(playing: true, duration: Duration(minutes: 2)),
-    );
+    controller.add(EngineEvent(playing: true, duration: resumeDuration));
   }
 
   @override

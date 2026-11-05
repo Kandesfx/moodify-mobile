@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:moodify_flutter/core/errors/app_failure.dart';
 import 'package:moodify_flutter/features/auth/domain/auth_session.dart';
 import 'package:moodify_flutter/features/auth/domain/registration.dart';
@@ -10,6 +11,59 @@ import 'package:moodify_flutter/features/auth/domain/session_state.dart';
 import '../../support/auth_harness.dart';
 
 void main() {
+  test('Google verification cancellation produces a clear message', () {
+    final failure = AppFailure.from(
+      const GoogleSignInException(code: GoogleSignInExceptionCode.canceled),
+    );
+    expect(failure.code, 'GOOGLE_canceled');
+    expect(failure.message, contains('Xác minh'));
+  });
+
+  for (final provider in ['google', 'facebook']) {
+    test(
+      'social login sends $provider token and establishes a session',
+      () async {
+        final h = AuthHarness(
+          handler: (request) {
+            if (request.uri.path == '/api/auth/$provider') {
+              return jsonResponse(authResponse());
+            }
+            return AuthHarness.defaultResponse(request);
+          },
+        );
+        addTearDown(h.close);
+        await h.repository.restore();
+        await h.repository.socialLogin(provider, () async => 'provider-token');
+        final request = h.requests.first;
+        expect(request.uri.path, '/api/auth/$provider');
+        expect(
+          request.data[provider == 'google' ? 'idToken' : 'accessToken'],
+          'provider-token',
+        );
+        expect(request.data['deviceUuid'], isNotEmpty);
+        expect(h.repository.state.phase, SessionPhase.signedIn);
+        expect(await h.storage.read(), isNotNull);
+      },
+    );
+  }
+
+  test(
+    'canceling while provider login is open does not send a token',
+    () async {
+      final h = AuthHarness();
+      addTearDown(h.close);
+      await h.repository.restore();
+      final pending = Completer<String>();
+      final login = h.repository.socialLogin('google', () => pending.future);
+      await Future<void>.delayed(Duration.zero);
+      await h.repository.logout();
+      pending.complete('provider-token');
+      await login;
+      expect(h.requests, isEmpty);
+      expect(h.repository.state.phase, SessionPhase.signedOut);
+    },
+  );
+
   test('flat auth response uses seconds and preserves opaque user ID', () {
     final now = DateTime.utc(2026, 11, 4);
     final session = AuthSession.fromAuthResponse(authResponse(), now);

@@ -1,10 +1,20 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:dio/dio.dart';
+import 'package:moodify_flutter/features/player/data/ad_policy.dart';
+import '../../support/auth_harness.dart' show MemoryStore;
 import 'package:moodify_flutter/features/player/data/playback_engine.dart';
 import 'package:moodify_flutter/features/player/presentation/player_controller.dart';
 
 import '../../support/music_harness.dart';
+
+class FixedAdPolicy extends AdPolicyService {
+  FixedAdPolicy(this.decision) : super(Dio(), MemoryStore(), 'test');
+  final AdDecision decision;
+  @override
+  Future<AdDecision> decide(String? userId) async => decision;
+}
 
 void main() {
   late MusicRepositoryFake repository;
@@ -24,6 +34,80 @@ void main() {
     player.dispose();
     await flushMusic();
     repository.remote.dio.close();
+  });
+
+  test(
+    'ad plays before track, blocks seek and skips, then resumes selected track',
+    () async {
+      player.dispose();
+      player = PlayerController(
+        repository,
+        () async => engine,
+        adPolicy: FixedAdPolicy(const AdDecision(true, false)),
+      );
+      await player.select([firstTrack, secondTrack], 0);
+      expect(player.state.isAd, true);
+      expect(engine.ads, hasLength(1));
+      expect(engine.loaded, isEmpty);
+      await player.next();
+      await player.seek(const Duration(seconds: 20));
+      await player.skipAd();
+      expect(engine.loaded, isEmpty);
+      expect(engine.sought, Duration.zero);
+      await player.select([firstTrack, secondTrack], 1);
+      engine.controller.add(const EngineEvent(completed: true));
+      await flushMusic();
+      expect(player.state.isAd, false);
+      expect(engine.loaded, [secondTrack.id]);
+      expect(player.state.track?.id, secondTrack.id);
+    },
+  );
+
+  test('ad duration remains available when the start event omits it', () async {
+    player.dispose();
+    engine.resumeDuration = Duration.zero;
+    player = PlayerController(
+      repository,
+      () async => engine,
+      adPolicy: FixedAdPolicy(const AdDecision(true, false)),
+    );
+    await player.select([firstTrack], 0);
+    expect(player.state.duration, const Duration(seconds: 30));
+  });
+
+  test('basic tier can skip only after five seconds of ad audio', () async {
+    player.dispose();
+    player = PlayerController(
+      repository,
+      () async => engine,
+      adPolicy: FixedAdPolicy(const AdDecision(true, true)),
+    );
+    await player.select([firstTrack], 0);
+    engine.controller.add(
+      const EngineEvent(playing: true, position: Duration(seconds: 4)),
+    );
+    await player.skipAd();
+    expect(engine.loaded, isEmpty);
+    engine.controller.add(
+      const EngineEvent(playing: true, position: Duration(seconds: 5)),
+    );
+    await player.skipAd();
+    expect(engine.loaded, [firstTrack.id]);
+  });
+
+  test('clearing during an ad does not start the pending track', () async {
+    player.dispose();
+    player = PlayerController(
+      repository,
+      () async => engine,
+      adPolicy: FixedAdPolicy(const AdDecision(true, false)),
+    );
+    await player.select([firstTrack], 0);
+    await player.clear();
+    engine.controller.add(const EngineEvent(completed: true));
+    await flushMusic();
+    expect(engine.loaded, isEmpty);
+    expect(player.state.track, isNull);
   });
 
   test('one engine serves selection and OS controls', () async {

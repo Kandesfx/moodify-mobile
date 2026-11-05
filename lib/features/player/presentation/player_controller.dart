@@ -4,6 +4,9 @@ import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/errors/app_failure.dart';
+import '../../../app/bootstrap.dart';
+import '../../auth/domain/session_state.dart';
+import '../data/ad_policy.dart';
 import '../../auth/presentation/session_controller.dart';
 import '../../catalog/data/catalog_repository.dart';
 import '../../catalog/domain/catalog_models.dart';
@@ -11,11 +14,30 @@ import '../data/playback_engine.dart';
 
 final playbackEngineFactoryProvider =
     Provider<Future<PlaybackEngine> Function()>((ref) => createNativeEngine);
+final adPolicyProvider = Provider<AdPolicyService>(
+  (ref) => AdPolicyService(
+    ref.watch(apiDioProvider),
+    ref.watch(keyValueStoreProvider),
+    ref.watch(appConfigProvider).apiBaseUri.toString(),
+  ),
+);
 final playerControllerProvider =
     StateNotifierProvider<PlayerController, PlayerState>((ref) {
       final controller = PlayerController(
         ref.watch(catalogRepositoryProvider),
         ref.watch(playbackEngineFactoryProvider),
+        adPolicy: ref.watch(adPolicyProvider),
+        currentUser: () {
+          final session = ref.read(sessionControllerProvider);
+          if (session.phase == SessionPhase.signedOut) return null;
+          if (session.phase != SessionPhase.signedIn ||
+              session.session == null) {
+            throw const AppFailure(
+              'Chưa thể kiểm tra phiên đăng nhập. Vui lòng thử lại.',
+            );
+          }
+          return session.session!.user.id;
+        },
       );
       ref.listen(sessionControllerProvider.select((s) => s.session?.user.id), (
         previous,
@@ -40,11 +62,13 @@ class PlayerState {
     this.repeat = PlaybackRepeat.off,
     this.shuffle = false,
     this.failure,
+    this.isAd = false,
+    this.adCanSkip = false,
   });
   final List<Track> queue;
   final int index;
   final Track? track;
-  final bool playing, loading, shuffle;
+  final bool playing, loading, shuffle, isAd, adCanSkip;
   final Duration position, duration;
   final PlaybackRepeat repeat;
   final AppFailure? failure;
@@ -58,6 +82,8 @@ class PlayerState {
     Duration? duration,
     PlaybackRepeat? repeat,
     bool? shuffle,
+    bool? isAd,
+    bool? adCanSkip,
     AppFailure? failure,
     bool clearFailure = false,
   }) => PlayerState(
@@ -70,15 +96,27 @@ class PlayerState {
     duration: duration ?? this.duration,
     repeat: repeat ?? this.repeat,
     shuffle: shuffle ?? this.shuffle,
+    isAd: isAd ?? this.isAd,
+    adCanSkip: adCanSkip ?? this.adCanSkip,
     failure: clearFailure ? null : failure ?? this.failure,
   );
 }
 
 class PlayerController extends StateNotifier<PlayerState> {
-  PlayerController(this.repository, this.createEngine)
-    : super(const PlayerState());
+  PlayerController(
+    this.repository,
+    this.createEngine, {
+    this.adPolicy,
+    this.currentUser,
+  }) : super(const PlayerState());
   final CatalogRepository repository;
   final Future<PlaybackEngine> Function() createEngine;
+  final AdPolicyService? adPolicy;
+  final String? Function()? currentUser;
+  final _adRandom = Random();
+  int? _lastAd;
+  String? _adAsset;
+  (List<Track>, int)? _pendingAdTrack;
   PlaybackEngine? _engine;
   Future<PlaybackEngine>? _engineFuture;
   StreamSubscription<EngineEvent>? _subscription;
@@ -138,6 +176,20 @@ class PlayerController extends StateNotifier<PlayerState> {
 
   Future<void> select(List<Track> queue, int index) async {
     if (index < 0 || index >= queue.length) return;
+    if (state.isAd) {
+      _history
+        ..clear()
+        ..add(index);
+      _historyCursor = 0;
+      _resetShuffle(queue.length, index);
+      _pendingAdTrack = (List.unmodifiable(queue), index);
+      state = state.copy(
+        queue: List.unmodifiable(queue),
+        index: index,
+        track: queue[index],
+      );
+      return;
+    }
     _history.clear();
     _historyCursor = -1;
     _resetShuffle(queue.length, index);
@@ -158,6 +210,7 @@ class PlayerController extends StateNotifier<PlayerState> {
     List<Track> queue,
     int index, {
     bool remember = true,
+    bool checkAds = true,
   }) async {
     if (index < 0 || index >= queue.length) return;
     if (remember) {
@@ -182,6 +235,8 @@ class PlayerController extends StateNotifier<PlayerState> {
       loading: true,
       position: Duration.zero,
       duration: Duration(milliseconds: queue[index].durationMs),
+      isAd: false,
+      adCanSkip: false,
       clearFailure: true,
     );
     await _run(() async {
@@ -189,6 +244,42 @@ class PlayerController extends StateNotifier<PlayerState> {
       final engine = await _getEngine();
       await engine.stop();
       if (generation != _generation) return;
+      if (checkAds && adPolicy != null) {
+        final decision = await adPolicy!.decide(currentUser?.call());
+        if (generation != _generation) return;
+        if (decision.show) {
+          var index = _adRandom.nextInt(9) + 1;
+          while (index == _lastAd) {
+            index = _adRandom.nextInt(9) + 1;
+          }
+          _lastAd = index;
+          _adAsset = 'assets/ads/ad_mix_$index.mp3';
+          _pendingAdTrack = (List.unmodifiable(queue), state.index);
+          state = state.copy(
+            isAd: true,
+            adCanSkip: decision.canSkip,
+            position: Duration.zero,
+            duration: Duration.zero,
+          );
+          Duration? adDuration;
+          try {
+            adDuration = await engine.loadAd(_adAsset!);
+          } catch (_) {
+            throw const AppFailure(
+              'Không tải được quảng cáo. Vui lòng thử lại.',
+              code: 'AD_MEDIA',
+            );
+          }
+          if (generation != _generation) return;
+          _switching = false;
+          state = state.copy(
+            loading: false,
+            duration: adDuration ?? Duration.zero,
+          );
+          if (_wantedPlaying) await engine.resume();
+          return;
+        }
+      }
       final track = await repository.track(queue[index].id);
       if (generation != _generation) return;
       final uri = await repository.stream(track);
@@ -215,8 +306,10 @@ class PlayerController extends StateNotifier<PlayerState> {
       state = state.copy(
         playing: false,
         loading: false,
-        failure: const AppFailure(
-          'Không phát được bài hát. Kiểm tra mạng rồi thử lại.',
+        failure: AppFailure(
+          state.isAd
+              ? 'Không phát được quảng cáo. Vui lòng thử lại.'
+              : 'Không phát được bài hát. Kiểm tra mạng rồi thử lại.',
         ),
       );
       unawaited(_run(() async => _engine?.pause()));
@@ -232,12 +325,29 @@ class PlayerController extends StateNotifier<PlayerState> {
     );
     if (event.completed && _wantedPlaying && !_completed) {
       _completed = true;
-      unawaited(_advance(completion: true));
+      if (state.isAd) {
+        unawaited(_finishAd());
+      } else {
+        unawaited(_advance(completion: true));
+      }
     }
   }
 
   Future<void> play() async {
     if (state.track == null) return;
+    if (state.failure != null && state.isAd && _adAsset != null) {
+      _wantedPlaying = true;
+      _switching = true;
+      state = state.copy(loading: true, clearFailure: true);
+      await _run(() async {
+        final engine = await _getEngine();
+        final duration = await engine.loadAd(_adAsset!);
+        _switching = false;
+        state = state.copy(loading: false, duration: duration ?? Duration.zero);
+        if (_wantedPlaying) await engine.resume();
+      });
+      return;
+    }
     if (state.failure != null) {
       await _select(state.queue, state.index, remember: false);
       return;
@@ -260,14 +370,15 @@ class PlayerController extends StateNotifier<PlayerState> {
   }
 
   Future<void> seek(Duration position) => _run(() async {
-    if (state.track == null || state.loading) return;
+    if (state.track == null || state.loading || state.isAd) return;
     final maximum = state.duration.inMilliseconds;
     final ms = position.inMilliseconds.clamp(0, maximum > 0 ? maximum : 0);
     await _engine?.seek(Duration(milliseconds: ms));
     _completed = false;
   });
-  Future<void> next() => _advance();
+  Future<void> next() => state.isAd ? Future.value() : _advance();
   Future<void> previous() async {
+    if (state.isAd) return;
     if (state.position > const Duration(seconds: 3)) {
       await seek(Duration.zero);
       return;
@@ -311,6 +422,32 @@ class PlayerController extends StateNotifier<PlayerState> {
     await _select(state.queue, nextIndex);
   }
 
+  int get playbackGeneration => _generation;
+
+  /// Mirrors the web upgrade action for the current advertisement only.
+  Future<void> skipAdForUpgrade(int generation) async {
+    if (!mounted || generation != _generation || !state.isAd) return;
+    await _finishAd();
+  }
+
+  Future<void> skipAd() async {
+    if (!state.isAd ||
+        !state.adCanSkip ||
+        state.position < const Duration(seconds: 5)) {
+      return;
+    }
+    await _finishAd();
+  }
+
+  Future<void> _finishAd() async {
+    final pending = _pendingAdTrack;
+    if (!state.isAd || pending == null) return;
+    _pendingAdTrack = null;
+    _adAsset = null;
+    state = state.copy(isAd: false, adCanSkip: false);
+    await _select(pending.$1, pending.$2, remember: false, checkAds: false);
+  }
+
   void cycleRepeat() => state = state.copy(
     repeat: PlaybackRepeat
         .values[(state.repeat.index + 1) % PlaybackRepeat.values.length],
@@ -325,6 +462,8 @@ class PlayerController extends StateNotifier<PlayerState> {
     _wantedPlaying = false;
     _switching = false;
     _completed = false;
+    _pendingAdTrack = null;
+    _adAsset = null;
     _history.clear();
     _historyCursor = -1;
     _shuffleRemaining.clear();

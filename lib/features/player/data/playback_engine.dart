@@ -36,6 +36,7 @@ abstract interface class PlaybackEngine {
   Stream<EngineEvent> get events;
   void bind(PlayerCommands commands);
   Future<void> load(Uri uri, Track track);
+  Future<Duration?> loadAd(String asset);
   Future<void> resume();
   Future<void> pause();
   Future<void> seek(Duration position);
@@ -66,6 +67,7 @@ class _NativePlaybackEngine implements PlaybackEngine {
   void bind(PlayerCommands commands) => handler.commands = commands;
   @override
   Future<void> load(Uri uri, Track track) async {
+    handler.adMode = false;
     handler.mediaItem.add(
       MediaItem(
         id: track.id,
@@ -75,6 +77,15 @@ class _NativePlaybackEngine implements PlaybackEngine {
       ),
     );
     await handler.player.setUrl(uri.toString());
+  }
+
+  @override
+  Future<Duration?> loadAd(String asset) async {
+    handler.adMode = true;
+    handler.mediaItem.add(
+      const MediaItem(id: 'moodify-ad', title: 'Quảng cáo', artist: 'Moodify'),
+    );
+    return handler.player.setAsset(asset);
   }
 
   @override
@@ -115,6 +126,7 @@ class _MoodifyAudioHandler extends BaseAudioHandler {
   final events = StreamController<EngineEvent>.broadcast();
   final subscriptions = <StreamSubscription<dynamic>>[];
   PlayerCommands? commands;
+  bool adMode = false;
 
   void fail() {
     events.add(const EngineEvent(failed: true));
@@ -143,14 +155,19 @@ class _MoodifyAudioHandler extends BaseAudioHandler {
     );
     playbackState.add(
       PlaybackState(
-        controls: [
-          MediaControl.skipToPrevious,
-          player.playing ? MediaControl.pause : MediaControl.play,
-          MediaControl.skipToNext,
-          MediaControl.stop,
-        ],
-        systemActions: const {MediaAction.seek},
-        androidCompactActionIndices: const [0, 1, 2],
+        controls: adMode
+            ? [
+                player.playing ? MediaControl.pause : MediaControl.play,
+                MediaControl.stop,
+              ]
+            : [
+                MediaControl.skipToPrevious,
+                player.playing ? MediaControl.pause : MediaControl.play,
+                MediaControl.skipToNext,
+                MediaControl.stop,
+              ],
+        systemActions: adMode ? const {} : const {MediaAction.seek},
+        androidCompactActionIndices: adMode ? const [0] : const [0, 1, 2],
         processingState: switch (processing) {
           ProcessingState.idle => AudioProcessingState.idle,
           ProcessingState.loading => AudioProcessingState.loading,

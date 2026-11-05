@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_login_facebook/flutter_login_facebook.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+
+import '../../../core/errors/app_failure.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -33,6 +38,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   final _email = TextEditingController();
   final _username = TextEditingController();
   bool _obscure = true;
+  static bool _googleInitialized = false;
 
   @override
   void dispose() {
@@ -80,12 +86,75 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     }
   }
 
+  Future<void> _socialSignIn(String provider) async {
+    const googleClientId = String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID');
+    const facebookConfigured = bool.fromEnvironment(
+      'FACEBOOK_LOGIN_CONFIGURED',
+    );
+    final controller = ref.read(sessionControllerProvider.notifier);
+    await controller.socialLogin(provider, () async {
+      if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+        throw const AppFailure(
+          'Đăng nhập này chưa được cấu hình trên thiết bị này.',
+        );
+      }
+      if (provider == 'google') {
+        if (googleClientId.isEmpty) {
+          throw const AppFailure(
+            'Đăng nhập Google chưa được cấu hình cho ứng dụng.',
+          );
+        }
+        final google = GoogleSignIn.instance;
+        if (!_googleInitialized) {
+          await google.initialize(serverClientId: googleClientId);
+          _googleInitialized = true;
+        }
+        final account = await google.authenticate();
+        final token = account.authentication.idToken;
+        if (token == null || token.isEmpty) {
+          throw const AppFailure(
+            'Không thể nhận thông tin đăng nhập Google. Vui lòng thử lại.',
+          );
+        }
+        return token;
+      }
+      if (!facebookConfigured) {
+        throw const AppFailure(
+          'Đăng nhập Facebook chưa được cấu hình cho ứng dụng.',
+        );
+      }
+      final result = await FacebookLogin().logIn(
+        permissions: [
+          FacebookPermission.publicProfile,
+          FacebookPermission.email,
+        ],
+      );
+      if (result.status == FacebookLoginStatus.cancel) {
+        throw const AppFailure('Bạn đã hủy đăng nhập Facebook.');
+      }
+      final token = result.accessToken?.token;
+      if (result.status != FacebookLoginStatus.success ||
+          token == null ||
+          token.isEmpty) {
+        throw const AppFailure(
+          'Không thể đăng nhập Facebook. Vui lòng thử lại.',
+        );
+      }
+      return token;
+    });
+    if (!mounted) return;
+    if (ref.read(sessionControllerProvider).phase == SessionPhase.signedIn) {
+      context.go(widget.returnTo);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(sessionControllerProvider);
     final textTheme = Theme.of(context).textTheme;
     final registering = widget.register;
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         leading: IconButton(
           tooltip: 'Quay lại',
@@ -97,7 +166,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         child: LayoutBuilder(
           builder: (context, bounds) => SingleChildScrollView(
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
             child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 440),
@@ -109,23 +178,38 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       children: [
                         const Align(
                           alignment: Alignment.centerLeft,
-                          child: BrandLockup(large: true),
+                          child: BrandLockup(),
                         ),
-                        SizedBox(height: bounds.maxHeight > 720 ? 56 : 36),
+                        SizedBox(height: bounds.maxHeight > 720 ? 48 : 32),
+                        Container(
+                          width: 42,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [AppColors.primary, Color(0xFFF557B6)],
+                            ),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
                         Text(
-                          registering ? 'Tạo tài khoản' : 'Đăng nhập',
-                          style: textTheme.headlineMedium,
+                          registering ? 'Tạo tài khoản' : 'Chào mừng trở lại',
+                          style: textTheme.headlineMedium?.copyWith(
+                            fontSize: 30,
+                            letterSpacing: -1,
+                          ),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           registering
-                              ? 'Đăng ký để lưu thư viện và nghe nhạc trên Moodify.'
-                              : 'Tiếp tục với tài khoản Moodify của bạn.',
+                              ? 'Tạo tài khoản để lưu thư viện và tận hưởng âm nhạc cùng Moodify.'
+                              : 'Đăng nhập để tiếp tục thưởng thức âm nhạc của bạn.',
                           style: textTheme.bodyMedium?.copyWith(
                             color: AppColors.secondary,
+                            height: 1.6,
                           ),
                         ),
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 28),
                         if (session.notice != null) ...[
                           FeedbackPanel(
                             message: session.notice!,
@@ -148,6 +232,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           _field(
                             'Họ và tên',
                             _fullName,
+                            icon: Icons.person_outline_rounded,
+                            hint: 'Nhập họ và tên',
                             autofill: AutofillHints.name,
                             capitalization: TextCapitalization.words,
                             maxLength: 100,
@@ -155,6 +241,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           _field(
                             'Số điện thoại',
                             _phone,
+                            icon: Icons.phone_outlined,
+                            hint: 'Nhập số điện thoại',
                             autofill: AutofillHints.telephoneNumber,
                             keyboard: TextInputType.phone,
                             validator: (value) =>
@@ -167,6 +255,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           _field(
                             'Email',
                             _email,
+                            icon: Icons.mail_outline_rounded,
+                            hint: 'ban@example.com',
                             autofill: AutofillHints.email,
                             keyboard: TextInputType.emailAddress,
                             validator: (value) =>
@@ -179,6 +269,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           _field(
                             'Tên đăng nhập',
                             _username,
+                            icon: Icons.alternate_email_rounded,
+                            hint: 'Tạo tên đăng nhập',
                             autofill: AutofillHints.newUsername,
                             maxLength: 50,
                             validator: (value) =>
@@ -190,12 +282,18 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           _field(
                             'Email hoặc tên đăng nhập',
                             _identifier,
+                            icon: Icons.person_outline_rounded,
+                            hint: 'Nhập email hoặc tên đăng nhập',
                             autofill: AutofillHints.username,
                           ),
                         _field(
                           'Mật khẩu',
                           _password,
                           password: true,
+                          icon: Icons.lock_outline_rounded,
+                          hint: registering
+                              ? 'Tối thiểu 6 ký tự'
+                              : 'Nhập mật khẩu',
                           autofill: registering
                               ? AutofillHints.newPassword
                               : AutofillHints.password,
@@ -216,6 +314,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                             'Nhập lại mật khẩu',
                             _confirm,
                             password: true,
+                            icon: Icons.lock_outline_rounded,
+                            hint: 'Nhập lại mật khẩu',
                             autofill: AutofillHints.newPassword,
                             last: true,
                             validator: (value) =>
@@ -228,6 +328,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                         const SizedBox(height: 8),
                         FilledButton(
                           onPressed: session.isBusy ? null : _submit,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size.fromHeight(56),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
                           child: session.isBusy
                               ? const SizedBox.square(
                                   dimension: 22,
@@ -239,6 +347,49 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                               : Text(
                                   registering ? 'Tạo tài khoản' : 'Đăng nhập',
                                 ),
+                        ),
+                        const SizedBox(height: 24),
+                        Row(
+                          children: [
+                            const Expanded(child: Divider()),
+                            Expanded(
+                              flex: 4,
+                              child: Text(
+                                'hoặc tiếp tục với',
+                                textAlign: TextAlign.center,
+                                style: textTheme.bodyMedium?.copyWith(
+                                  color: AppColors.secondary,
+                                ),
+                              ),
+                            ),
+                            const Expanded(child: Divider()),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        OutlinedButton.icon(
+                          onPressed: session.isBusy
+                              ? null
+                              : () => _socialSignIn('google'),
+                          icon: const Text(
+                            'G',
+                            style: TextStyle(
+                              color: Color(0xFFEA4335),
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          label: const Text('Google'),
+                        ),
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: session.isBusy
+                              ? null
+                              : () => _socialSignIn('facebook'),
+                          icon: const Icon(
+                            Icons.facebook,
+                            color: Color(0xFF438BFA),
+                          ),
+                          label: const Text('Facebook'),
                         ),
                         const SizedBox(height: 20),
                         Wrap(
@@ -288,6 +439,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     String label,
     TextEditingController controller, {
     bool password = false,
+    IconData? icon,
+    String? hint,
     bool last = false,
     String? autofill,
     TextInputType? keyboard,
@@ -299,12 +452,18 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       sessionControllerProvider.select((state) => state.isBusy),
     );
     return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.only(bottom: 18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           ExcludeSemantics(
-            child: Text(label, style: Theme.of(context).textTheme.labelLarge),
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                fontSize: 13,
+                color: const Color(0xFFDDDCE6),
+              ),
+            ),
           ),
           const SizedBox(height: 8),
           Semantics(
@@ -337,6 +496,20 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               onFieldSubmitted: last ? (_) => _submit() : null,
               decoration: InputDecoration(
                 counterText: '',
+                hintText: hint,
+                hintStyle: const TextStyle(
+                  color: Color(0xFF85838F),
+                  fontSize: 14,
+                ),
+                prefixIcon: icon == null
+                    ? null
+                    : Icon(icon, size: 20, color: const Color(0xFFAAA3C0)),
+                filled: true,
+                fillColor: const Color(0xFF15141E),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 18,
+                ),
                 suffixIcon: password
                     ? IconButton(
                         onPressed: () => setState(() => _obscure = !_obscure),

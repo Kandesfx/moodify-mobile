@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
+import 'package:moodify_flutter/features/player/data/ad_policy.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moodify_flutter/app/app.dart';
@@ -12,6 +14,13 @@ import 'package:moodify_flutter/features/player/presentation/player_screen.dart'
 
 import '../../support/auth_harness.dart';
 import '../../support/music_harness.dart';
+
+class TestAdPolicy extends AdPolicyService {
+  TestAdPolicy(this.show) : super(Dio(), MemoryStore(), 'test');
+  final bool show;
+  @override
+  Future<AdDecision> decide(String? userId) async => AdDecision(show, false);
+}
 
 void main() {
   for (final largeText in [false, true]) {
@@ -40,6 +49,8 @@ void main() {
           ProviderScope(
             overrides: [
               appConfigProvider.overrideWithValue(auth.config),
+              keyValueStoreProvider.overrideWithValue(auth.store),
+              adPolicyProvider.overrideWithValue(TestAdPolicy(false)),
               sessionRepositoryProvider.overrideWithValue(auth.repository),
               catalogRepositoryProvider.overrideWithValue(music),
               playbackEngineFactoryProvider.overrideWithValue(
@@ -81,7 +92,7 @@ void main() {
         expect(tester.takeException(), isNull);
         await tester.tap(find.byTooltip('Thu nhỏ'));
         await tester.pumpAndSettle();
-        await tester.tap(find.byType(NavigationDestination).at(2));
+        await tester.tap(find.byType(NavigationDestination).at(3));
         await tester.pumpAndSettle();
         expect(find.widgetWithText(FilledButton, 'Đăng nhập'), findsOneWidget);
         expect(auth.requests, isEmpty);

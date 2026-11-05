@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class AppFailure implements Exception {
   const AppFailure(this.message, {this.statusCode, this.code});
@@ -17,6 +18,22 @@ class AppFailure implements Exception {
 
   static AppFailure from(Object error) {
     if (error is AppFailure) return error;
+    if (error is GoogleSignInException) {
+      final message = switch (error.code) {
+        GoogleSignInExceptionCode.canceled =>
+          'Xác minh tài khoản Google chưa hoàn tất hoặc đã bị hủy. Vui lòng thử lại.',
+        GoogleSignInExceptionCode.interrupted =>
+          'Đăng nhập Google bị gián đoạn. Vui lòng thử lại.',
+        GoogleSignInExceptionCode.clientConfigurationError ||
+        GoogleSignInExceptionCode.providerConfigurationError =>
+          'Không thể kết nối đăng nhập Google do cấu hình ứng dụng hoặc dịch vụ Google.',
+        GoogleSignInExceptionCode.uiUnavailable =>
+          'Không thể mở màn hình đăng nhập Google. Vui lòng thử lại.',
+        _ =>
+          'Không thể xác minh tài khoản Google. Vui lòng kiểm tra dịch vụ Google trên thiết bị và thử lại.',
+      };
+      return AppFailure(message, code: 'GOOGLE_${error.code.name}');
+    }
     if (error is DioException) {
       if (error.error is AppFailure) return error.error! as AppFailure;
       if (error.type == DioExceptionType.cancel) return sessionChanged;

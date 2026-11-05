@@ -192,3 +192,9 @@ Trạng thái: **DEFERRED**, chưa triển khai; chỉ mở sau parity ACCEPTED 
 4. Kiểm tra đúng rủi ro đã thay đổi; không viết test chỉ để lặp lại implementation hoặc tạo data giả trong release.
 5. Cập nhật trạng thái/bằng chứng/blocker; tiếp tục module độc lập nếu blocker không ảnh hưởng nó.
 6. Chỉ mở phạm vi mới sau gate; không biến việc cần hỏi schema/kiến trúc thành approval cho mọi tác vụ thường ngày.
+
+### M2 — quảng cáo audio Flutter (05/11/2026)
+
+Đã tích hợp 9 file audio cục bộ người dùng cung cấp và giao diện có sử dụng artwork web; player kiểm tra subscription trước khi áp dụng NO_ADS, DAILY_QUOTA hoặc FULL_ADS, hỗ trợ bỏ qua sau 5 giây cho tier BASIC. Counter hằng ngày lưu theo thiết bị/API/user. Chưa chuyển campaign ACTIVE/impression, skip quota, trang Premium; chưa xác minh API tài khoản thật hoặc native playback. Không đánh dấu parity/release hoàn tất.
+
+Nút nâng cấp ở quảng cáo hiện mở trang Premium web theo môi trường và cho qua quảng cáo hiện tại khi trình duyệt nhận URL. Chưa thay thế M3: web có phiên riêng; cần kiểm chứng checkout và quyền thật, đặc biệt local web/backend phải cùng môi trường.
