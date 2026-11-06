@@ -210,4 +210,16 @@ Map<String, dynamic> _map(Object? value) {
   throw const FormatException('Dữ liệu karaoke không hợp lệ.');
 }
 
-String karaokeError(Object error) => AppFailure.from(error).message;
+String karaokeError(Object error) {
+  if (error is DioException) {
+    final data = error.response?.data;
+    final reason = data is Map ? data['message']?.toString() : null;
+    if (reason == 'QUEUE_TRACK_ALREADY_REQUESTED') {
+      return 'Bạn đã thêm bài này vào hàng đợi. Hãy chọn bài khác.';
+    }
+    if (reason == 'QUEUE_ALREADY_REQUESTED') {
+      return 'Máy chủ vẫn giới hạn một bài mỗi người. Cần cập nhật backend và index hàng đợi.';
+    }
+  }
+  return AppFailure.from(error).message;
+}

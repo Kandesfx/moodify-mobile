@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +8,8 @@ import 'package:moodify_flutter/features/auth/presentation/session_controller.da
 import 'package:moodify_flutter/features/auth/domain/session_state.dart';
 import 'package:moodify_flutter/features/auth/domain/auth_session.dart';
 import 'package:moodify_flutter/features/karaoke/data/karaoke_repository.dart';
+import 'package:moodify_flutter/features/karaoke/data/karaoke_room_live_client.dart';
+import 'package:moodify_flutter/features/karaoke/data/karaoke_voice_client.dart';
 import 'package:moodify_flutter/features/catalog/data/catalog_repository.dart';
 import 'package:moodify_flutter/features/player/data/ad_policy.dart';
 import 'package:moodify_flutter/features/player/presentation/player_controller.dart';
@@ -19,6 +23,20 @@ class TestAdPolicy extends AdPolicyService {
   @override
   Future<AdDecision> decide(String? userId) async =>
       const AdDecision(false, false);
+}
+
+/// WS phòng karaoke chạy thật trong test sẽ mở socket ngoài FakeAsync, nên
+/// thay bằng client trơ như cách test voice đang làm.
+class TestKaraokeRoomLive extends KaraokeRoomLiveClient {
+  TestKaraokeRoomLive()
+    : super(
+        uri: Uri.parse('wss://api.example.test/api/ws/karaoke'),
+        accessToken: () async => 'test-token',
+        deviceUuid: () async => 'test-device',
+      );
+
+  @override
+  Future<void> enter(int roomId) async {}
 }
 
 class TestSessionController extends SessionController {
@@ -37,8 +55,47 @@ class TestKaraokeRepository extends KaraokeRepository {
   String? receivedCode;
   List<Map<String, dynamic>> initialRooms = [];
   Map<String, dynamic>? detail;
+  final queueRequests = <String>[];
+  final removals = <int>[];
+  @override
+  Future<Map<String, dynamic>> room(int id) async => detail!;
+  @override
+  Future<List<Map<String, dynamic>>> tracks({String query = ''}) async => [
+    {'songId': 'song-1', 'title': 'Bài thứ nhất', 'artist': 'Ca sĩ'},
+    {'songId': 'song-2', 'title': 'Bài thứ hai', 'artist': 'Ca sĩ'},
+  ];
+  @override
+  Future<void> addQueue(int id, String trackId) async {
+    queueRequests.add(trackId);
+    detail = {
+      ...detail!,
+      'queue': [
+        ...detail!['queue'] as List,
+        {
+          'id': queueRequests.length,
+          'title': trackId == 'song-1' ? 'Bài thứ nhất' : 'Bài thứ hai',
+          'artist': 'Ca sĩ',
+          'requestedByMe': true,
+        },
+      ],
+    };
+  }
+
+  @override
+  Future<void> removeQueue(int id, int itemId) async {
+    removals.add(itemId);
+    detail = {
+      ...detail!,
+      'queue': (detail!['queue'] as List)
+          .where((item) => item['id'] != itemId)
+          .toList(),
+    };
+  }
+
   @override
   Future<List<Map<String, dynamic>>> rooms() async => initialRooms;
+  @override
+  Future<void> leaveRoom(int id) async {}
   @override
   Future<Map<String, dynamic>> createRoom({
     required String name,
@@ -72,6 +129,37 @@ class TestKaraokeRepository extends KaraokeRepository {
   }
 }
 
+class TestKaraokeVoice extends KaraokeVoiceClient {
+  TestKaraokeVoice() : super(KaraokeRepository(Dio()));
+  int connections = 0;
+  bool mic = false;
+  bool disposed = false;
+  bool failConnection = false;
+  @override
+  bool get microphoneOn => mic;
+  @override
+  Future<void> connect(int roomId) async {
+    connections++;
+    connected = !failConnection;
+    error = failConnection ? 'Không kết nối được âm thanh phòng.' : null;
+    onChanged.add(null);
+  }
+
+  @override
+  Future<void> toggleMicrophone() async {
+    mic = !mic;
+    onChanged.add(null);
+  }
+
+  @override
+  Future<void> dispose() async {
+    disposed = true;
+    mic = false;
+    connected = false;
+    unawaited(onChanged.close());
+  }
+}
+
 void main() {
   testWidgets('create room closes the dialog and displays room details', (
     tester,
@@ -83,6 +171,10 @@ void main() {
         overrides: [
           sessionControllerProvider.overrideWith(TestSessionController.new),
           karaokeRepositoryProvider.overrideWithValue(repository),
+          karaokeVoiceFactoryProvider.overrideWithValue(TestKaraokeVoice.new),
+          karaokeRoomLiveFactoryProvider.overrideWithValue(
+            (roomId) => TestKaraokeRoomLive(),
+          ),
           adPolicyProvider.overrideWithValue(TestAdPolicy()),
           playbackEngineFactoryProvider.overrideWithValue(
             () async => PlaybackEngineFake(),
@@ -131,6 +223,10 @@ void main() {
           overrides: [
             sessionControllerProvider.overrideWith(TestSessionController.new),
             karaokeRepositoryProvider.overrideWithValue(repository),
+            karaokeVoiceFactoryProvider.overrideWithValue(TestKaraokeVoice.new),
+            karaokeRoomLiveFactoryProvider.overrideWithValue(
+              (roomId) => TestKaraokeRoomLive(),
+            ),
             adPolicyProvider.overrideWithValue(TestAdPolicy()),
             playbackEngineFactoryProvider.overrideWithValue(
               () async => PlaybackEngineFake(),
@@ -176,6 +272,10 @@ void main() {
         overrides: [
           sessionControllerProvider.overrideWith(TestSessionController.new),
           karaokeRepositoryProvider.overrideWithValue(repository),
+          karaokeVoiceFactoryProvider.overrideWithValue(TestKaraokeVoice.new),
+          karaokeRoomLiveFactoryProvider.overrideWithValue(
+            (roomId) => TestKaraokeRoomLive(),
+          ),
           adPolicyProvider.overrideWithValue(TestAdPolicy()),
           playbackEngineFactoryProvider.overrideWithValue(
             () async => PlaybackEngineFake(),
@@ -250,6 +350,10 @@ void main() {
           overrides: [
             sessionControllerProvider.overrideWith(TestSessionController.new),
             karaokeRepositoryProvider.overrideWithValue(repository),
+            karaokeVoiceFactoryProvider.overrideWithValue(TestKaraokeVoice.new),
+            karaokeRoomLiveFactoryProvider.overrideWithValue(
+              (roomId) => TestKaraokeRoomLive(),
+            ),
             adPolicyProvider.overrideWithValue(TestAdPolicy()),
             playbackEngineFactoryProvider.overrideWithValue(
               () async => PlaybackEngineFake(),
@@ -275,12 +379,11 @@ void main() {
       );
       expect(find.text('Bài trong hàng đợi'), findsOneWidget);
       await tester.scrollUntilVisible(
-        find.text('Rút lượt hát của tôi'),
+        find.text('Thêm bài'),
         250,
         scrollable: find.byType(Scrollable).last,
       );
-      expect(find.text('Rút lượt hát của tôi'), findsOneWidget);
-      expect(find.text('Thêm bài'), findsNothing);
+      expect(find.text('Thêm bài'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
@@ -334,6 +437,10 @@ void main() {
           overrides: [
             sessionControllerProvider.overrideWith(TestSessionController.new),
             karaokeRepositoryProvider.overrideWithValue(repository),
+            karaokeVoiceFactoryProvider.overrideWithValue(TestKaraokeVoice.new),
+            karaokeRoomLiveFactoryProvider.overrideWithValue(
+              (roomId) => TestKaraokeRoomLive(),
+            ),
             adPolicyProvider.overrideWithValue(TestAdPolicy()),
             playbackEngineFactoryProvider.overrideWithValue(
               () async => PlaybackEngineFake(),
@@ -365,4 +472,137 @@ void main() {
       music.remote.dio.close();
     },
   );
+
+  Future<void> openRoom(
+    WidgetTester tester,
+    TestKaraokeRepository repository,
+    KaraokeVoiceClient Function() voiceFactory,
+  ) async {
+    final music = MusicRepositoryFake();
+    addTearDown(() => music.remote.dio.close());
+    repository.initialRooms = [
+      {'id': 9, 'name': 'Phòng kiểm thử', 'visibility': 'PUBLIC'},
+    ];
+    repository.detail = {
+      'id': 9,
+      'name': 'Phòng kiểm thử',
+      'canManage': true,
+      'members': [
+        {'userId': 2, 'name': 'Bạn hát', 'host': false},
+      ],
+      'queue': [],
+      'playback': {'status': 'IDLE'},
+    };
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sessionControllerProvider.overrideWith(TestSessionController.new),
+          karaokeRepositoryProvider.overrideWithValue(repository),
+          karaokeVoiceFactoryProvider.overrideWithValue(voiceFactory),
+          karaokeRoomLiveFactoryProvider.overrideWithValue(
+            (roomId) => TestKaraokeRoomLive(),
+          ),
+          adPolicyProvider.overrideWithValue(TestAdPolicy()),
+          playbackEngineFactoryProvider.overrideWithValue(
+            () async => PlaybackEngineFake(),
+          ),
+          catalogRepositoryProvider.overrideWithValue(music),
+        ],
+        child: const MaterialApp(home: KaraokeRoomsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Phòng kiểm thử'));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('queue allows a second song and removes only the selected item', (
+    tester,
+  ) async {
+    final repository = TestKaraokeRepository();
+    await openRoom(tester, repository, TestKaraokeVoice.new);
+    for (final title in ['Bài thứ nhất', 'Bài thứ hai']) {
+      await tester.scrollUntilVisible(
+        find.text('Thêm bài'),
+        250,
+        scrollable: find.byType(Scrollable).last,
+      );
+      await tester.tap(find.text('Thêm bài'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ListTile, title));
+      await tester.pumpAndSettle();
+    }
+    expect(repository.queueRequests, ['song-1', 'song-2']);
+    expect((repository.detail!['queue'] as List).length, 2);
+    expect(find.text('Thêm bài'), findsOneWidget);
+    await tester.tap(find.byTooltip('Xóa khỏi hàng đợi').first);
+    await tester.pumpAndSettle();
+    expect(repository.removals, [1]);
+    expect((repository.detail!['queue'] as List).single['id'], 2);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  });
+
+  testWidgets(
+    'join connects voice, toggles personal mic and releases on leave',
+    (tester) async {
+      final voice = TestKaraokeVoice();
+      await openRoom(tester, TestKaraokeRepository(), () => voice);
+      expect(voice.connections, 1);
+      await tester.tap(find.byTooltip('Bật mic của tôi'));
+      await tester.pumpAndSettle();
+      expect(voice.microphoneOn, isTrue);
+      await tester.tap(find.byTooltip('Tắt mic của tôi'));
+      await tester.pumpAndSettle();
+      expect(voice.microphoneOn, isFalse);
+      await tester.tap(find.byTooltip('Rời phòng'));
+      await tester.pumpAndSettle();
+      expect(voice.disposed, isTrue);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    },
+  );
+
+  testWidgets('member volume can be saved before they enable their mic', (
+    tester,
+  ) async {
+    final voice = TestKaraokeVoice();
+    await openRoom(tester, TestKaraokeRepository(), () => voice);
+    await tester.scrollUntilVisible(
+      find.byType(Tooltip).last,
+      180,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(find.byTooltip('Bạn hát'));
+    await tester.pumpAndSettle();
+    expect(find.byType(Slider), findsOneWidget);
+    final slider = tester.widget<Slider>(find.byType(Slider));
+    slider.onChanged!(0.4);
+    slider.onChangeEnd!(0.4);
+    await tester.pumpAndSettle();
+    expect(voice.userVolume('2'), 0.4);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  });
+
+  testWidgets('failed voice connection exposes retry without enabling mic', (
+    tester,
+  ) async {
+    final failed = TestKaraokeVoice()..failConnection = true;
+    final recovered = TestKaraokeVoice();
+    var attempts = 0;
+    await openRoom(
+      tester,
+      TestKaraokeRepository(),
+      () => attempts++ == 0 ? failed : recovered,
+    );
+    // Kết nối đầu thất bại: chỉ còn icon micro trên AppBar, chạm để thử lại.
+    await tester.tap(find.byTooltip('Kết nối âm thanh phòng'));
+    await tester.pumpAndSettle();
+    expect(failed.disposed, isTrue);
+    expect(recovered.connected, isTrue);
+    expect(recovered.microphoneOn, isFalse);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  });
 }

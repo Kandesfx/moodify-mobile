@@ -9,6 +9,16 @@ import 'package:moodify_flutter/features/player/presentation/player_controller.d
 import '../../support/music_harness.dart';
 
 const _karaokeTrack = {
+  // Hợp đồng thật của playback phòng hát (KaraokeRoomPlaybackTrackResponse).
+  'trackId': 'karaoke-song',
+  'title': 'Test instrumental',
+  'artist': 'Test artist',
+  'durationMs': 120000,
+  'instrumentalUrl': 'https://moodify.click/instrumentals/song.mp3',
+};
+
+const _soloKaraokeTrack = {
+  // Catalog/solo trả songId thay cho trackId — loadTrack phải nhận cả hai.
   'songId': 'karaoke-song',
   'title': 'Test instrumental',
   'artist': 'Test artist',
@@ -63,7 +73,7 @@ void main() {
       player.cycleRepeat();
       final musicEvents = telemetry.length;
       repository.onTrack = (_) async => throw StateError('No catalog fallback');
-      await karaoke.loadTrack(_karaokeTrack);
+      await karaoke.loadTrack(_soloKaraokeTrack);
       expect(engineCreations, 1);
       expect(engine.loaded, [firstTrack.id, 'karaoke-song']);
       expect(karaoke.playing, false);
@@ -95,6 +105,12 @@ void main() {
       );
     },
   );
+
+  test('room playback track uses the server trackId contract', () async {
+    repository.onTrack = (_) async => throw StateError('No catalog fallback');
+    await karaoke.loadTrack(_karaokeTrack);
+    expect(engine.loaded, ['karaoke-song']);
+  });
 
   test(
     'failed karaoke load retries its instrumental, never the music catalog',

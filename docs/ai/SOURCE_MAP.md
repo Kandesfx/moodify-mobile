@@ -67,6 +67,7 @@ Các API mobile còn tập trung trong `Mobile/src/services/api.ts`, web trong `
 | Download/encryption/license/cache cleanup | `lib/features/offline/data/offline_repository.dart`, `lib/features/offline/presentation/` |
 | Player-offline interface và wiring | `lib/features/player/domain/offline_playback.dart`, `lib/app/bootstrap.dart`, `lib/main.dart` |
 | Karaoke solo/phòng, API, voice, pitch/reference | `lib/features/karaoke/presentation/karaoke_screen.dart`, `lib/features/karaoke/data/` |
+| Hàng chờ nhiều bài/người, voice join/retry, mic và âm lượng thành viên | `karaoke_screen.dart`, `karaoke_repository.dart`, `karaoke_voice_client.dart` trong module karaoke; `test/features/karaoke/karaoke_rooms_test.dart`, `karaoke_voice_client_test.dart`; backend `KaraokeRoomService`, SQL tại `E:/moodify-backend/database/allow_multiple_karaoke_queue_items.sql` và `create_karaoke_room_queue.sql` |
 | Nhạc nền karaoke dùng chung engine, ownership token qua OS retry/restart | `lib/features/karaoke/data/karaoke_playback.dart`, `PlayerController.loadKaraoke` trong player controller |
 | Test chuyển nguồn music/karaoke và guest 5 tab | `test/features/player/karaoke_playback_test.dart`, `test/features/catalog/main_shell_test.dart` |
 | UX audit và native/account acceptance | `docs/UX_REVIEW.md`, `docs/ai/STATE.md` |

@@ -67,6 +67,18 @@ Quyết định nhỏ trong baseline: ghi ID, lý do, hệ quả, ngày và bằ
 - D35 (05/11): Pending guest action chỉ là RAM TTL10phút gồm track/action/return route, không persist credential hoặc tự replay mutation khi auth. User xác nhận tại continuation page; clear khi account đổi, kiểm tra liked trước thao tác lưu để tránh toggle ngược.
 - D36 (05/11): Queue thêm/bỏ tương lai trong controller hiện có, giữ native source/position; LRC follow dùng chiều cao đo có cache và lazy builder, không thêm package animation/scroll/engine. Mini gắn vào scaffold các trang detail để không che nội dung/CTA.
 - D37 (05/11): Download preflight đọc entitlement từ subscriptions/me và quota current-device từ offline/my-downloads, làm mới trước mỗi lượt tải; không dùng tên gói hoặc cache để suy quyền. Thiếu quyền/full quota chặn trước request-download, lỗi mạng/contract giữ trạng thái chưa xác minh. UI tách bộ nhớ file local và quota server; task/lỗi được ưu tiên trước thống kê, thành công chỉ sau confirm/verify hiện có. Không đổi DB/backend hoặc thêm engine/download framework; background durable, byte resume và queue nhiều job chưa triển khai.
+# 06/11/2026 — Hàng chờ và mic karaoke
+
+- Theo yêu cầu và chấp thuận rõ của người dùng, bỏ quy tắc một bài/người trong
+  queue. Chuẩn bị migration đổi unique `(room_id, requester_user_id)` sang index
+  thường và CREATE TABLE đầy đủ; không chạy DB trong lượt sửa. Dùng bảng nghiệp vụ
+  và khóa room hiện có, không lưu queue thay thế bằng RAM/cache. Chặn trùng cùng
+  track của cùng người bằng service dưới khóa room; không giới hạn số bài/người.
+- Voice dùng adapter mediasoup hiện có qua factory Riverpod; mức âm lượng từng
+  thành viên chỉ tác động âm thanh nghe trên máy mình, giữ tạm trong RAM của phiên.
+  Không tự bật mic khi retry. Voice capture và pitch capture dùng mic lần lượt;
+  khi mute không cho poll tự bật capture trở lại.
+
 # 06/11/2026 — Quản lý hồ sơ
 
 Trang quản lý tài khoản sửa họ tên và số điện thoại qua endpoint xác thực dùng cột sẵn có. Email và tên đăng nhập giữ chỉ đọc vì là thông tin định danh; không bổ sung quy trình đổi định danh hoặc đổi schema trong đợt này.

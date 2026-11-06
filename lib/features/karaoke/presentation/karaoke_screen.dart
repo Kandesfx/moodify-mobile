@@ -14,6 +14,8 @@ import '../../catalog/presentation/catalog_widgets.dart';
 import '../../player/presentation/player_controller.dart'
     show playerControllerProvider;
 import '../data/karaoke_repository.dart';
+import '../data/karaoke_room_live_client.dart';
+import '../data/karaoke_score_result.dart';
 import '../data/microphone_capture.dart';
 import '../data/pitch_capture.dart';
 import '../data/karaoke_voice_client.dart';
@@ -553,7 +555,7 @@ class _KaraokePerformanceScreenState
       _muteStartPosition = null;
     });
 
-    double? overall;
+    KaraokeScoreResult? scoreResult;
     try {
       final features = await capture.finish(
         startOffsetMs: _captureStartOffsetMs,
@@ -577,20 +579,15 @@ class _KaraokePerformanceScreenState
       }
       if (reliableVoiceFrames * PitchCapture.hopSize / PitchCapture.sampleRate <
           2) {
-        if (mounted) {
-          _message(
-            'Chưa thu được giọng hát rõ để chấm điểm. Hãy bật micro, đeo tai nghe và hát gần micro rồi thử lại.',
-          );
-        }
-        return;
-      }
-      final result = await ref
-          .read(karaokeRepositoryProvider)
-          .submitPitchFeatures(session['sessionId'].toString(), features);
-      final score = result['score'] as Map<String, dynamic>?;
-      overall = (score?['overall'] as num?)?.toDouble();
-      if (overall == null && mounted) {
-        _message('Bản thu chưa đủ dữ liệu để tính điểm.');
+        // Giống web: vẫn mở dialog kết quả kèm lý do thay vì chỉ báo snackbar.
+        scoreResult = const KaraokeScoreResult(
+          qualityStatus: 'insufficient_audio',
+        );
+      } else {
+        final response = await ref
+            .read(karaokeRepositoryProvider)
+            .submitPitchFeatures(session['sessionId'].toString(), features);
+        scoreResult = KaraokeScoreResult.fromMap(response);
       }
     } catch (error) {
       if (mounted) _message(karaokeError(error));
@@ -598,12 +595,15 @@ class _KaraokePerformanceScreenState
       await capture.dispose();
       if (mounted) setState(() => _scoreSubmitting = false);
     }
-    final scoreValue = overall;
-    if (mounted && scoreValue != null) {
+    final result = scoreResult;
+    if (mounted && result != null) {
       await showDialog<void>(
         context: context,
-        builder: (dialogContext) =>
-            _KaraokeScoreDialog(title: _currentTrackTitle, score: scoreValue),
+        builder: (dialogContext) => _KaraokeScoreDialog(
+          title: _currentTrackTitle,
+          result: result,
+          solo: true,
+        ),
       );
     }
   }
@@ -1052,6 +1052,12 @@ class _KaraokeRoomsScreenState extends ConsumerState<KaraokeRoomsScreen> {
   bool _polling = false;
   KaraokeVoiceClient? _voice;
   StreamSubscription<void>? _voiceEvents;
+  KaraokeRoomLiveClient? _live;
+  StreamSubscription<KaraokeRoomLiveEvent>? _liveEvents;
+  bool _voiceConnecting = false;
+  bool _voiceMicBusy = false;
+  bool _roomMicMuted = false;
+  bool _queueAdding = false;
   PitchCapture? _roomCapture;
   Map<String, dynamic>? _roomScoreSession;
   Future<Map<String, dynamic>>? _roomScoreSessionFuture;
@@ -1064,6 +1070,7 @@ class _KaraokeRoomsScreenState extends ConsumerState<KaraokeRoomsScreen> {
   bool _roomScoreFinishing = false;
   bool _roomScoreRunClosed = false;
   bool _roomCaptureStarting = false;
+  Future<void>? _roomCaptureStartFuture;
   bool _scorePermissionDenied = false;
   bool _voiceMicHintShown = false;
   bool _permissionHintShown = false;
@@ -1091,10 +1098,13 @@ class _KaraokeRoomsScreenState extends ConsumerState<KaraokeRoomsScreen> {
   @override
   void dispose() {
     _roomPoll?.cancel();
+    _roomMicMuted = true;
     _roomScorePoll?.cancel();
     unawaited(_roomAudioStateEvents?.cancel());
     // Rời màn giữa chừng: gần hết bài thì chốt điểm chung, ngược lại hủy (như web).
     unawaited(_teardownScoreRun(finishIfNearEnd: true));
+    unawaited(_liveEvents?.cancel());
+    unawaited(_live?.dispose());
     unawaited(_voiceEvents?.cancel());
     unawaited(_voice?.dispose());
     unawaited(_roomAudio.stop());
@@ -1102,6 +1112,73 @@ class _KaraokeRoomsScreenState extends ConsumerState<KaraokeRoomsScreen> {
   }
 
   // ---- Chấm điểm chung tự động, mô phỏng luồng web (useKaraokeRoomScoring) ----
+
+  Future<void> _connectVoice() async {
+    final room = _joined;
+    if (room == null || _voiceConnecting) return;
+    setState(() => _voiceConnecting = true);
+    final previous = _voice;
+    unawaited(_voiceEvents?.cancel());
+    _voiceEvents = null;
+    _voice = null;
+    await previous?.dispose();
+    if (!mounted || _joined?['id'] != room['id']) return;
+    final voice = ref.read(karaokeVoiceFactoryProvider)();
+    setState(() => _voice = voice);
+    _voiceEvents = voice.onChanged.stream.listen((_) {
+      if (mounted && identical(_voice, voice)) setState(() {});
+    });
+    try {
+      await voice.connect((room['id'] as num).toInt());
+    } catch (error) {
+      if (mounted) _message(karaokeError(error));
+    } finally {
+      if (mounted && identical(_voice, voice)) {
+        setState(() => _voiceConnecting = false);
+        // Không còn panel trạng thái: báo lỗi kết nối bằng snackbar.
+        if (!voice.connected && voice.error != null) {
+          _message(voice.error!);
+        }
+      }
+    }
+  }
+
+  bool get _roomMicActive =>
+      (_voice?.microphoneOn ?? false) || _roomCapture != null;
+
+  /// Một icon micro duy nhất trên AppBar: chưa nối âm thanh thì chạm để kết
+  /// nối, đã nối thì chạm để bật/tắt mic truyền giọng.
+  Future<void> _onMicPressed() async {
+    if ((_voice?.connected ?? false) || _roomCapture != null) {
+      await _toggleRoomMicrophone();
+      return;
+    }
+    await _connectVoice();
+  }
+
+  Future<void> _toggleRoomMicrophone() async {
+    final voice = _voice;
+    if (_voiceMicBusy || (voice?.connected != true && _roomCapture == null)) {
+      return;
+    }
+    setState(() => _voiceMicBusy = true);
+    try {
+      // Stop local scoring capture before WebRTC opens the hardware mic.
+      // Muting also stops scoring capture until the user enables the mic again.
+      final turnOff = (voice?.microphoneOn ?? false) || _roomCapture != null;
+      _roomMicMuted = turnOff;
+      await _roomCaptureStartFuture;
+      await _stopRoomCaptureAndSubmit();
+      if (!mounted || !identical(_voice, voice)) return;
+      if (voice != null && (voice.microphoneOn || !turnOff)) {
+        await voice.toggleMicrophone();
+      }
+    } catch (error) {
+      if (mounted) _message(karaokeError(error));
+    } finally {
+      if (mounted) setState(() => _voiceMicBusy = false);
+    }
+  }
 
   void _openScoreRun(
     Map<String, dynamic> playback,
@@ -1163,11 +1240,25 @@ class _KaraokeRoomsScreenState extends ConsumerState<KaraokeRoomsScreen> {
     _roomScoreRunClosed = true;
   }
 
-  Future<void> _startRoomCapture() async {
+  Future<void> _startRoomCapture() {
+    final pending = _roomCaptureStartFuture;
+    if (pending != null) return pending;
+    final future = _startRoomCaptureNow();
+    _roomCaptureStartFuture = future;
+    return future.whenComplete(() {
+      if (identical(_roomCaptureStartFuture, future)) {
+        _roomCaptureStartFuture = null;
+      }
+    });
+  }
+
+  Future<void> _startRoomCaptureNow() async {
     final room = _joined;
     if (room == null ||
         _roomCapture != null ||
         _roomCaptureStarting ||
+        _voiceMicBusy ||
+        _roomMicMuted ||
         _roomScoreFinishing ||
         _roomScoreRunClosed ||
         _scorePermissionDenied) {
@@ -1229,6 +1320,10 @@ class _KaraokeRoomsScreenState extends ConsumerState<KaraokeRoomsScreen> {
       }
       final latest = _joined?['playback'] as Map<String, dynamic>? ?? const {};
       if (!mounted ||
+          _voiceMicBusy ||
+          _roomMicMuted ||
+          _roomScoreRunClosed ||
+          _voice?.microphoneOn == true ||
           latest['status'] != 'PLAYING' ||
           latest['playbackRunId']?.toString() != _roomScoreRunId) {
         await activeCapture.cancel();
@@ -1384,12 +1479,17 @@ class _KaraokeRoomsScreenState extends ConsumerState<KaraokeRoomsScreen> {
 
   void _maybeShowScoreDialog(Map<String, dynamic> session) {
     if (!mounted) return;
-    final score = session['score'] as Map<String, dynamic>?;
-    final overall =
-        ((score?['score'] as Map<String, dynamic>?)?['overall'] as num?)
-            ?.toDouble();
+    final result = KaraokeScoreResult.fromMap(
+      session['score'] as Map<String, dynamic>?,
+    );
     final sessionId = session['sessionId']?.toString() ?? '';
-    if (overall == null ||
+    // Nhận kết quả khi có điểm tổng, hoặc phiên đã hoàn tất mà máy chủ vẫn
+    // trả khối điểm rỗng do chất lượng thu — khớp điều kiện của web
+    // (use-karaoke-room-scoring.ts).
+    final scorable =
+        result.overall != null ||
+        (session['status'] == 'completed' && result.hasScore);
+    if (!scorable ||
         sessionId.isEmpty ||
         _scoreDialogShownFor.contains(sessionId)) {
       return;
@@ -1398,7 +1498,7 @@ class _KaraokeRoomsScreenState extends ConsumerState<KaraokeRoomsScreen> {
     showDialog<void>(
       context: context,
       builder: (dialogContext) =>
-          _KaraokeScoreDialog(title: _roomScoreSongTitle, score: overall),
+          _KaraokeScoreDialog(title: _roomScoreSongTitle, result: result),
     );
   }
 
@@ -1432,13 +1532,99 @@ class _KaraokeRoomsScreenState extends ConsumerState<KaraokeRoomsScreen> {
     }
   }
 
+  // ---- Kênh realtime phòng: điểm và sự kiện phòng tới tức thì qua WS ----
+
+  Future<void> _connectLive(Map<String, dynamic> room) async {
+    final roomId = (room['id'] as num?)?.toInt();
+    if (roomId == null) return;
+    final previous = _live;
+    unawaited(_liveEvents?.cancel());
+    _liveEvents = null;
+    final live = ref.read(karaokeRoomLiveFactoryProvider)(roomId);
+    _live = live;
+    _liveEvents = live.events.listen(_onLiveEvent);
+    unawaited(previous?.dispose());
+    await live.enter(roomId);
+  }
+
+  void _onLiveEvent(KaraokeRoomLiveEvent event) {
+    final room = _joined;
+    final roomId = (room?['id'] as num?)?.toInt();
+    if (!mounted || room == null || roomId == null) return;
+    if (event.roomId != null && event.roomId != roomId) return;
+    switch (event.type) {
+      case 'score.updated':
+        unawaited(_showLiveScore(event));
+      case 'room.closed':
+        unawaited(_handleRoomClosedRemotely());
+      case 'member.joined' ||
+          'member.left' ||
+          'queue.updated' ||
+          'playback.updated':
+        unawaited(_syncRoom());
+    }
+  }
+
+  Future<void> _showLiveScore(KaraokeRoomLiveEvent event) async {
+    final sessionId = event.sessionId;
+    if (sessionId == null || sessionId.isEmpty) return;
+    if (event.score != null) {
+      // Frame WS đã mang trọn khối điểm: không cần gọi REST thêm.
+      _maybeShowScoreDialog({
+        'sessionId': sessionId,
+        'status': event.status,
+        'score': event.score,
+      });
+      return;
+    }
+    final room = _joined;
+    final roomId = (room?['id'] as num?)?.toInt();
+    if (roomId == null) return;
+    try {
+      final latest = await ref
+          .read(karaokeRepositoryProvider)
+          .roomScoreSession(roomId, sessionId);
+      _maybeShowScoreDialog(latest);
+    } catch (_) {
+      // Poll 3 giây vẫn là lưới dự phòng để lấy kết quả.
+    }
+  }
+
+  Future<void> _handleRoomClosedRemotely() async {
+    if (_joined == null) return;
+    _roomMicMuted = true;
+    await _teardownScoreRun(finishIfNearEnd: false);
+    unawaited(_liveEvents?.cancel());
+    _liveEvents = null;
+    unawaited(_live?.dispose());
+    _live = null;
+    unawaited(_voiceEvents?.cancel());
+    _voiceEvents = null;
+    await _voice?.dispose();
+    _voice = null;
+    _voiceConnecting = false;
+    _roomMicMuted = false;
+    await _roomAudio.stop();
+    if (!mounted) return;
+    setState(() => _joined = null);
+    _refresh();
+    _message('Phòng đã kết thúc.');
+  }
+
   Future<void> _leaveRoom(int id) async {
+    _roomMicMuted = true;
     try {
       await _teardownScoreRun(finishIfNearEnd: true);
-      await _voiceEvents?.cancel();
+      unawaited(_liveEvents?.cancel());
+      _liveEvents = null;
+      unawaited(_live?.dispose());
+      _live = null;
+      unawaited(_voiceEvents?.cancel());
       _voiceEvents = null;
       await _voice?.dispose();
       _voice = null;
+      _voiceConnecting = false;
+      _roomMicMuted = false;
       await _roomAudio.stop();
       await ref.read(karaokeRepositoryProvider).leaveRoom(id);
       if (mounted) setState(() => _joined = null);
@@ -1584,6 +1770,8 @@ class _KaraokeRoomsScreenState extends ConsumerState<KaraokeRoomsScreen> {
       final detail = await ref.read(karaokeRepositoryProvider).joinRoom(id);
       if (mounted) {
         setState(() => _joined = detail);
+        unawaited(_connectLive(detail));
+        unawaited(_connectVoice());
         unawaited(_syncRoomAudio(detail));
         _refresh();
       }
@@ -1625,6 +1813,8 @@ class _KaraokeRoomsScreenState extends ConsumerState<KaraokeRoomsScreen> {
           .joinRoom(id, inviteCode: code);
       if (mounted) {
         setState(() => _joined = result);
+        unawaited(_connectLive(result));
+        unawaited(_connectVoice());
         unawaited(_syncRoomAudio(result));
       }
     } catch (error) {
@@ -1652,6 +1842,8 @@ class _KaraokeRoomsScreenState extends ConsumerState<KaraokeRoomsScreen> {
   }
 
   Future<void> _addTrack() async {
+    if (_queueAdding) return;
+    setState(() => _queueAdding = true);
     try {
       final track = await showAppModalSheet<Map<String, dynamic>>(
         context: context,
@@ -1671,16 +1863,25 @@ class _KaraokeRoomsScreenState extends ConsumerState<KaraokeRoomsScreen> {
       if (mounted) setState(() => _joined = updated);
     } catch (error) {
       if (mounted) _message(karaokeError(error));
+    } finally {
+      if (mounted) setState(() => _queueAdding = false);
     }
   }
 
   Future<void> _closeRoom(int id) async {
+    _roomMicMuted = true;
     try {
       await _teardownScoreRun(finishIfNearEnd: true);
-      await _voiceEvents?.cancel();
+      unawaited(_liveEvents?.cancel());
+      _liveEvents = null;
+      unawaited(_live?.dispose());
+      _live = null;
+      unawaited(_voiceEvents?.cancel());
       _voiceEvents = null;
       await _voice?.dispose();
       _voice = null;
+      _voiceConnecting = false;
+      _roomMicMuted = false;
       await _roomAudio.stop();
       if (!mounted) return;
       await ref.read(karaokeRepositoryProvider).closeRoom(id);
@@ -1733,6 +1934,30 @@ class _KaraokeRoomsScreenState extends ConsumerState<KaraokeRoomsScreen> {
               icon: const Icon(Icons.add_rounded),
             )
           else ...[
+            IconButton(
+              tooltip: _voiceConnecting
+                  ? 'Đang kết nối âm thanh…'
+                  : _roomMicActive
+                  ? 'Tắt mic của tôi'
+                  : _voice?.connected == true
+                  ? 'Bật mic của tôi'
+                  : 'Kết nối âm thanh phòng',
+              onPressed: _voiceConnecting || _voiceMicBusy
+                  ? null
+                  : _onMicPressed,
+              icon: _voiceConnecting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Icon(
+                      _roomMicActive
+                          ? Icons.mic_rounded
+                          : Icons.mic_off_rounded,
+                      color: _roomMicActive ? const Color(0xFFB9A1FF) : null,
+                    ),
+            ),
             if (joined['canManage'] == true)
               IconButton(
                 tooltip: 'Đóng phòng',
@@ -1751,7 +1976,7 @@ class _KaraokeRoomsScreenState extends ConsumerState<KaraokeRoomsScreen> {
           ? _RoomDetailView(
               room: joined,
               audio: _roomAudio,
-              onAddTrack: _addTrack,
+              onAddTrack: _queueAdding ? null : _addTrack,
               onCommand: _roomCommand,
               onMemberTap: _showMemberVolume,
               onRemoveQueue: (itemId) async {
@@ -1940,7 +2165,7 @@ class _RoomDetailView extends StatelessWidget {
   final Map<String, dynamic> room;
   final KaraokePlayback audio;
   final VoidCallback onRefresh;
-  final VoidCallback onAddTrack;
+  final VoidCallback? onAddTrack;
   final ValueChanged<String> onCommand;
   final ValueChanged<int> onRemoveQueue;
   final ValueChanged<Map<String, dynamic>> onMemberTap;
@@ -1953,13 +2178,6 @@ class _RoomDetailView extends StatelessWidget {
     final canManage = room['canManage'] == true;
     final playing = playback['status'] == 'PLAYING';
     final textTheme = Theme.of(context).textTheme;
-    Map<String, dynamic>? myQueueItem;
-    for (final raw in queue) {
-      if (raw is Map<String, dynamic> && raw['requestedByMe'] == true) {
-        myQueueItem = raw;
-        break;
-      }
-    }
     return RefreshIndicator(
       onRefresh: () async => onRefresh(),
       child: ListView(
@@ -2152,7 +2370,7 @@ class _RoomDetailView extends StatelessWidget {
                       Text(
                         canManage
                             ? 'Chọn bài hát để mọi người cùng thưởng thức.'
-                            : 'Chờ chủ phòng thêm bài hát.',
+                            : 'Chọn bài hát để đăng ký lượt hát của bạn.',
                         style: textTheme.bodySmall?.copyWith(
                           color: AppColors.secondary,
                         ),
@@ -2195,7 +2413,8 @@ class _RoomDetailView extends StatelessWidget {
                                       ],
                                     ),
                                   ),
-                                  if (item['requestedByMe'] == true)
+                                  if (canManage ||
+                                      item['requestedByMe'] == true)
                                     IconButton(
                                       tooltip: 'Xóa khỏi hàng đợi',
                                       onPressed: () => onRemoveQueue(
@@ -2212,19 +2431,11 @@ class _RoomDetailView extends StatelessWidget {
                   ),
           ),
           const SizedBox(height: 12),
-          if (myQueueItem != null)
-            FilledButton.tonalIcon(
-              onPressed: () =>
-                  onRemoveQueue((myQueueItem!['id'] as num).toInt()),
-              icon: const Icon(Icons.close_rounded),
-              label: const Text('Rút lượt hát của tôi'),
-            )
-          else
-            FilledButton.icon(
-              onPressed: onAddTrack,
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Thêm bài'),
-            ),
+          FilledButton.icon(
+            onPressed: onAddTrack,
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Thêm bài'),
+          ),
         ],
       ),
     );
@@ -2517,7 +2728,7 @@ class _MemberVolumeSheetState extends State<_MemberVolumeSheet> {
     final available =
         !widget.isSelf &&
         _userId.isNotEmpty &&
-        (widget.voice?.hasRemoteAudio(_userId) ?? false);
+        (widget.voice?.connected ?? false);
     final name = widget.member['name']?.toString().trim();
     return SafeArea(
       child: Padding(
@@ -2533,10 +2744,10 @@ class _MemberVolumeSheetState extends State<_MemberVolumeSheet> {
             const SizedBox(height: 8),
             Text(
               widget.isSelf
-                  ? 'Bạn không thể chỉnh âm lượng giọng của chính mình tại đây.'
+                  ? 'Dùng nút Bật/Tắt mic của tôi trong phòng để điều khiển micro của bạn.'
                   : available
-                  ? 'Điều chỉnh âm lượng giọng nói trên thiết bị của bạn.'
-                  : 'Chỉ có thể điều chỉnh khi voice đã kết nối và thành viên đang phát âm thanh.',
+                  ? 'Điều chỉnh âm lượng bạn nghe, không thay đổi mic của họ.${widget.voice?.hasRemoteAudio(_userId) == true ? '' : ' Thành viên chưa bật mic; mức âm lượng sẽ áp dụng khi họ bật mic.'}'
+                  : 'Âm thanh phòng chưa kết nối. Đóng bảng này và chọn kết nối lại âm thanh.',
               style: const TextStyle(color: AppColors.secondary),
             ),
             if (available) ...[
@@ -2885,13 +3096,21 @@ List<_KaraokeLyricLine> _parseKaraokeLyrics({
 }
 
 class _KaraokeScoreDialog extends StatelessWidget {
-  const _KaraokeScoreDialog({required this.title, required this.score});
+  const _KaraokeScoreDialog({
+    required this.title,
+    required this.result,
+    this.solo = false,
+  });
   final String title;
-  final double score;
+  final KaraokeScoreResult result;
+  final bool solo;
+
+  static String _number(double? value) => value?.toStringAsFixed(1) ?? '—';
 
   @override
   Widget build(BuildContext context) {
     final reducedMotion = MediaQuery.disableAnimationsOf(context);
+    final overall = result.overall;
     return Dialog(
       backgroundColor: Colors.transparent,
       insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
@@ -2933,7 +3152,7 @@ class _KaraokeScoreDialog extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               TweenAnimationBuilder<double>(
-                tween: Tween(begin: reducedMotion ? score : 0, end: score),
+                tween: Tween(begin: overall ?? 0, end: overall ?? 0),
                 duration: reducedMotion
                     ? Duration.zero
                     : const Duration(milliseconds: 900),
@@ -2946,7 +3165,9 @@ class _KaraokeScoreDialog extends StatelessWidget {
                     children: [
                       SizedBox.expand(
                         child: CircularProgressIndicator(
-                          value: (value / 100).clamp(0.0, 1.0),
+                          value: overall == null
+                              ? 0
+                              : (value / 100).clamp(0.0, 1.0),
                           strokeWidth: 7,
                           strokeCap: StrokeCap.round,
                           backgroundColor: const Color(0xFF443B50),
@@ -2959,7 +3180,7 @@ class _KaraokeScoreDialog extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            value.toStringAsFixed(1),
+                            overall == null ? '—' : value.toStringAsFixed(1),
                             style: const TextStyle(
                               fontSize: 36,
                               height: 1.2,
@@ -2980,6 +3201,52 @@ class _KaraokeScoreDialog extends StatelessWidget {
                   ),
                 ),
               ),
+              if (result.hasScore) ...[
+                const SizedBox(height: 22),
+                _KaraokeScoreBreakdown(
+                  label: 'Cao độ · 30%',
+                  value: result.pitch,
+                ),
+                const SizedBox(height: 12),
+                _KaraokeScoreBreakdown(
+                  label: 'Nhịp · 20%',
+                  value: result.rhythm,
+                ),
+                const SizedBox(height: 12),
+                _KaraokeScoreBreakdown(
+                  label: 'Điểm độ phủ · 50%',
+                  value: result.coverage,
+                ),
+              ] else ...[
+                const SizedBox(height: 22),
+                Text(
+                  'Chưa đủ dữ liệu để chấm điểm'
+                  '${switch (result.qualityStatus) {
+                    'insufficient_audio' => ': tín hiệu thu bị vỡ tiếng quá nhiều.',
+                    'reference_unreliable' => ': bản tham chiếu chưa đủ tin cậy.',
+                    _ => '.',
+                  }}',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: AppColors.secondary,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+              if (solo && result.capturedSongPercent != null) ...[
+                const SizedBox(height: 14),
+                Text(
+                  'Đã thu ${_number(result.recordingSeconds)} giây'
+                  ' / bài ${_number(result.songSeconds)} giây'
+                  ' · Bao phủ ${_number(result.capturedSongPercent)}%'
+                  ' thời gian bài.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: AppColors.secondary,
+                    height: 1.4,
+                  ),
+                ),
+              ],
               const SizedBox(height: 26),
               SizedBox(
                 width: double.infinity,
@@ -2999,6 +3266,56 @@ class _KaraokeScoreDialog extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _KaraokeScoreBreakdown extends StatelessWidget {
+  const _KaraokeScoreBreakdown({required this.label, required this.value});
+  final String label;
+  final double? value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  color: AppColors.secondary,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            Text(
+              value?.toStringAsFixed(1) ?? '—',
+              style: const TextStyle(
+                color: Color(0xFFF2ECFF),
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const Text(
+              ' /100',
+              style: TextStyle(color: AppColors.secondary, fontSize: 12),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: ((value ?? 0) / 100).clamp(0.0, 1.0),
+            minHeight: 5,
+            backgroundColor: const Color(0xFF443B50),
+            valueColor: const AlwaysStoppedAnimation(Color(0xFFB9A1FF)),
+          ),
+        ),
+      ],
     );
   }
 }

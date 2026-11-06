@@ -47,7 +47,10 @@ class KaraokePlayback {
   }
 
   Future<void> loadTrack(Map<String, dynamic> metadata) async {
-    final id = requiredText(metadata, 'songId');
+    // Solo/catalog trả "songId", playback phòng hát trả "trackId" — cùng một
+    // ObjectId bài hát trên máy chủ.
+    final id =
+        optionalText(metadata['songId']) ?? requiredText(metadata, 'trackId');
     final operation = _controller.loadKaraoke(
       Track(
         id: id,

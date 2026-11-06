@@ -6,11 +6,19 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart' show Provider;
 import 'package:mediasfu_mediasoup_client/mediasfu_mediasoup_client.dart';
 import 'package:mediasfu_mediasoup_client/src/handlers/handler_interface.dart'
     show RTCIceCredentialType, RTCIceServer;
 
 import 'karaoke_repository.dart';
+
+final karaokeVoiceFactoryProvider = Provider<KaraokeVoiceClient Function()>((
+  ref,
+) {
+  final repository = ref.watch(karaokeRepositoryProvider);
+  return () => KaraokeVoiceClient(repository);
+});
 
 /// Moodify's Node mediasoup signaling adapter. The server issues one-use tickets;
 /// access tokens are never placed in the voice socket URL.
@@ -23,16 +31,22 @@ class KaraokeVoiceClient {
   final _usersByProducer = <String, String>{};
   final _userVolumes = <String, double>{};
   final _consumerWaiters = <String, Completer<Consumer>>{};
+  final _announcedProducers = <String, String>{};
+  final _closedProducers = <String>{};
+  final _consuming = <String>{};
   WebSocket? _socket;
   StreamSubscription<dynamic>? _subscription;
   Device? _device;
   Transport? _send, _receive;
   MediaStream? _microphone;
   Producer? _producer;
+  Completer<Producer>? _producerReady;
+  bool _micChanging = false;
+  bool _disposed = false;
   int _nextId = 0;
   bool connected = false;
   String? error;
-  bool get microphoneOn => _producer != null;
+  bool get microphoneOn => connected && _producer != null && !_producer!.closed;
   final onChanged = StreamController<void>.broadcast();
   final remoteUserIds = <String>{};
 
@@ -56,15 +70,12 @@ class KaraokeVoiceClient {
         .where((consumer) => !consumer.closed)
         .map((consumer) => consumer.track)
         .toList();
-    if (!connected || tracks.isEmpty) {
-      throw StateError('Thành viên chưa phát âm thanh trong phòng.');
-    }
+    if (!connected) throw StateError('Kết nối voice chưa sẵn sàng.');
     for (final track in tracks) {
       await Helper.setVolume(volume, track);
     }
-    if (!hasRemoteAudio(userId)) {
-      throw StateError('Âm thanh thành viên đã ngắt kết nối.');
-    }
+    // Keep the preference while a participant is muted and apply it when their
+    // next producer arrives, so volume can be set before they start speaking.
     _userVolumes[userId] = volume;
     _notify();
   }
@@ -95,16 +106,24 @@ class KaraokeVoiceClient {
   }
 
   Future<void> connect(int roomId) async {
+    if (_disposed) throw StateError('Kết nối voice đã đóng.');
     if (connected) return;
     try {
       final ticket = await repository.voiceTicket(roomId);
+      if (_disposed) return;
       final uri = Uri.parse(ticket['websocketUrl'].toString());
       if (!(uri.scheme == 'wss' || uri.scheme == 'ws') ||
           uri.userInfo.isNotEmpty ||
           uri.hasFragment) {
         throw const FormatException('Địa chỉ voice không hợp lệ.');
       }
-      final socket = await WebSocket.connect(uri.toString());
+      final socket = await WebSocket.connect(
+        uri.toString(),
+      ).timeout(const Duration(seconds: 10));
+      if (_disposed) {
+        await socket.close();
+        return;
+      }
       _socket = socket;
       final authenticated = Completer<Map<String, dynamic>>();
       _subscription = socket.listen(
@@ -145,9 +164,10 @@ class KaraokeVoiceClient {
             final p = Map<String, dynamic>.from(
               message['payload'] as Map? ?? const {},
             );
-            unawaited(
-              _consume(p['producerId'].toString(), p['userId'].toString()),
-            );
+            final producerId = p['producerId'].toString();
+            final userId = p['userId'].toString();
+            _announcedProducers[producerId] = userId;
+            unawaited(_consume(producerId, userId));
           } else if (message['type'] == 'producer-closed') {
             final p = Map<String, dynamic>.from(
               message['payload'] as Map? ?? const {},
@@ -158,6 +178,7 @@ class KaraokeVoiceClient {
         onDone: () {
           connected = false;
           error ??= 'Mất kết nối âm thanh phòng.';
+          unawaited(disconnect());
           _notify();
         },
         onError: (Object e) {
@@ -169,6 +190,7 @@ class KaraokeVoiceClient {
       final auth = await authenticated.future.timeout(
         const Duration(seconds: 10),
       );
+      if (_disposed) return;
       final caps = await _request('get-rtp-capabilities');
       final device = Device();
       await device.load(
@@ -176,6 +198,7 @@ class KaraokeVoiceClient {
           caps['routerRtpCapabilities'] as Map,
         ),
       );
+      if (_disposed) return;
       _device = device;
       final iceServers = ((caps['iceServers'] as List?) ?? const []).map((
         server,
@@ -192,15 +215,23 @@ class KaraokeVoiceClient {
       }).toList();
       _send = await _createTransport('send', device, iceServers);
       _receive = await _createTransport('recv', device, iceServers);
+      if (_disposed) {
+        await disconnect();
+        return;
+      }
       connected = true;
       error = null;
       _notify();
       for (final raw in (auth['existingProducers'] as List? ?? const [])) {
         final p = Map<String, dynamic>.from(raw as Map);
-        unawaited(_consume(p['producerId'].toString(), p['userId'].toString()));
+        _announcedProducers[p['producerId'].toString()] = p['userId']
+            .toString();
+      }
+      for (final entry in _announcedProducers.entries.toList()) {
+        unawaited(_consume(entry.key, entry.value));
       }
     } catch (e) {
-      error = e.toString().replaceFirst('Bad state: ', '');
+      error = 'Không kết nối được âm thanh phòng. Hãy thử kết nối lại.';
       await disconnect();
       _notify();
       rethrow;
@@ -219,19 +250,24 @@ class KaraokeVoiceClient {
         .map((x) => IceCandidate.fromMap(x as Map))
         .toList();
     final dtls = DtlsParameters.fromMap(o['dtlsParameters'] as Map);
-    void connectHandler(Map data, Function callback, Function errback) async {
+    void connectHandler(Map data) async {
+      final callback = data['callback'] as Function;
+      final errback = data['errback'] as Function;
       try {
         await _request('connect-transport', {
           'transportId': id,
           'dtlsParameters': data['dtlsParameters'].toMap(),
         });
-        callback();
+        callback(null);
       } catch (e) {
         errback(e);
+        final ready = _producerReady;
+        if (ready != null && !ready.isCompleted) ready.completeError(e);
       }
     }
 
     if (direction == 'send') {
+      late final Transport transportForProducer;
       final transport = device.createSendTransport(
         id: id,
         iceParameters: ice,
@@ -239,25 +275,41 @@ class KaraokeVoiceClient {
         dtlsParameters: dtls,
         iceServers: iceServers,
         producerCallback: (Producer producer) {
+          if (_disposed || !identical(_send, transportForProducer)) {
+            producer.close();
+            return;
+          }
+          if (_producerReady == null || _producerReady!.isCompleted) {
+            producer.close();
+            unawaited(
+              _request('close-producer', {
+                'producerId': producer.id,
+              }).catchError((_) => <String, dynamic>{}),
+            );
+            return;
+          }
           _producer = producer;
+          final ready = _producerReady;
+          if (ready != null && !ready.isCompleted) ready.complete(producer);
           _notify();
         },
       );
       transport.on('connect', connectHandler);
-      transport.on('produce', (
-        Map data,
-        Function callback,
-        Function errback,
-      ) async {
+      transportForProducer = transport;
+      transport.on('produce', (Map data) async {
+        final callback = data['callback'] as Function;
+        final errback = data['errback'] as Function;
         try {
           final result = await _request('produce', {
             'transportId': id,
             'kind': data['kind'],
             'rtpParameters': data['rtpParameters'].toMap(),
           });
-          callback({'id': result['id']});
+          callback(result['id'].toString());
         } catch (e) {
           errback(e);
+          final ready = _producerReady;
+          if (ready != null && !ready.isCompleted) ready.completeError(e);
         }
       });
       return transport;
@@ -284,7 +336,9 @@ class KaraokeVoiceClient {
     if (!connected ||
         device == null ||
         transport == null ||
-        _consumers.containsKey(producerId)) {
+        _consumers.containsKey(producerId) ||
+        _closedProducers.contains(producerId) ||
+        !_consuming.add(producerId)) {
       return;
     }
     try {
@@ -293,6 +347,9 @@ class KaraokeVoiceClient {
         'producerId': producerId,
         'rtpCapabilities': device.rtpCapabilities.toMap(),
       });
+      if (_disposed || !connected || _closedProducers.contains(producerId)) {
+        return;
+      }
       final ready = Completer<Consumer>();
       _consumerWaiters[producerId] = ready;
       _usersByProducer[producerId] = userId;
@@ -305,6 +362,10 @@ class KaraokeVoiceClient {
         accept: () {},
       );
       final consumer = await ready.future.timeout(const Duration(seconds: 10));
+      if (_disposed || !connected || _closedProducers.contains(producerId)) {
+        consumer.close();
+        return;
+      }
       _consumerWaiters.remove(producerId);
       _consumers[producerId] = consumer;
       _idsByUser[userId] = producerId;
@@ -320,12 +381,19 @@ class KaraokeVoiceClient {
       } else {
         _usersByProducer.remove(producerId);
       }
-      error = 'Không nhận được âm thanh thành viên: $e';
+      if (!_disposed && connected && !_closedProducers.contains(producerId)) {
+        error = 'Không nhận được âm thanh thành viên. Hãy thử kết nối lại.';
+      }
       _notify();
+    } finally {
+      _consumerWaiters.remove(producerId);
+      _consuming.remove(producerId);
     }
   }
 
   void _closeRemote(String producerId) {
+    _closedProducers.add(producerId);
+    _announcedProducers.remove(producerId);
     final consumer = _consumers.remove(producerId);
     if (consumer != null) {
       final userId = _usersByProducer.remove(producerId);
@@ -341,34 +409,67 @@ class KaraokeVoiceClient {
   }
 
   Future<void> toggleMicrophone() async {
-    if (_producer != null) {
-      final producer = _producer!;
+    if (_micChanging) return;
+    _micChanging = true;
+    try {
+      if (_producer != null) {
+        final producer = _producer!;
+        _producer = null;
+        producer.close();
+        await _releaseMicrophone();
+        _notify();
+        await _request('close-producer', {'producerId': producer.id});
+        return;
+      }
+      if (!connected || _send == null) {
+        throw StateError('Đợi voice kết nối xong rồi bật micro.');
+      }
+      final stream = await navigator.mediaDevices.getUserMedia({
+        'audio': true,
+        'video': false,
+      });
+      if (_disposed || !connected || _send == null) {
+        for (final track in stream.getTracks()) {
+          await track.stop();
+        }
+        await stream.dispose();
+        throw StateError('Kết nối voice đã đóng.');
+      }
+      final track = stream.getAudioTracks().first;
+      _microphone = stream;
+      final ready = Completer<Producer>();
+      _producerReady = ready;
+      _send!.produce(
+        track: track,
+        stream: stream,
+        source: 'microphone',
+        stopTracks: false,
+      );
+      await ready.future.timeout(const Duration(seconds: 12));
+    } catch (_) {
+      _producer?.close();
       _producer = null;
-      producer.close();
-      await _microphone?.dispose();
-      _microphone = null;
-      await _request('close-producer', {'producerId': producer.id});
+      await _releaseMicrophone();
+      rethrow;
+    } finally {
+      _producerReady = null;
+      _micChanging = false;
       _notify();
-      return;
     }
-    if (!connected || _send == null) {
-      throw StateError('Đợi voice kết nối xong rồi bật micro.');
+  }
+
+  Future<void> _releaseMicrophone() async {
+    final stream = _microphone;
+    _microphone = null;
+    if (stream == null) return;
+    for (final track in stream.getTracks()) {
+      await track.stop();
     }
-    final stream = await navigator.mediaDevices.getUserMedia({
-      'audio': true,
-      'video': false,
-    });
-    final track = stream.getAudioTracks().first;
-    _microphone = stream;
-    _send!.produce(
-      track: track,
-      stream: stream,
-      source: 'microphone',
-      stopTracks: false,
-    );
+    await stream.dispose();
   }
 
   Future<void> disconnect() async {
+    connected = false;
     try {
       if (_socket?.readyState == WebSocket.open) {
         _socket!.add(jsonEncode({'id': 'leave', 'type': 'leave'}));
@@ -376,8 +477,7 @@ class KaraokeVoiceClient {
     } catch (_) {}
     _producer?.close();
     _producer = null;
-    await _microphone?.dispose();
-    _microphone = null;
+    await _releaseMicrophone();
     for (final consumer in _consumers.values) {
       consumer.close();
     }
@@ -386,9 +486,12 @@ class KaraokeVoiceClient {
     _usersByProducer.clear();
     _userVolumes.clear();
     _consumerWaiters.clear();
+    _announcedProducers.clear();
+    _closedProducers.clear();
+    _consuming.clear();
     remoteUserIds.clear();
-    _send?.close();
-    _receive?.close();
+    await _send?.close();
+    await _receive?.close();
     _send = null;
     _receive = null;
     _device = null;
@@ -404,6 +507,7 @@ class KaraokeVoiceClient {
   }
 
   Future<void> dispose() async {
+    _disposed = true;
     await disconnect();
     await onChanged.close();
   }

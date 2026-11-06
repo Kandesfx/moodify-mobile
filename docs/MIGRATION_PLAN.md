@@ -156,6 +156,11 @@ Trạng thái: **IN_PROGRESS** sau merge `origin/Thuan_Branch` (`9b070ec`). Solo
 
 ## 10. M6 — karaoke rooms, voice và điểm nhóm
 
+Cập nhật 06/11: đã sửa UI hàng chờ luôn thêm bài, voice connect/retry, callback
+mediasoup, mic cá nhân và volume theo thành viên. Backend/SQL bỏ unique một bài/người
+được người dùng duyệt; mới chuẩn bị script, chưa áp dụng DB hoặc deploy. 146 mobile
+test và 5 backend test đạt; chưa nghiệm thu native trên hai máy. Xem `ai/STATE.md`.
+
 Trạng thái: **IN_PROGRESS** sau merge. Đã có room REST/queue/playback, voice ticket + mediasoup/WebRTC và contribution/finish score. State phòng hiện poll 4 giây; chưa có Spring WebSocket state/reconnect parity. Cần hai thiết bị để nghiệm thu; không suy kết quả runtime từ build.
 
 - Dùng room API hiện có: public/private, invite, membership, queue, host close/playback và expectedVersion.
