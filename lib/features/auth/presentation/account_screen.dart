@@ -44,18 +44,21 @@ class AccountScreen extends ConsumerWidget {
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: isPremium
-                              ? const [
+                        color: isPremium ? null : AppColors.surfaceRaised,
+                        gradient: isPremium
+                            ? const LinearGradient(
+                                colors: [
                                   AppColors.vipGradientTop,
                                   AppColors.vipGradientBottom,
-                                ]
-                              : const [Color(0xFF34234F), Color(0xFF1D1C2B)],
-                        ),
-                        borderRadius: BorderRadius.circular(20),
-                        border: isPremium
-                            ? Border.all(color: AppColors.vipBorder)
+                                ],
+                              )
                             : null,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: isPremium
+                              ? AppColors.vipBorder
+                              : AppColors.borderSoft,
+                        ),
                       ),
                       child: Row(
                         children: [
@@ -63,9 +66,7 @@ class AccountScreen extends ConsumerWidget {
                             isPremium
                                 ? Icons.workspace_premium_rounded
                                 : Icons.tune_rounded,
-                            color: isPremium
-                                ? AppColors.vipGold
-                                : AppColors.lavender,
+                            color: isPremium ? AppColors.vipGold : Colors.white,
                             size: 30,
                           ),
                           const SizedBox(width: 16),
@@ -101,56 +102,194 @@ class AccountScreen extends ConsumerWidget {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 24),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(
-                        Icons.manage_accounts_outlined,
-                        color: AppColors.lavender,
+                    const SizedBox(height: 20),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(color: AppColors.borderSoft),
                       ),
-                      title: const Text('Quản lý tài khoản'),
-                      subtitle: const Text('Chỉnh sửa thông tin cá nhân'),
-                      trailing: const Icon(Icons.chevron_right_rounded),
-                      onTap: () => context.push('/profile'),
-                    ),
-                    const Divider(),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: Icon(
-                        Icons.workspace_premium_outlined,
-                        color: isPremium ? AppColors.vipGold : null,
+                      clipBehavior: Clip.antiAlias,
+                      child: Column(
+                        children: [
+                          ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 4,
+                            ),
+                            leading: Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: AppColors.surfaceGlass,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: AppColors.borderSoft),
+                              ),
+                              child: const Icon(
+                                Icons.manage_accounts_outlined,
+                                color: Colors.white,
+                                size: 21,
+                              ),
+                            ),
+                            title: const Text(
+                              'Quản lý tài khoản',
+                              style: TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            subtitle: const Text(
+                              'Chỉnh sửa thông tin cá nhân',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                color: AppColors.secondary,
+                              ),
+                            ),
+                            trailing: const Icon(Icons.chevron_right_rounded),
+                            onTap: () => context.push('/profile'),
+                          ),
+                          const Divider(height: 1, indent: 68),
+                          ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 4,
+                            ),
+                            leading: Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: isPremium
+                                    ? const Color(0xFF332918)
+                                    : AppColors.surfaceGlass,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: isPremium
+                                      ? AppColors.vipBorder
+                                      : AppColors.borderSoft,
+                                ),
+                              ),
+                              child: Icon(
+                                Icons.workspace_premium_outlined,
+                                color: isPremium
+                                    ? AppColors.vipGold
+                                    : Colors.white,
+                                size: 21,
+                              ),
+                            ),
+                            title: Text(
+                              isPremium ? 'Quản lý gói dịch vụ' : 'Gói dịch vụ',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            subtitle: Text(
+                              isPremium
+                                  ? 'Gói đang dùng, gia hạn và thanh toán'
+                                  : 'Gói miễn phí — Nâng cấp VIP',
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                color: AppColors.secondary,
+                              ),
+                            ),
+                            trailing: const Icon(Icons.chevron_right_rounded),
+                            onTap: () => context.push('/subscriptions'),
+                          ),
+                          const Divider(height: 1, indent: 68),
+                          ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 4,
+                            ),
+                            leading: Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: AppColors.surfaceGlass,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: AppColors.borderSoft),
+                              ),
+                              child: const Icon(
+                                Icons.download_for_offline_outlined,
+                                color: Colors.white,
+                                size: 21,
+                              ),
+                            ),
+                            title: const Text(
+                              'Nhạc đã tải',
+                              style: TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            subtitle: const Text(
+                              'Bộ nhớ và bản quyền trên thiết bị',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                color: AppColors.secondary,
+                              ),
+                            ),
+                            trailing: const Icon(Icons.chevron_right_rounded),
+                            onTap: () => context.push('/offline'),
+                          ),
+                          const Divider(height: 1, indent: 68),
+                          ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 4,
+                            ),
+                            leading: Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: AppColors.surfaceGlass,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: AppColors.borderSoft),
+                              ),
+                              child: const Icon(
+                                Icons.devices,
+                                color: Colors.white,
+                                size: 21,
+                              ),
+                            ),
+                            title: const Text(
+                              'Thiết bị đăng nhập',
+                              style: TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            trailing: const Icon(Icons.chevron_right_rounded),
+                            onTap: () => context.push('/devices'),
+                          ),
+                          const Divider(height: 1, indent: 68),
+                          ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 4,
+                            ),
+                            leading: Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: AppColors.surfaceGlass,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: AppColors.borderSoft),
+                              ),
+                              child: const Icon(
+                                Icons.history_rounded,
+                                color: Colors.white,
+                                size: 21,
+                              ),
+                            ),
+                            title: const Text(
+                              'Lịch sử nghe',
+                              style: TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            subtitle: const Text(
+                              'Các bài đã nghe trên tài khoản',
+                              style: TextStyle(
+                                fontSize: 12.5,
+                                color: AppColors.secondary,
+                              ),
+                            ),
+                            trailing: const Icon(Icons.chevron_right_rounded),
+                            onTap: () => context.push('/history'),
+                          ),
+                        ],
                       ),
-                      title: Text(isPremium ? 'Quản lý gói dịch vụ' : 'Gói dịch vụ'),
-                      subtitle: Text(
-                        isPremium
-                            ? 'Gói đang dùng, gia hạn và thanh toán'
-                            : 'Gói miễn phí — Nâng cấp VIP',
-                      ),
-                      trailing: const Icon(Icons.chevron_right_rounded),
-                      onTap: () => context.push('/subscriptions'),
                     ),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.download_for_offline_outlined),
-                      title: const Text('Nhạc đã tải'),
-                      subtitle: const Text('Bộ nhớ và bản quyền trên thiết bị'),
-                      trailing: const Icon(Icons.chevron_right_rounded),
-                      onTap: () => context.push('/offline'),
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.devices),
-                      title: const Text('Thiết bị đăng nhập'),
-                      onTap: () => context.push('/devices'),
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.history_rounded),
-                      title: const Text('Lịch sử nghe'),
-                      subtitle: const Text('Các bài đã nghe trên tài khoản'),
-                      onTap: () => context.push('/history'),
-                    ),
-                    const SizedBox(height: 16),
-                    const Divider(),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
                     if (state.failure != null) ...[
                       FeedbackPanel(message: state.failure!.message),
                       const SizedBox(height: 16),

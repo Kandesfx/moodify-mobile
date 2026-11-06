@@ -12,7 +12,7 @@ class Pressable extends StatefulWidget {
     super.key,
     required this.child,
     required this.onTap,
-    this.borderRadius = const BorderRadius.all(Radius.circular(12)),
+    this.borderRadius = const BorderRadius.all(Radius.circular(16)),
   });
   final Widget child;
   final VoidCallback? onTap;
@@ -23,18 +23,32 @@ class Pressable extends StatefulWidget {
 }
 
 class _PressableState extends State<Pressable> {
-  bool _pressed = false;
+  final _pressed = ValueNotifier<bool>(false);
 
   @override
-  Widget build(BuildContext context) => AnimatedScale(
-    scale: _pressed && widget.onTap != null ? .975 : 1,
-    duration: AppMotion.duration(context, 120),
-    curve: Curves.easeOutCubic,
+  void dispose() {
+    _pressed.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<bool>(
+    valueListenable: _pressed,
     child: InkWell(
       borderRadius: widget.borderRadius,
       onTap: widget.onTap,
-      onHighlightChanged: (value) => setState(() => _pressed = value),
+      onHighlightChanged: widget.onTap == null
+          ? null
+          : (value) {
+              if (_pressed.value != value) _pressed.value = value;
+            },
       child: widget.child,
+    ),
+    builder: (context, pressed, child) => AnimatedScale(
+      scale: pressed && widget.onTap != null ? .98 : 1,
+      duration: AppMotion.duration(context, 100),
+      curve: Curves.easeOutCubic,
+      child: child,
     ),
   );
 }

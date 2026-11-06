@@ -1,0 +1,347 @@
+<?xml version="1.0" encoding="utf-8"?>
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt">
+
+    <aapt:attr name="android:drawable">
+        <vector
+            android:width="108dp"
+            android:height="108dp"
+            android:viewportWidth="108"
+            android:viewportHeight="108">
+
+            <!-- Soft ambient glow strictly inside Android 12's r=36 circular safe zone -->
+            <group
+                android:name="glow_group"
+                android:pivotX="54"
+                android:pivotY="54">
+                <path android:pathData="M54,20 A34,34 0 1,1 53.99,20 Z">
+                    <aapt:attr name="android:fillColor">
+                        <gradient
+                            android:centerX="54"
+                            android:centerY="54"
+                            android:gradientRadius="34"
+                            android:type="radial">
+                            <item
+                                android:color="#558B5CF6"
+                                android:offset="0.0" />
+                            <item
+                                android:color="#26EC4899"
+                                android:offset="0.68" />
+                            <item
+                                android:color="#000C0C10"
+                                android:offset="1.0" />
+                        </gradient>
+                    </aapt:attr>
+                </path>
+            </group>
+
+            <!-- Expanding circular soundwave ring (r=28.5, max scale 1.18 -> r=33.6 < 36, never clipped) -->
+            <group
+                android:name="wave_ring_1"
+                android:pivotX="54"
+                android:pivotY="54">
+                <path
+                    android:fillColor="#00000000"
+                    android:pathData="M54,25.5 A28.5,28.5 0 1,1 53.99,25.5 Z"
+                    android:strokeColor="#66A78BFA"
+                    android:strokeWidth="1.2" />
+            </group>
+
+            <!-- Main emblem group (circular dark-violet medallion r=28.5 + exact 2-stroke Moodify M) -->
+            <group
+                android:name="emblem_group"
+                android:pivotX="54"
+                android:pivotY="54">
+
+                <!-- Circular medallion background (r=28.5, 100% immune to Android 12 circular crop) -->
+                <path android:pathData="M54,25.5 A28.5,28.5 0 1,1 53.99,25.5 Z">
+                    <aapt:attr name="android:fillColor">
+                        <gradient
+                            android:endX="76"
+                            android:endY="78"
+                            android:startX="32"
+                            android:startY="30"
+                            android:type="linear">
+                            <item
+                                android:color="#2A2046"
+                                android:offset="0.0" />
+                            <item
+                                android:color="#171429"
+                                android:offset="0.55" />
+                            <item
+                                android:color="#100E1B"
+                                android:offset="1.0" />
+                        </gradient>
+                    </aapt:attr>
+                </path>
+
+                <!-- Circular medallion glowing rim -->
+                <path
+                    android:fillColor="#00000000"
+                    android:pathData="M54,26.2 A27.8,27.8 0 1,1 53.99,26.2 Z"
+                    android:strokeWidth="1.4">
+                    <aapt:attr name="android:strokeColor">
+                        <gradient
+                            android:endX="78"
+                            android:endY="78"
+                            android:startX="30"
+                            android:startY="30"
+                            android:type="linear">
+                            <item
+                                android:color="#CCDDD6FE"
+                                android:offset="0.0" />
+                            <item
+                                android:color="#888B5CF6"
+                                android:offset="0.5" />
+                            <item
+                                android:color="#AAEC4899"
+                                android:offset="1.0" />
+                        </gradient>
+                    </aapt:attr>
+                </path>
+
+                <!-- Exact Stroke 1 of Moodify 'M': outer left arch ending mid-air -->
+                <path
+                    android:name="m_stroke_1"
+                    android:fillColor="#00000000"
+                    android:pathData="M35.73,57.15 C38.6,55.7 41.2,40.24 46.65,40.24 C50.1,40.24 51.4,45.7 52.53,50.15"
+                    android:strokeLineCap="round"
+                    android:strokeLineJoin="round"
+                    android:strokeWidth="3.1"
+                    android:trimPathEnd="1.0"
+                    android:trimPathOffset="0.0"
+                    android:trimPathStart="0.0">
+                    <aapt:attr name="android:strokeColor">
+                        <gradient
+                            android:endX="73"
+                            android:endY="49"
+                            android:startX="35"
+                            android:startY="49"
+                            android:type="linear">
+                            <item
+                                android:color="#4E46E5"
+                                android:offset="0.0" />
+                            <item
+                                android:color="#7C3AED"
+                                android:offset="0.28" />
+                            <item
+                                android:color="#A855F7"
+                                android:offset="0.55" />
+                            <item
+                                android:color="#EC4899"
+                                android:offset="0.82" />
+                            <item
+                                android:color="#FF3EA5"
+                                android:offset="1.0" />
+                        </gradient>
+                    </aapt:attr>
+                </path>
+
+                <!-- Exact Stroke 2 of Moodify 'M': inner left arch -> valley -> right peak -> right tail -->
+                <path
+                    android:name="m_stroke_2"
+                    android:fillColor="#00000000"
+                    android:pathData="M43.84,51.52 C44.5,49.3 45.1,47.92 46.23,47.92 C47.9,47.92 48.8,57.61 52.95,57.61 C56.8,57.61 59.4,40.87 62.82,40.87 C65.5,40.87 66.4,56.52 72.27,56.52"
+                    android:strokeLineCap="round"
+                    android:strokeLineJoin="round"
+                    android:strokeWidth="3.1"
+                    android:trimPathEnd="1.0"
+                    android:trimPathOffset="0.0"
+                    android:trimPathStart="0.0">
+                    <aapt:attr name="android:strokeColor">
+                        <gradient
+                            android:endX="73"
+                            android:endY="49"
+                            android:startX="35"
+                            android:startY="49"
+                            android:type="linear">
+                            <item
+                                android:color="#4E46E5"
+                                android:offset="0.0" />
+                            <item
+                                android:color="#7C3AED"
+                                android:offset="0.28" />
+                            <item
+                                android:color="#A855F7"
+                                android:offset="0.55" />
+                            <item
+                                android:color="#EC4899"
+                                android:offset="0.82" />
+                            <item
+                                android:color="#FF3EA5"
+                                android:offset="1.0" />
+                        </gradient>
+                    </aapt:attr>
+                </path>
+
+                <!-- 5 animated equalizer bars below the M -->
+                <group
+                    android:name="eq_bar_1"
+                    android:pivotX="46"
+                    android:pivotY="67">
+                    <path
+                        android:pathData="M46,65.5 L46,68.5"
+                        android:strokeColor="#A78BFA"
+                        android:strokeLineCap="round"
+                        android:strokeWidth="1.9" />
+                </group>
+                <group
+                    android:name="eq_bar_2"
+                    android:pivotX="50"
+                    android:pivotY="67">
+                    <path
+                        android:pathData="M50,64.2 L50,69.8"
+                        android:strokeColor="#C4B5FD"
+                        android:strokeLineCap="round"
+                        android:strokeWidth="1.9" />
+                </group>
+                <group
+                    android:name="eq_bar_3"
+                    android:pivotX="54"
+                    android:pivotY="67">
+                    <path
+                        android:pathData="M54,63.0 L54,71.0"
+                        android:strokeColor="#DDD6FE"
+                        android:strokeLineCap="round"
+                        android:strokeWidth="1.9" />
+                </group>
+                <group
+                    android:name="eq_bar_4"
+                    android:pivotX="58"
+                    android:pivotY="67">
+                    <path
+                        android:pathData="M58,64.2 L58,69.8"
+                        android:strokeColor="#F472B6"
+                        android:strokeLineCap="round"
+                        android:strokeWidth="1.9" />
+                </group>
+                <group
+                    android:name="eq_bar_5"
+                    android:pivotX="62"
+                    android:pivotY="67">
+                    <path
+                        android:pathData="M62,65.5 L62,68.5"
+                        android:strokeColor="#EC4899"
+                        android:strokeLineCap="round"
+                        android:strokeWidth="1.9" />
+                </group>
+            </group>
+        </vector>
+    </aapt:attr>
+
+    <!-- Progressive wave draw for Stroke 1 -->
+    <target android:name="m_stroke_1">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:duration="520"
+                android:interpolator="@android:interpolator/fast_out_slow_in"
+                android:propertyName="trimPathEnd"
+                android:valueFrom="0.0"
+                android:valueTo="1.0"
+                android:valueType="floatType" />
+        </aapt:attr>
+    </target>
+
+    <!-- Progressive wave draw for Stroke 2 -->
+    <target android:name="m_stroke_2">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:duration="760"
+                android:interpolator="@android:interpolator/fast_out_slow_in"
+                android:propertyName="trimPathEnd"
+                android:startOffset="120"
+                android:valueFrom="0.0"
+                android:valueTo="1.0"
+                android:valueType="floatType" />
+        </aapt:attr>
+    </target>
+
+    <!-- Gentle breathing scale on the emblem -->
+    <target android:name="emblem_group">
+        <aapt:attr name="android:animation">
+            <set android:ordering="together">
+                <objectAnimator
+                    android:duration="650"
+                    android:interpolator="@android:interpolator/overshoot"
+                    android:propertyName="scaleX"
+                    android:valueFrom="0.86"
+                    android:valueTo="1.0"
+                    android:valueType="floatType" />
+                <objectAnimator
+                    android:duration="650"
+                    android:interpolator="@android:interpolator/overshoot"
+                    android:propertyName="scaleY"
+                    android:valueFrom="0.86"
+                    android:valueTo="1.0"
+                    android:valueType="floatType" />
+            </set>
+        </aapt:attr>
+    </target>
+
+    <!-- Expanding circular soundwave ring (stays strictly inside r=34 < 36) -->
+    <target android:name="wave_ring_1">
+        <aapt:attr name="android:animation">
+            <set android:ordering="together">
+                <objectAnimator
+                    android:duration="950"
+                    android:interpolator="@android:interpolator/decelerate_cubic"
+                    android:propertyName="scaleX"
+                    android:valueFrom="0.96"
+                    android:valueTo="1.18"
+                    android:valueType="floatType" />
+                <objectAnimator
+                    android:duration="950"
+                    android:interpolator="@android:interpolator/decelerate_cubic"
+                    android:propertyName="scaleY"
+                    android:valueFrom="0.96"
+                    android:valueTo="1.18"
+                    android:valueType="floatType" />
+            </set>
+        </aapt:attr>
+    </target>
+
+    <!-- Equalizer bars bounce -->
+    <target android:name="eq_bar_2">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:duration="300"
+                android:interpolator="@android:interpolator/accelerate_decelerate"
+                android:propertyName="scaleY"
+                android:repeatCount="2"
+                android:repeatMode="reverse"
+                android:valueFrom="0.55"
+                android:valueTo="1.35"
+                android:valueType="floatType" />
+        </aapt:attr>
+    </target>
+
+    <target android:name="eq_bar_3">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:duration="260"
+                android:interpolator="@android:interpolator/accelerate_decelerate"
+                android:propertyName="scaleY"
+                android:repeatCount="3"
+                android:repeatMode="reverse"
+                android:startOffset="60"
+                android:valueFrom="0.5"
+                android:valueTo="1.4"
+                android:valueType="floatType" />
+        </aapt:attr>
+    </target>
+
+    <target android:name="eq_bar_4">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:duration="320"
+                android:interpolator="@android:interpolator/accelerate_decelerate"
+                android:propertyName="scaleY"
+                android:repeatCount="2"
+                android:repeatMode="reverse"
+                android:startOffset="110"
+                android:valueFrom="0.55"
+                android:valueTo="1.35"
+                android:valueType="floatType" />
+        </aapt:attr>
+    </target>
+</animated-vector>

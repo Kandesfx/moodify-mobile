@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:moodify_flutter/features/player/presentation/lyrics_screen.dart';
 import 'package:moodify_flutter/app/app.dart';
 import 'package:moodify_flutter/app/bootstrap.dart';
 import 'package:moodify_flutter/app/router/app_router.dart';
@@ -167,15 +169,25 @@ void main() {
         ProviderScope(
           overrides: [
             playerControllerProvider.overrideWith((ref) => player),
+            catalogRepositoryProvider.overrideWithValue(repository),
           ],
-          child: MaterialApp(
-            home: Builder(
-              builder: (context) => Scaffold(
-                body: TextButton(
-                  onPressed: () => showPlayerLyrics(context),
-                  child: const Text('Lyrics'),
+          child: MaterialApp.router(
+            routerConfig: GoRouter(
+              routes: [
+                GoRoute(
+                  path: '/',
+                  builder: (context, _) => Scaffold(
+                    body: TextButton(
+                      onPressed: () => showPlayerLyrics(context),
+                      child: const Text('Lyrics'),
+                    ),
+                  ),
                 ),
-              ),
+                GoRoute(
+                  path: '/lyrics',
+                  builder: (_, _) => const LyricsScreen(),
+                ),
+              ],
             ),
           ),
         ),
@@ -189,8 +201,18 @@ void main() {
       await tester.pump();
       expect(find.text('Line 40'), findsOneWidget);
       expect(
-        tester.widget<Text>(find.text('Line 40')).style?.color,
-        const Color(0xFFC4B5FD),
+        tester
+            .widget<AnimatedDefaultTextStyle>(
+              find
+                  .ancestor(
+                    of: find.text('Line 40'),
+                    matching: find.byType(AnimatedDefaultTextStyle),
+                  )
+                  .first,
+            )
+            .style
+            .color,
+        const Color(0xFFFAFAFC),
       );
       expect(find.text('Xem gói dịch vụ'), findsNothing);
       final list = find.byType(ListView).last;

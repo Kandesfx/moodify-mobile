@@ -252,13 +252,9 @@ class _CurrentPlanCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF2A2140), Color(0xFF171620)],
-        ),
+        color: AppColors.surfaceRaised,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF453A5E)),
+        border: Border.all(color: AppColors.borderSoft),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

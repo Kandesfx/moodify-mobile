@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show Color;
 
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
@@ -53,10 +54,29 @@ Future<PlaybackEngine> createNativeEngine() async {
     config: const AudioServiceConfig(
       androidNotificationChannelId: 'dev.moodify.playback',
       androidNotificationChannelName: 'Phát nhạc Moodify',
+      androidNotificationIcon: 'drawable/ic_stat_moodify',
+      notificationColor: Color(0xFF14161D),
       androidStopForegroundOnPause: false,
+      preloadArtwork: true,
     ),
   );
   return _NativePlaybackEngine(handler);
+}
+
+Uri? _resolveNotificationArtUri(Uri streamUri, String? rawImage) {
+  if (rawImage == null || rawImage.trim().isEmpty) return null;
+  final parsed = Uri.tryParse(rawImage.trim());
+  if (parsed == null) return null;
+  if (parsed.hasScheme &&
+      (parsed.scheme == 'https' || parsed.scheme == 'http')) {
+    return parsed;
+  }
+  if (streamUri.scheme == 'https' || streamUri.scheme == 'http') {
+    return streamUri
+        .replace(path: '/', query: null, fragment: null)
+        .resolveUri(parsed);
+  }
+  return null;
 }
 
 class _NativePlaybackEngine implements PlaybackEngine {
@@ -75,6 +95,7 @@ class _NativePlaybackEngine implements PlaybackEngine {
         title: track.displayName,
         artist: track.artist,
         duration: Duration(milliseconds: track.durationMs),
+        artUri: _resolveNotificationArtUri(uri, track.image),
       ),
     );
     await handler.player.setUrl(uri.toString());
@@ -98,14 +119,18 @@ class _NativePlaybackEngine implements PlaybackEngine {
   @override
   Future<void> pause() => handler.player.pause();
   @override
-  Future<void> seek(Duration position) => handler.player.seek(position);
+  Future<void> seek(Duration position) async {
+    await handler.player.seek(position);
+    handler.publish(force: true);
+  }
+
   @override
   Future<void> volume(double value) => handler.player.setVolume(value);
   @override
   Future<void> stop() async {
     await handler.player.stop();
     handler.mediaItem.add(null);
-    handler.publish();
+    handler.publish(force: true);
   }
 
   @override
@@ -120,9 +145,15 @@ class _NativePlaybackEngine implements PlaybackEngine {
 
 class _MoodifyAudioHandler extends BaseAudioHandler {
   _MoodifyAudioHandler() {
-    subscriptions.add(player.playbackEventStream.listen((_) => publish()));
-    subscriptions.add(player.playerStateStream.listen((_) => publish()));
-    subscriptions.add(player.positionStream.listen((_) => publish()));
+    subscriptions.add(
+      player.playbackEventStream.listen((_) => publish(force: true)),
+    );
+    subscriptions.add(
+      player.playerStateStream.listen((_) => publish(force: true)),
+    );
+    subscriptions.add(
+      player.positionStream.listen((_) => publish(positionOnly: true)),
+    );
     subscriptions.add(player.errorStream.listen((_) => fail()));
   }
   final player = AudioPlayer();
@@ -130,6 +161,10 @@ class _MoodifyAudioHandler extends BaseAudioHandler {
   final subscriptions = <StreamSubscription<dynamic>>[];
   PlayerCommands? commands;
   bool adMode = false;
+  Duration _lastEmittedPosition = Duration.zero;
+  bool? _lastPlaying;
+  ProcessingState? _lastProcessing;
+  bool? _lastAdMode;
 
   void fail() {
     events.add(const EngineEvent(failed: true));
@@ -143,8 +178,26 @@ class _MoodifyAudioHandler extends BaseAudioHandler {
     );
   }
 
-  void publish() {
+  void publish({bool positionOnly = false, bool force = false}) {
     final processing = player.processingState;
+    final pos = player.position;
+    final stateChanged =
+        force ||
+        _lastPlaying != player.playing ||
+        _lastProcessing != processing ||
+        _lastAdMode != adMode;
+
+    if (positionOnly && !stateChanged) {
+      final deltaMs = (pos - _lastEmittedPosition).inMilliseconds.abs();
+      if (pos != Duration.zero && deltaMs < 200) {
+        return;
+      }
+    }
+    _lastEmittedPosition = pos;
+    _lastPlaying = player.playing;
+    _lastProcessing = processing;
+    _lastAdMode = adMode;
+
     events.add(
       EngineEvent(
         playing: player.playing,
@@ -152,24 +205,28 @@ class _MoodifyAudioHandler extends BaseAudioHandler {
             processing == ProcessingState.loading ||
             processing == ProcessingState.buffering,
         completed: processing == ProcessingState.completed,
-        position: player.position,
+        position: pos,
         duration: player.duration ?? Duration.zero,
       ),
     );
+    if (!stateChanged) return;
+
     playbackState.add(
       PlaybackState(
         controls: adMode
-            ? [
-                player.playing ? MediaControl.pause : MediaControl.play,
-                MediaControl.stop,
-              ]
+            ? [player.playing ? MediaControl.pause : MediaControl.play]
             : [
                 MediaControl.skipToPrevious,
                 player.playing ? MediaControl.pause : MediaControl.play,
                 MediaControl.skipToNext,
-                MediaControl.stop,
               ],
-        systemActions: adMode ? const {} : const {MediaAction.seek},
+        systemActions: adMode
+            ? const {}
+            : const {
+                MediaAction.seek,
+                MediaAction.seekForward,
+                MediaAction.seekBackward,
+              },
         androidCompactActionIndices: adMode ? const [0] : const [0, 1, 2],
         processingState: switch (processing) {
           ProcessingState.idle => AudioProcessingState.idle,
@@ -179,7 +236,7 @@ class _MoodifyAudioHandler extends BaseAudioHandler {
           ProcessingState.completed => AudioProcessingState.completed,
         },
         playing: player.playing,
-        updatePosition: player.position,
+        updatePosition: pos,
         bufferedPosition: player.bufferedPosition,
         speed: player.speed,
       ),

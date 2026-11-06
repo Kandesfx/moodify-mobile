@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../core/widgets/app_sheets.dart';
 import '../../catalog/presentation/catalog_widgets.dart';
@@ -14,6 +15,22 @@ final playerLyricLinesProvider = Provider.autoDispose<List<LyricLine>>((ref) {
   );
   final synced = parseLrc(lyrics.$1);
   return synced.isNotEmpty ? synced : parseLrc(lyrics.$2);
+});
+
+final playerPlainLyricsProvider = Provider.autoDispose<List<String>>((ref) {
+  final lines = ref.watch(playerLyricLinesProvider);
+  if (lines.isNotEmpty) {
+    return List.unmodifiable(lines.map((line) => line.text));
+  }
+  final plain = ref.watch(
+    playerControllerProvider.select((s) => s.track?.lyrics),
+  );
+  return List.unmodifiable(
+    (plain ?? '')
+        .split('\n')
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty),
+  );
 });
 
 void showPlayerQueue(BuildContext context) => showAppModalSheet<void>(
@@ -43,41 +60,89 @@ class _QueueSheet extends ConsumerWidget {
             ),
             Expanded(
               child: ListView.builder(
+                padding: const EdgeInsets.only(bottom: 16),
                 itemCount: state.queue.length,
-                itemBuilder: (_, i) => ListTile(
-                  leading: MusicArtwork(image: state.queue[i].image),
-                  title: Text(
-                    state.queue[i].displayName,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  subtitle: Text(
-                    state.queue[i].artist,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  selected: i == state.index,
-                  selectedColor: AppColors.primary,
-                  trailing: i == state.index
-                      ? const Icon(Icons.graphic_eq_rounded)
-                      : i > state.index
-                      ? IconButton(
-                          tooltip: 'Bỏ bài sắp phát',
-                          onPressed: () => ref
-                              .read(playerControllerProvider.notifier)
-                              .removeUpcoming(i),
-                          icon: const Icon(Icons.close),
-                        )
-                      : null,
-                  onTap: () => ref
-                      .read(playerControllerProvider.notifier)
-                      .select(
-                        state.queue,
-                        i,
-                        offline: state.offline,
-                        source: state.source,
+                itemBuilder: (_, i) {
+                  final active = i == state.index;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 4,
+                    ),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: active
+                            ? const Color(0xFF1C2029)
+                            : const Color(0xFF12141A),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: active
+                              ? const Color(0x38FFFFFF)
+                              : const Color(0x10FFFFFF),
+                        ),
                       ),
-                ),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.fromLTRB(12, 4, 6, 4),
+                        leading: MusicArtwork(
+                          image: state.queue[i].image,
+                          size: 48,
+                          radius: 11,
+                        ),
+                        title: Text(
+                          state.queue[i].displayName,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: active
+                                ? FontWeight.w700
+                                : FontWeight.w600,
+                            color: active ? Colors.white : AppColors.text,
+                          ),
+                        ),
+                        subtitle: Text(
+                          state.queue[i].artist,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            color: AppColors.secondary,
+                          ),
+                        ),
+                        selected: active,
+                        selectedTileColor: Colors.transparent,
+                        trailing: active
+                            ? const Padding(
+                                padding: EdgeInsets.only(right: 8),
+                                child: Icon(
+                                  Icons.graphic_eq_rounded,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : i > state.index
+                            ? IconButton(
+                                tooltip: 'Bỏ bài sắp phát',
+                                onPressed: () => ref
+                                    .read(playerControllerProvider.notifier)
+                                    .removeUpcoming(i),
+                                icon: const Icon(
+                                  Icons.close_rounded,
+                                  color: AppColors.secondary,
+                                ),
+                              )
+                            : null,
+                        onTap: () => ref
+                            .read(playerControllerProvider.notifier)
+                            .select(
+                              state.queue,
+                              i,
+                              offline: state.offline,
+                              source: state.source,
+                            ),
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
           ],
@@ -87,196 +152,7 @@ class _QueueSheet extends ConsumerWidget {
   }
 }
 
-void showPlayerLyrics(BuildContext context) => showAppModalSheet<void>(
-  context: context,
-  isScrollControlled: true,
-  showDragHandle: true,
-  builder: (_) => const _LyricsSheet(),
-);
-
-class _LyricsSheet extends ConsumerStatefulWidget {
-  const _LyricsSheet();
-  @override
-  ConsumerState<_LyricsSheet> createState() => _LyricsSheetState();
-}
-
-class _LyricsSheetState extends ConsumerState<_LyricsSheet> {
-  final _scroll = ScrollController();
-  bool _follow = true;
-  int _lastActive = -2;
-  String? _track;
-  Object? _measureKey;
-  List<double> _heights = [];
-  @override
-  void dispose() {
-    _scroll.dispose();
-    super.dispose();
-  }
-
-  Widget _lines(
-    List<LyricLine> lines,
-    int active,
-    bool loading,
-  ) => LayoutBuilder(
-    builder: (context, constraints) {
-      final style = TextStyle(
-        fontFamily: Theme.of(context).textTheme.bodyMedium?.fontFamily,
-        fontSize: 20,
-        height: 1.5,
-        fontWeight: FontWeight.w700,
-      );
-      final measureKey = (
-        lines,
-        constraints.maxWidth,
-        MediaQuery.textScalerOf(context),
-        Directionality.of(context),
-        style.fontFamily,
-      );
-      if (_measureKey != measureKey) {
-        _measureKey = measureKey;
-        _heights = lines.map((line) {
-          final painter =
-              TextPainter(
-                text: TextSpan(text: line.text, style: style),
-                textDirection: Directionality.of(context),
-                textScaler: MediaQuery.textScalerOf(context),
-              )..layout(
-                maxWidth: (constraints.maxWidth - 48).clamp(1, double.infinity),
-              );
-          final height = painter.height + 32;
-          painter.dispose();
-          return height < 56 ? 56.0 : height;
-        }).toList();
-        _lastActive = -2;
-      }
-      final heights = _heights;
-      if (_lastActive != active) {
-        _lastActive = active;
-        if (_follow && active >= 0) {
-          final target =
-              heights
-                  .take(active)
-                  .fold<double>(0, (sum, value) => sum + value) -
-              constraints.maxHeight * .3;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!mounted ||
-                !_follow ||
-                !_scroll.hasClients ||
-                _lastActive != active) {
-              return;
-            }
-            final offset = target.clamp(0.0, _scroll.position.maxScrollExtent);
-            if (MediaQuery.disableAnimationsOf(context)) {
-              _scroll.jumpTo(offset);
-            } else {
-              _scroll.animateTo(
-                offset,
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOutCubic,
-              );
-            }
-          });
-        }
-      }
-      return NotificationListener<ScrollStartNotification>(
-        onNotification: (event) {
-          if (event.dragDetails != null && _follow) {
-            setState(() => _follow = false);
-          }
-          return false;
-        },
-        child: ListView.builder(
-          controller: _scroll,
-          itemCount: lines.length,
-          itemBuilder: (_, i) => SizedBox(
-            height: heights[i],
-            child: InkWell(
-              onTap: loading
-                  ? null
-                  : () => ref
-                        .read(playerControllerProvider.notifier)
-                        .seek(lines[i].at),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 16,
-                ),
-                child: Text(
-                  lines[i].text,
-                  style: style.copyWith(
-                    color: i == active
-                        ? AppColors.lavender
-                        : AppColors.secondary,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-    },
-  );
-
-  @override
-  Widget build(BuildContext context) {
-    final state = ref.watch(playerControllerProvider);
-    final lines = ref.watch(playerLyricLinesProvider);
-    if (_track != state.track?.id) {
-      _track = state.track?.id;
-      _follow = true;
-      _lastActive = -2;
-    }
-    final synced = lines.isNotEmpty;
-    final active = lines.lastIndexWhere((line) => line.at <= state.position);
-    return SafeArea(
-      child: SizedBox(
-        height: MediaQuery.sizeOf(context).height * .8,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Lời bài hát',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(state.track?.displayName ?? ''),
-                  if (!synced)
-                    const Text(
-                      'Bài này chưa có mốc thời gian cho lời bài hát.',
-                    ),
-                  if (synced && !_follow)
-                    TextButton(
-                      onPressed: () => setState(() {
-                        _follow = true;
-                        _lastActive = -2;
-                      }),
-                      child: const Text('Về câu đang phát'),
-                    ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: synced
-                  ? _lines(lines, active, state.loading)
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
-                      child: SelectableText(
-                        state.track?.lyrics ?? 'Chưa có lời cho bài hát này.',
-                        style: const TextStyle(fontSize: 18, height: 1.9),
-                      ),
-                    ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+void showPlayerLyrics(BuildContext context) => context.push('/lyrics');
 
 void showSleepTimer(BuildContext context) => showAppModalSheet<void>(
   context: context,
@@ -286,37 +162,106 @@ void showSleepTimer(BuildContext context) => showAppModalSheet<void>(
       final state = ref.watch(playerControllerProvider);
       return SafeArea(
         child: SingleChildScrollView(
+          padding: const EdgeInsets.only(bottom: 12),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
                 child: Text(
                   'Hẹn giờ dừng nhạc',
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
               ),
-              if (state.sleepUntil != null)
-                ListTile(
-                  leading: const Icon(Icons.timer_off_outlined),
-                  title: const Text('Tắt hẹn giờ'),
-                  onTap: () {
-                    ref.read(playerControllerProvider.notifier).sleep(null);
-                    Navigator.pop(context);
-                  },
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 4,
                 ),
-              for (final minutes in [15, 30, 45, 60])
-                ListTile(
-                  leading: const Icon(Icons.timer_outlined),
-                  title: Text('$minutes phút'),
-                  onTap: () {
-                    ref
-                        .read(playerControllerProvider.notifier)
-                        .sleep(Duration(minutes: minutes));
-                    Navigator.pop(context);
-                  },
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF111318),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: AppColors.borderSoft),
+                  ),
+                  child: Column(
+                    children: [
+                      if (state.sleepUntil != null) ...[
+                        ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 2,
+                          ),
+                          leading: Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceGlass,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: AppColors.borderSoft),
+                            ),
+                            child: const Icon(
+                              Icons.timer_off_outlined,
+                              size: 19,
+                              color: Colors.white,
+                            ),
+                          ),
+                          title: const Text(
+                            'Tắt hẹn giờ',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          onTap: () {
+                            ref
+                                .read(playerControllerProvider.notifier)
+                                .sleep(null);
+                            Navigator.pop(context);
+                          },
+                        ),
+                        const Divider(height: 1, indent: 60),
+                      ],
+                      for (final (idx, minutes) in [
+                        15,
+                        30,
+                        45,
+                        60,
+                      ].indexed) ...[
+                        if (idx > 0) const Divider(height: 1, indent: 60),
+                        ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 2,
+                          ),
+                          leading: Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceGlass,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: AppColors.borderSoft),
+                            ),
+                            child: const Icon(
+                              Icons.timer_outlined,
+                              size: 19,
+                              color: Colors.white,
+                            ),
+                          ),
+                          title: Text(
+                            '$minutes phút',
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          onTap: () {
+                            ref
+                                .read(playerControllerProvider.notifier)
+                                .sleep(Duration(minutes: minutes));
+                            Navigator.pop(context);
+                          },
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
+              ),
             ],
           ),
         ),

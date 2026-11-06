@@ -30,10 +30,12 @@ Future<T?> showAppModalSheet<T>({
     isScrollControlled: isScrollControlled,
     showDragHandle: showDragHandle,
     backgroundColor: backgroundColor,
-    sheetAnimationStyle: sheetAnimationStyle ?? AnimationStyle(
-      duration: AppMotion.duration(context, 280),
-      reverseDuration: AppMotion.duration(context, 220),
-    ),
+    sheetAnimationStyle:
+        sheetAnimationStyle ??
+        AnimationStyle(
+          duration: AppMotion.duration(context, 280),
+          reverseDuration: AppMotion.duration(context, 220),
+        ),
     builder: builder,
   );
 }

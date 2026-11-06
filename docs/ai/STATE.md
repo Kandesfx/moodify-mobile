@@ -1,5 +1,114 @@
 # Trạng thái hiện tại
 
+## Tối ưu trình phát nhạc: Lược bỏ thanh âm lượng, thêm Nghệ sĩ kèm nút Theo dõi, Chức năng Chia sẻ bài hát & Trích dẫn lời (Lyric Card) theo chuẩn Spotify/Web & Ràng buộc bài hát không có lời — 06/11/2026
+
+- Theo yêu cầu mới nhất từ người dùng:
+  1. **Lược bỏ thanh tăng giảm âm lượng trên Player (`lib/features/player/presentation/player_screen.dart`)**:
+     - Loại bỏ toàn bộ hàng thanh trượt âm lượng và nút mute/unmute trên `PlayerScreen`. Nhường quyền điều khiển âm lượng cho phím cứng vật lý và thanh âm lượng chuẩn của hệ điều hành Android/iOS, giúp giao diện thoáng đãng, tập trung vào điều khiển phát nhạc và hiển thị hình ảnh/lời bài hát.
+  2. **Thêm phần Nghệ sĩ kèm nút Theo dõi trực tiếp (`_PlayerArtistSection` trong `lib/features/player/presentation/player_screen.dart`)**:
+     - Tích hợp thẻ nghệ sĩ studio dark trong khu vực đồng hành bên dưới trình phát: hiển thị ảnh đại diện nghệ sĩ tròn (`MusicArtwork`), tên nghệ sĩ, số lượng người theo dõi kết nối qua `artistProfileProvider`.
+     - Tích hợp nút **`Theo dõi`** / **`Đang theo dõi`** thời gian thực (`artistFollowActionProvider`): nút tự động cập nhật trạng thái với hiệu ứng viên thuốc studio tương phản cao, hỗ trợ kiểm tra đăng nhập (chuyển hướng đăng nhập nếu là khách) và chạm vào nghệ sĩ để chuyển thẳng sang `/artist/{id}`.
+  3. **Chức năng Chia sẻ toàn diện như Web & Spotify (`lib/features/player/presentation/track_share_sheet.dart`)**:
+     - Xây dựng modal chia sẻ chuyên nghiệp `showShareTrackSheet` hỗ trợ 2 chế độ:
+       - **Thẻ bài hát**: Thẻ preview Studio Dark đồng bộ bảng màu ảnh bìa bài hát (`ArtworkPaletteBuilder`), mã âm số Moodify, tên bài, nghệ sĩ và liên kết web. Cung cấp 2 hành động: **Sao chép link** và **Chia sẻ bài hát** qua hệ thống `SharePlus`.
+       - **Trích dẫn lời (Lyric Card)**: Thẻ preview trích dẫn lời chuẩn Spotify/Web với dấu ngoặc kép nghệ thuật `“`, chữ in đậm sắc nét, kèm danh sách câu lời để người dùng chạm chọn 1–3 câu lời tâm đắc muốn trích dẫn. Cung cấp 2 hành động: **Sao chép lời** (kèm trích nguồn bài hát & link) và **Chia sẻ trích dẫn**.
+  4. **Ràng buộc chặt chẽ cho các bài hát không có lời (Bản hòa tấu / Chưa có lyric)**:
+     - Trên `_PlayerHeroPager`: Nếu bài hát không có lời (`lines.isEmpty && plain.isEmpty`), khóa vuốt ngang sang trang lời (`NeverScrollableScrollPhysics`), ẩn hoàn toàn chú thích nảy `_BouncingLyricsHint` (không gây hiểu nhầm cho người dùng), và thanh chế độ bên dưới hiển thị nhãn thanh lịch: **`Bản hòa tấu · Không có lời`**.
+     - Trên `_TrackShareSheet`: Tab "Trích dẫn lời" tự động đổi thành `Không có lời` và bị vô hiệu hóa kèm thông báo giải thích rõ ràng nếu người dùng chạm vào.
+  5. **Tuân thủ triệt để `taste-skill` (Anti-Slop / Studio Dark)**:
+     - Giữ vững bảng màu Studio Dark (`#090A0D`, `#10131B`), chuyển động mượt mà với `AppMotion` / `Curves.easeOutCubic`, loại bỏ hoàn toàn các chip/badge ngẫu nhiên thừa thãi, tối ưu tỷ lệ và độ tương phản.
+- **Kiểm chứng**:
+  - `dart format --output=none --set-exit-if-changed lib test`: **109 files, 0 changed**.
+  - `flutter analyze --no-pub`: **No issues found**.
+  - `flutter test --no-pub`: **134/134 tests passed**.
+  - `flutter build apk --no-pub --profile --target-platform android-arm64 --dart-define-from-file=config/production.json` (`88.0MB`), cài đặt (`adb -s R58TC0KWATX install -r`) và khởi chạy trên Samsung SM-A235F (`dev.moodify.moodify_flutter/.MainActivity`): **Thành công**.
+
+- Theo phản hồi kèm 3 ảnh chụp màn hình từ thiết bị Samsung SM-A235F của người dùng:
+  1. **Giãn khoảng cách các mục chọn trong Bottom Sheet (`lib/features/catalog/presentation/catalog_widgets.dart`)**:
+     - Thay thế các dòng `ListTile(dense: true)` sát nhau bằng các thẻ nút độc lập (`Material` màu `#141720`, bo góc `14px`, viền mảnh `#1AFFFFFF`, khoảng cách dọc `8px` giữa mỗi mục và `10px` giữa hai nhóm hành động, hộp icon `38×38` kèm mũi tên phụ), giúp từng mục chọn tách bạch, thoáng và dễ chạm.
+  2. **Truyền đầy đủ ảnh bìa, màu sắc và icon chuẩn lên Thanh phát ngầm hệ thống Android (`lib/features/player/data/playback_engine.dart`, `lib/features/player/presentation/player_controller.dart`, `android/app/src/main/res/drawable/ic_stat_moodify.xml`)**:
+     - Truyền `artUri` đã phân giải đầy đủ (`https://...`) vào `MediaItem` trong `_NativePlaybackEngine.load` và bật `preloadArtwork: true` trong `AudioServiceConfig`. Nhờ đó Android 11–14 / Samsung One UI hiển thị đúng ảnh bìa bài hát trên thanh phát ngầm và tự động trích xuất bảng màu chủ đạo từ ảnh bìa cho nền thông báo cũng như thanh sóng tiến trình.
+     - Tạo vector drawable đơn sắc `@drawable/ic_stat_moodify` (sóng chữ `M` + cột nhạc trắng trên nền trong suốt) làm `androidNotificationIcon`, khắc phục triệt để lỗi ô vuông trắng đặc cạnh dòng `"Điện thoại này"`.
+     - Loại bỏ `MediaControl.stop` (vốn hiển thị thành một khối vuông trắng lớn bên trái nút Previous trên thông báo mở rộng), giữ bộ 3 nút điều khiển chuẩn (`Previous`, `Play/Pause`, `Next`) cùng `MediaAction.seek`.
+  3. **Nền biến thiên động theo màu chủ đạo của ảnh bài hát (`ArtworkPaletteBuilder` & `ArtworkBackdrop` trong `lib/features/catalog/presentation/artwork_backdrop.dart`)**:
+     - Xây dựng bộ trích xuất màu chủ đạo trực tiếp từ ảnh bìa (`36×36` RGBA qua `ImageStreamListener`, phân nhóm 12 dải sắc độ Hue trọng số theo độ bão hòa & độ sáng, có bộ nhớ đệm LRU 64 ảnh) tạo ra 4 sắc độ đồng bộ: `dominant`, `deep`, `accent`, `miniPlayer`.
+     - Áp dụng chuyển màu mượt (`AnimatedContainer` / `LinearGradient`) cho nền `PlayerScreen`, `LyricsScreen`, `CollectionScreen`, `ArtistScreen`, thanh `MiniPlayer` và quầng sáng đỉnh trang `HomeScreen`.
+  4. **Tăng độ rõ nét của toàn bộ nút điều khiển (`lib/features/player/presentation/player_screen.dart`, `lib/features/player/presentation/lyrics_screen.dart`)**:
+     - Các nút trên thanh tiêu đề (`Thu nhỏ`, `Mở lời bài hát`, `Hẹn giờ ngủ`, `Tùy chọn`) và hàng điều khiển phát nhạc (`Trộn bài`, `Bài trước`, `Phát/Tạm dừng`, `Bài tiếp theo`, `Lặp lại`, `Tải xuống`, `Yêu thích`, `Chia sẻ`, `Hàng đợi`, `Dừng phát`) đều có khung kính mờ tương phản cao (`#1FFFFFFF`–`#24FFFFFF`) kèm viền sáng `#28FFFFFF`–`#33FFFFFF` và icon trắng sắc nét, nổi bật rõ trên mọi tông nền ảnh bìa.
+  5. **Màn hình xem lời tự động thu gọn khi vuốt ngang trên Player + Chú thích nảy định kỳ & Thẻ Tiếp theo / Nghệ sĩ ở cuối trang (`_PlayerHeroPager`, `_BouncingLyricsHint`, `_CompactSwipeLyricsCard`, `_PlayerCompanionCard` trong `lib/features/player/presentation/player_screen.dart`)**:
+     - Khu vực chính trên `PlayerScreen` tích hợp `PageView` 2 trang kèm thanh chuyển đổi nhanh (`Đĩa nhạc` | `Lời tự động`, đổi nhãn từ `Ảnh bìa` sang `Đĩa nhạc`):
+       - **Trang 0 (Đĩa nhạc)**: Hiển thị đĩa/ảnh bài hát kèm chú thích nhỏ `"Vuốt sang để xem lời"` có hiệu ứng nảy đàn hồi (`Curves.elasticOut`) xuất hiện định kỳ để hướng dẫn người dùng vuốt sang trái (hoặc chạm trực tiếp vào chú thích) để mở khung lời.
+       - **Trang 1 (Lời tự động thu gọn)**: Khắc phục triệt để lỗi tự cuộn về giữa bằng cách đo chính xác chiều cao từng câu lời (`TextPainter` + `itemExtentBuilder` + `AutomaticKeepAliveClientMixin`) và căn tâm câu đang phát vào đúng chính giữa khung nhìn (`verticalPad + _offsets[active] + _heights[active] / 2 - box.maxHeight / 2`), kèm nút `"Về câu đang phát"` khi người dùng cuộn tay và nút `"Phóng to"` mở toàn màn hình `/lyrics`.
+     - Thay thế thẻ `_LyricsPreview` bị trùng lặp ở phần dưới `PlayerScreen` bằng thẻ **`_PlayerCompanionCard`** đồng bộ màu ảnh bài hát: hiển thị danh sách **Tiếp theo trong danh sách** (`Bài x/y`, tối đa 2 bài sắp phát có thể chạm để phát ngay) cùng thông tin **Nghệ sĩ trình bày** và các nút thao tác nhanh (`Thêm vào playlist`, `Xem nghệ sĩ`, `Mở hàng đợi`).
+- **Kiểm chứng**:
+  - `dart format --output=none --set-exit-if-changed lib test`: **108 files, 0 changed**.
+  - `flutter analyze --no-pub`: **No issues found**.
+  - `flutter test --no-pub`: **134/134 tests passed**.
+  - `flutter build apk --no-pub --profile --target-platform android-arm64 --dart-define-from-file=config/production.json` (`87.8MB`), cài đặt (`adb -s R58TC0KWATX install -r`) và khởi chạy trên Samsung SM-A235F (`dev.moodify.moodify_flutter/.MainActivity`): **Thành công**.
+
+## Hoàn thiện 5 giai đoạn nâng cấp giao diện Studio Dark trên toàn bộ màn hình chi tiết & thư viện — 06/11/2026
+
+- Triển khai đầy đủ 5 giai đoạn trong kế hoạch nâng cấp giao diện (`ui_improvement_plan.md`) theo chuẩn `taste-skill` (Studio Dark / Anti-Slop), đồng thời giữ nguyên 100% logo mark, launcher icon và hiệu ứng splash:
+  - **Giai đoạn 1 — Màn hình Chi tiết Album / Playlist & Nghệ sĩ (`lib/features/catalog/presentation/detail_screen.dart`)**:
+    - Tích hợp `ArtworkBackdrop` ở phần đầu màn hình và bóng đổ sâu quanh ảnh bìa.
+    - Thay thế 3 nút xếp chồng dọc (`Phát`, `Trộn bài`, `Chia sẻ`) bằng thanh Studio Action Bar ngang cân đối (`Wrap`): nút `Phát` dạng viên thuốc trắng chữ đen tương phản cao, đi cùng nút `Trộn bài` và `Chia sẻ` dạng viên thuốc studio glass có viền mảnh.
+    - Bọc phần tiểu sử nghệ sĩ vào thẻ studio `AppColors.surfaceRaised` và bọc từng album của nghệ sĩ vào thẻ studio `#12141A` bo góc `16px` kèm viền hairline.
+  - **Giai đoạn 2 — Màn hình Thư viện & Đang theo dõi (`lib/features/library/presentation/library_screen.dart`)**:
+    - Bọc các mục Playlist, Album đã lưu và Nghệ sĩ đang theo dõi (`FollowedArtistsView`) vào thẻ studio `#12141A` bo góc `16px` kèm viền mảnh `#10FFFFFF`, thay thế cho `ListTile` thô.
+    - Nâng cấp thanh hành động ở tab Yêu thích (`Phát danh sách` + `Trộn bài`) sang cặp nút viên thuốc studio tương phản cao.
+    - Đóng khung các trạng thái trống (`_Empty`) trong khung studio `AppColors.surfaceRaised` bo góc `24px` kèm hộp icon `64×64`.
+  - **Giai đoạn 3 — Modal Bottom Sheet (`_TrackOptionsSheet`, `_QueueSheet`, `showSleepTimer`) & `TrackTile` (`lib/features/catalog/presentation/catalog_widgets.dart`, `lib/features/player/presentation/player_sheets.dart`)**:
+    - Gom các mục tuỳ chọn bài hát trong `_TrackOptionsSheet` vào 2 khối thẻ studio `#111318` bo góc `18px` với hộp icon `34×34` bo góc `10px` (`isScrollControlled: true`), loại bỏ màu tím `AppColors.lavender` còn sót ở `TrackTile`.
+    - Bọc từng bài trong hàng đợi (`_QueueSheet`) và từng mốc hẹn giờ tắt nhạc (`showSleepTimer`) thành thẻ studio độc lập (`#12141A`, đang phát/chọn `#1C2029` kèm viền sáng).
+  - **Giai đoạn 4 — Lịch sử nghe nhạc & Quản lý thiết bị (`lib/features/player/presentation/listening_history_screen.dart`, `lib/features/auth/presentation/device_screen.dart`)**:
+    - Bọc mỗi mục lịch sử nghe nhạc vào thẻ studio `#12141A` bo góc `16px` và thiết kế lại thanh phân trang dạng viên nang studio.
+    - Thêm thẻ tóm tắt hạn mức thiết bị kèm thanh tiến trình trực quan (`LinearProgressIndicator`) ở đầu màn `DeviceScreen` và bọc mỗi thiết bị vào thẻ studio (`#1A1E27` cho thiết bị hiện tại, `#12141A` cho thiết bị khác).
+  - **Giai đoạn 5 — Màn hình Đăng nhập / Đăng ký (`lib/features/auth/presentation/auth_screen.dart`)**:
+    - Thay thanh nhấn gradient tím–hồng bằng thanh chỉ báo trắng tối giản, đổi toàn bộ màu nhãn/hint/icon/nền ô nhập từ tông tím cũ (`#DDDCE6`, `#85838F`, `#AAA3C0`, `#15141E`) sang hệ màu Studio Dark (`AppColors.text`, `AppColors.secondary`, `AppColors.surfaceRaised`), và nâng cấp nút chính sang nền trắng chữ đen tương phản cao.
+- **Kiểm chứng**:
+  - `dart format --output=none --set-exit-if-changed lib test`: **108 files, 0 changed**.
+  - `flutter analyze --no-pub`: **No issues found**.
+  - `flutter test --no-pub`: **134/134 tests passed**.
+  - `flutter build apk --no-pub --profile --target-platform android-arm64 --dart-define-from-file=config/production.json` (`87.8MB`), cài đặt (`adb -s R58TC0KWATX install -r`) và khởi chạy trên Samsung SM-A235F (`dev.moodify.moodify_flutter/.MainActivity`): **Thành công**.
+  - `flutter build apk --no-pub --profile --target-platform android-arm64 --dart-define-from-file=config/production.json`: **Built `build\app\outputs\flutter-apk\app-profile.apk` (87.8MB, Gradle 178.4s)**.
+  - Cài đặt và khởi chạy trên Samsung SM-A235F (`R58TC0KWATX`): `adb install -r` **Success**, `am start -n dev.moodify.moodify_flutter/.MainActivity` **Success**.
+
+## Thiết kế lại giao diện chuyên nghiệp theo taste-skill (loại bỏ màu tím, chuyển Studio Dark) — 06/11/2026
+
+- Theo yêu cầu của người dùng về việc giao diện trước đó mang phong cách generic AI, quá nhiều nền tím và gradient tím:
+  - **Áp dụng bộ tiêu chuẩn taste-skill (Anti-Slop / Dark Studio)**:
+    - **Bảng màu trung tính Obsidian / Studio Dark (`lib/app/theme/app_theme.dart`)**:
+      - `AppColors.background`: `0xFF090A0D` (đen studio sâu, trung tính, không ánh tím, tối ưu màn hình OLED).
+      - `AppColors.surface`: `0xFF111318` (bề mặt tối trung tính).
+      - `AppColors.surfaceRaised`: `0xFF171A21` (thẻ module nổi bật, sạch sẽ).
+      - `AppColors.surfaceGlass`: `0xFF1E222B` (bề mặt tương tác / modal sheet).
+      - `AppColors.border`: `0x1FFFFFFF` (viền hairline mảnh 12% trắng), `AppColors.borderSoft`: `0x12FFFFFF` (viền mảnh 7% trắng).
+      - `android/app/src/main/res/values/colors.xml`: `launch_background` đổi sang `#090A0D` đồng bộ hoàn toàn với nền khởi động Flutter.
+  - **Giữ nguyên Logo & Animation theo đúng yêu cầu**:
+    - Giữ nguyên toàn bộ logo mark chính thức (`assets/brand/moodify-mark.png`), icon ứng dụng chuẩn launcher bo tròn squircle, hiệu ứng vẽ sóng chữ `M` động pre-splash và vòng lặp `BrandSplashHero`.
+  - **Loại bỏ toàn bộ gradient tím và viền tím AI trên toàn bộ màn hình**:
+    - `BrandLockup` (`lib/core/widgets/brand_lockup.dart`): Bỏ gradient tím và viền tím lòe loẹt, chuyển sang capsule studio đen graphite sang trọng `0xFF14161D` với viền hairline trắng tinh xảo; bỏ ShaderMask tím trên chữ `Moodify`, dùng chữ trắng sắc nét.
+    - `HomeScreen` (`lib/features/home/presentation/home_screen.dart`): Chip thể loại bỏ gradient tím, chuyển sang pill studio tương phản cao (chọn: `0xFF242833` viền trắng mảnh `0x3DFFFFFF`, chữ trắng đậm; chưa chọn: `0xFF13151B` chữ `AppColors.secondary`); thẻ `_QuickTrack` dùng nền studio sạch `0xFF13151B` / active `0xFF1E222C`; `_Spotlight` dùng viền hairline mờ và badge `TÂM ĐIỂM` tối giản; `SectionHeading` dùng thanh chỉ báo trắng tối giản thay cho gradient cầu vồng tím-hồng.
+    - `TrackTile` (`lib/features/catalog/presentation/catalog_widgets.dart`): Bỏ màu nền tím đậm `0xFF231C38` và viền tím sáng `0xFF5A3FD6`. Đổi sang thẻ studio `0xFF12141A` (active: `0xFF1C2029` kèm viền hairline `0x38FFFFFF` và badge sóng nhạc).
+    - `NavigationBar` & `MainShell` (`lib/app/main_shell.dart`): Nền thanh điều hướng đổi sang `0xFF0C0D11`, chỉ báo chọn dạng viên thuốc `0xFF222631` với icon trắng nổi bật, nhãn tinh gọn.
+    - `MiniPlayer` (`lib/features/player/presentation/player_screen.dart`): Bỏ gradient tím, chuyển thành viên nang studio nổi `0xFF151821` với viền hairline `0x28FFFFFF` và bóng đổ sâu `0x60000000`.
+    - `LibraryScreen` & `SearchScreen`: Bỏ gradient tím ở TabBar indicator và công tắc chế độ tìm kiếm, chuyển sang viên thuốc studio `0xFF222631` kèm viền hairline.
+    - `AccountScreen`, `KaraokeScreen`, `SubscriptionScreen`, `LyricsScreen`: Toàn bộ các hộp icon tím `0xFF251E3B`, `0xFF35264E`, backdrop tím `0xCC21163B` đã được thay thế bằng bề mặt studio dark trung tính.
+- **Kiểm chứng**:
+  - `dart format lib test`: **108 files, 0 changed**.
+  - `flutter analyze --no-pub`: **No issues found**.
+  - `flutter test --no-pub`: **134/134 unit & continuity tests passed**.
+  - `flutter build apk --no-pub --profile --target-platform android-arm64 --dart-define-from-file=config/production.json`: **Built `build\app\outputs\flutter-apk\app-profile.apk` (87.8MB, Gradle 74.4s)**.
+  - Cài đặt lên Samsung SM-A235F (`R58TC0KWATX`): `adb install -r` **Success**.
+
+## Cập nhật GitHub và tích hợp local — 06/11/2026
+
+- Theo yêu cầu lấy code mới và chạy trên máy, đã fetch và fast-forward `main` từ a456a11 tới `origin/main` **06b3c27** (4 commit mới). Không push/commit mới. Stash `pre-update-20261106-preserve-lyrics-splash` giữ bản gốc thay đổi chưa commit, đã apply và xử lý xung đột; không drop bản sao này.
+- Giữ splash/native launch + lyrics toàn màn hình local, kết hợp thay đổi upstream profile/checkout/karaoke/ads/OAuth/root modal sheets. Lyrics theo quyết định mới của upstream: LRC cho mọi người dùng, kể cả khách, không gọi subscriptions để mở lời. Parse cả lyricsSynced hoặc lyricsPlain nếu thực sự có timestamp; lời thường vẫn tĩnh. Không khôi phục gate Premium cũ của màn local. Các mục gate lyrics cũ bên dưới là snapshot trước đợt này.
+- Màn lyrics không highlight/seek cue nhạc đang chờ trong thời gian quảng cáo; seek/previous/next bị khóa, play/pause vẫn đi qua coordinator. Giữ `showAppModalSheet` root navigator cho queue/sleep và các sheet mới. Không đổi backend/catalog/DB.
+- Dependencies `flutter pub get` đạt; **134tests passed**, analyze cuối **No issues found**, APK debug arm64 production-config **PASS** (Gradle117,4s). Build có Kotlin incremental cache fallback khác ổ C:/D: nhưng hoàn tất; không đổi Gradle để né cảnh báo. Format108files (chuẩn hóa8file upstream), kiểm tra format cuối0changed và diff check sạch.
+- Samsung SM-A235F/R58TC0KWATX nhận ADB; install-rSuccess, package lastUpdateTime **06/11/2026 09:17:59**, mở Home/catalog thật. `am start -W` báo timeout/LaunchState UNKNOWN, nhưng đã thấy UI app qua screenshot/XML; chưa dùng lần mở này làm số đo startup performance. Kiểm tra tương tác đang tiếp tục; báo cáo tại `../DEVICE_REVIEW_2026-11-06.md`.
+
 ## Phân lớp hiển thị: bottom sheet đè lên chrome — 06/11/2026
 
 - Theo yêu cầu sửa sheet bị mini player/thanh điều hướng chồng lên: tạo `showAppModalSheet` tại `lib/core/widgets/app_sheets.dart` khoá `useRootNavigator: true` kèm bảng phân lớp trong doc comment, và chuyển toàn bộ 8 call site `showModalBottomSheet` (catalog: tuỳ chọn bài hát + chọn playlist; player: queue/lyrics/sleep timer; karaoke: chọn bài + volume thành viên; thông báo). Sheet giờ luôn trượt trên chrome kèm scrim toàn màn hình; quyết định ghi ở D33.
@@ -29,6 +138,36 @@
 - Kiểm thử riêng repository karaoke và phiên đăng nhập: 24 test đạt. Analyze và test giao diện bị chặn bởi lỗi biên dịch trong các thay đổi catalog/subscription khác đang có trong workspace; chưa kiểm tra trên thiết bị.
 
 Cập nhật: **05/11/2026**. Snapshot bàn giao; implementation không đồng nghĩa đã nghiệm thu production.
+
+## Nâng cấp Logo Pre-Splash Native, Vòng lặp Splash, Khôi phục Icon Gốc & AOT Profile — 06/11/2026
+
+- Theo yêu cầu của người dùng:
+  - **Màn hình Splash Flutter (`lib/core/widgets/brand_splash.dart`)**: Giữ nguyên hiệu ứng sóng nhạc đặc trưng từ biểu tượng chữ `M` (`_WaveRevealMark`), 2 dải sóng sin uốn lượn + 3 vòng sóng âm elip (`_SplashAuraPainter`), 7 chữ cái `moodify` bật lên lệch nhịp và 9 cột `_SoundwaveEqualizer`, đồng thời bổ sung `_loopController` chạy lặp liên tục trong lúc chờ khôi phục phiên (`SessionPhase.restoring`) cho tới khi mở hẳn màn hình chính.
+  - **Logo trước màn hình Splash Flutter (`values-v31/styles.xml`, `drawable/avd_launch_logo.xml`, `MainActivity.kt`)**: Giữ hiệu ứng vẽ đúng 2 nét chữ `M` + 5 cột sóng nhạc trong khung tròn tím phát sáng (`@drawable/avd_launch_logo`) và chạy vòng lặp liên tục (`Animatable2.AnimationCallback` trong `MainActivity.kt`) cho đến khi `onFlutterUiDisplayed()` mờ dần (`180 ms`).
+  - **Icon ứng dụng ngoài màn hình chính (`mipmap-*/ic_launcher.png`)**: Khôi phục hoàn toàn bản icon ban đầu của dự án (nền `#0C0C10`, logo chữ `M` chính giữa có tỉ lệ căn lề chuẩn mực, gọn gàng, không bị tràn viền); xóa bỏ `mipmap-anydpi-v26` và các drawable thừa để launcher Samsung One UI tự động bo góc squircle chuẩn xác theo thiết kế gốc (như icon ở hàng 4 trong ảnh chụp).
+  - **Tối ưu độ mượt & bản cài AOT `--profile`**: Đổi `InkSparkle.splashFactory` sang `InkRipple.splashFactory` trong `lib/app/theme/app_theme.dart`; bọc `TrackTile` trong `RepaintBoundary` và bỏ `ListTile(shape: ...)` clip mỗi dòng; bỏ `ShaderMask` lồng nhau trong splash; đóng gói và cài bản **AOT `--profile` arm64** lên thiết bị.
+- Kiểm chứng: **134 tests passed**, `flutter analyze --no-pub` **No issues found**, `dart format --output=none --set-exit-if-changed lib test` **108 files, 0 changed**.
+
+## Nâng cấp nhận diện bo góc đặc trưng & tối ưu độ mượt — 06/11/2026
+
+- Thiết kế lại bề mặt và thang bo góc `AppRadii` (`lib/app/theme/app_theme.dart`) để bỏ cảm giác Flutter mặc định: `TrackTile` (`lib/features/catalog/presentation/catalog_widgets.dart`) chuyển thành thẻ bo `16px` có nền/viền riêng và huy hiệu sóng nhạc khi đang phát; `MusicArtwork` bo `12px` mặc định có viền mảnh `#16FFFFFF`; `HomeScreen` (`lib/features/home/presentation/home_screen.dart`) dùng chip lọc dạng viên thuốc (`pill: 999`) chuyển sắc tím, `_QuickTrack` bo `16px`, `_Spotlight` bo `24px` kèm nhãn `"Tâm điểm"` và nút `"Nghe ngay"` bo tròn, `SectionHeading` có thanh nhấn dọc chuyển sắc tím–hồng, `_TrackCard` có nút play nổi góc dưới; `MiniPlayer` (`lib/features/player/presentation/player_screen.dart`) dạng viên nang nổi bo `18px` kèm bóng đổ và `NavigationBar` (`lib/app/main_shell.dart`) có chỉ báo chọn bo `14px`; `SearchScreen`, `LibraryScreen` và `AccountScreen` đồng bộ công tắc viên thuốc và nhóm thẻ cài đặt bo `22px` kèm hộp icon bo `12px`.
+- Tối ưu độ mượt (xử lý hiện tượng lag khi vừa phát nhạc vừa cuộn): tách `_MiniPlayerProgress` và `_PlayerSeekSection` lắng nghe riêng `position` qua `select` để `MiniPlayer` và `PlayerScreen` không rebuild toàn bộ cây widget mỗi nhịp thời gian; tiết lưu `positionStream` (`>= 200 ms`) trong `_MoodifyAudioHandler` (`lib/features/player/data/playback_engine.dart`) và chỉ gọi `playbackState.add` qua platform channel Android khi trạng thái phát/loading/seek thực sự đổi; bỏ `ImageFilter.blur` trực tiếp bên trong thẻ cuộn (`ArtworkBackdrop` khi `hero: true`), bọc `MusicArtwork` trong `RepaintBoundary` (`gaplessPlayback: true`, `FilterQuality.low`), chuyển `Pressable` sang `ValueNotifier` và bỏ `FadeTransition` bọc toàn bộ `MainShell`.
+- Kiểm chứng: **134 tests passed**, `flutter analyze --no-pub` **No issues found**, `dart format --output=none --set-exit-if-changed lib test` **108 files, 0 changed**, APK debug arm64 production-config **PASS** (Gradle 46,0s), cài lên Samsung SM-A235F (`R58TC0KWATX`) qua `adb install -r` **Success** (`lastUpdateTime=2026-11-06 10:08:06`).
+
+## Splash chuyển động từ logo Moodify — 05–06/11/2026
+
+- Chẩn đoán nguyên nhân chưa thấy hiệu ứng trên Samsung SM-A235F: `MainActivity` kế thừa `AudioServiceActivity` nên pre-warm `FlutterEngine` lúc `FlutterRenderer` còn `0×0` khoảng 7,7 giây trước khi Android gắn `SurfaceView` và gửi viewport `1080×2366`; bản đầu chạy hết `680 ms` trong nền trước khi cửa sổ kịp hiển thị, đồng thời native `launch_background.xml` chỉ có nền trơn không có logo.
+- Sửa native + Flutter: thêm `@drawable/launch_mark` (`android/app/src/main/res/drawable-xxxhdpi/launch_mark.png`) căn giữa trên nền `#0C0C10` trong `drawable/launch_background.xml` & `drawable-v21/launch_background.xml` (cùng iOS `LaunchScreen.storyboard`); `SplashLaunchGate` (`lib/core/widgets/brand_splash.dart`) lắng nghe `WidgetsBindingObserver.didChangeMetrics` và chỉ bắt đầu `_entranceController` qua `addPostFrameCallback` khi viewport thật khác 0 (`size.width > 0 && size.height > 0`).
+- Nâng cấp chuyển động `BrandSplashHero` (1850 ms vào + 380 ms phóng mở cổng thoát): mark sóng chữ `M` vẽ dần từ trái sang phải kèm đầu bút sáng tím lavender, nảy đàn hồi (`easeOutBack`) và vệt ánh kim chéo; 2 dải sóng sin uốn lượn liên tục + 3 vòng sóng âm elip lan tỏa phía sau; chữ `moodify` bật lên từng ký tự lệch nhịp; bộ sóng nhạc 9 cột neon (`_SoundwaveEqualizer`) dao động theo pha và câu `"Âm nhạc theo từng cảm xúc"`. Khi `restoreFailed`, nhường ngay cho `_RestoringScreen`; khi bật reduced motion (`MediaQuery.disableAnimationsOf`), bỏ qua hiệu ứng và độ trễ chuyển cảnh.
+- Kiểm chứng: **134 tests passed** (`test/core/brand_splash_test.dart` kiểm tra cả giữ tiến độ = 0 khi viewport `0×0`, chạy sau khi gắn kích thước thật, đợi `SessionPhase.restoring`, reduced motion và màn nhỏ `320×640` chữ `1.8x`), `flutter analyze --no-pub` **No issues found**, `dart format --output=none --set-exit-if-changed lib test` **108 files, 0 changed**, APK debug arm64 production-config **PASS** (Gradle 46,1s). Đã cài lên Samsung SM-A235F (`R58TC0KWATX`) qua `adb install -r` Success (`lastUpdateTime=2026-11-06 09:35:48`); màn hình máy lúc chụp đang khóa/tắt (`mScreenState=OFF`), cần người dùng mở khóa máy và chạm mở app để quan sát trực tiếp hiệu ứng.
+
+## Lyrics toàn màn hình — 05/11/2026
+
+- Thay lyrics sheet bằng `/lyrics`, có icon mở ở header player và nhãn mở toàn màn hình trong preview; metadata/artwork backdrop/seek/play-pause/previous-next dùng player hiện tại. Đóng/Back không load lại audio hoặc mất queue/position.
+- LRC theo position engine thật: chữ lớn, câu đang hát sáng, màu/scale260ms và scroll420ms, reduced motion không animate. Cache đo TextPainter/prefix offsets theo font/width/height/text scale/locale, lazy item extent thật; kéo tay dừng follow, recenter, chạm câu tua timestamp. Intro trước cue đầu có nhãn/mốc thật. Đổi bài reset view; scrub cũ không seek bài mới.
+- Quyền syncedLyrics server vẫn bắt buộc. Thiếu quyền/lỗi mạng/timing → plain text + gói/retry/nhãn phù hợp; thiếu plain có thể đọc chữ LRC tĩnh. Không nội suy timeline, không sửa nguồn lời/catalog/backend/DB, không ảnh hưởng module karaoke. Empty state cuộn được trên320×640/text1.8.
+- Kiểm chứng: **106tests passed**, nhóm lyrics/continuity/router cuối **12tests passed** sau chỉnh thông báo chữ lớn; analyze **No issues found**, format **94files/0changed**, diff check sạch. APK debug arm64 production-config **PASS**, Gradle88,9s. Kết quả tại `../LYRICS_UX_2026-11-05.md`. Đã xem PNG render từ widget tests dùng fixture có nhãn rõ, chỉ ở artifacts/lyrics-review (ignore), không phải ảnh thiết bị hoặc production data.
+- User yêu cầu tạm thời không cắm điện thoại, code sửa trước. Chưa cài/kiểm chứng lượt này trên Samsung, chưa nghiệm thu entitlement thật/LRC-native/performance/TalkBack. Đợt lyrics chưa commit/push; GitHub hiện lưu đợt trước tại a456a11.
 
 ## Bàn giao GitHub — 05/11/2026
 

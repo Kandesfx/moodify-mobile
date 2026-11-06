@@ -382,8 +382,23 @@ class PlayerController extends StateNotifier<PlayerState> {
       }
       final uri = sourceUri ?? local?.uri ?? await repository.stream(track);
       if (generation != _generation) return;
+      final resolvedArt = repository.artwork(track.image)?.toString();
+      final engineTrack = resolvedArt != null && resolvedArt != track.image
+          ? Track(
+              id: track.id,
+              spotifyId: track.spotifyId,
+              name: track.name,
+              artist: track.artist,
+              artistId: track.artistId,
+              image: resolvedArt,
+              durationMs: track.durationMs,
+              localPath: track.localPath,
+              lyrics: track.lyrics,
+              lyricsSynced: track.lyricsSynced,
+            )
+          : track;
       try {
-        await engine.load(uri, track);
+        await engine.load(uri, engineTrack);
       } catch (_) {
         throw const AppFailure(
           'Không tải được âm thanh của bài hát này. Kiểm tra mạng hoặc chọn bài khác.',

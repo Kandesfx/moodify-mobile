@@ -67,5 +67,6 @@ class PremiumController extends Notifier<PremiumState> {
   }
 }
 
-final premiumProvider =
-    NotifierProvider<PremiumController, PremiumState>(PremiumController.new);
+final premiumProvider = NotifierProvider<PremiumController, PremiumState>(
+  PremiumController.new,
+);

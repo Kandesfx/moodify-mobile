@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:share_plus/share_plus.dart';
 import '../../offline/presentation/offline_controller.dart';
 
 import '../../../app/theme/app_theme.dart';
@@ -15,6 +14,7 @@ import '../../library/presentation/library_controller.dart';
 import '../../library/presentation/playlist_dialog.dart';
 import '../../library/presentation/pending_track_action.dart';
 import '../../player/presentation/player_controller.dart';
+import '../../player/presentation/track_share_sheet.dart';
 import '../data/catalog_repository.dart';
 import '../domain/catalog_models.dart';
 
@@ -24,7 +24,7 @@ class MusicArtwork extends ConsumerWidget {
     this.image,
     this.size = 52,
     this.round = false,
-    this.radius = 8,
+    this.radius = 12,
   });
   final String? image;
   final double size;
@@ -33,8 +33,15 @@ class MusicArtwork extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final uri = ref.watch(catalogRepositoryProvider).artwork(image);
-    final placeholder = ColoredBox(
-      color: AppColors.surfaceRaised,
+    final borderRadius = BorderRadius.circular(round ? size / 2 : radius);
+    final placeholder = DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF1E212A), Color(0xFF13151B)],
+        ),
+      ),
       child: Center(
         child: Icon(
           Icons.music_note_rounded,
@@ -43,21 +50,32 @@ class MusicArtwork extends ConsumerWidget {
         ),
       ),
     );
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(round ? size / 2 : radius),
-      child: SizedBox.square(
-        dimension: size,
-        child: uri == null
-            ? placeholder
-            : Image.network(
-                uri.toString(),
-                fit: BoxFit.cover,
-                cacheWidth: (size * MediaQuery.devicePixelRatioOf(context))
-                    .round()
-                    .clamp(64, 1000),
-                excludeFromSemantics: true,
-                errorBuilder: (_, _, _) => placeholder,
-              ),
+    return RepaintBoundary(
+      child: DecoratedBox(
+        position: DecorationPosition.foreground,
+        decoration: BoxDecoration(
+          borderRadius: borderRadius,
+          border: Border.all(color: const Color(0x16FFFFFF)),
+        ),
+        child: ClipRRect(
+          borderRadius: borderRadius,
+          child: SizedBox.square(
+            dimension: size,
+            child: uri == null
+                ? placeholder
+                : Image.network(
+                    uri.toString(),
+                    fit: BoxFit.cover,
+                    filterQuality: FilterQuality.low,
+                    gaplessPlayback: true,
+                    cacheWidth: (size * MediaQuery.devicePixelRatioOf(context))
+                        .round()
+                        .clamp(64, 720),
+                    excludeFromSemantics: true,
+                    errorBuilder: (_, _, _) => placeholder,
+                  ),
+          ),
+        ),
       ),
     );
   }
@@ -82,46 +100,97 @@ class TrackTile extends ConsumerWidget {
     final active = ref.watch(
       playerControllerProvider.select((s) => s.track?.id == track.id),
     );
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-      leading: MusicArtwork(image: track.image),
-      title: Text(
-        track.displayName,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: active ? const Color(0xFFB7A7FF) : null,
-          fontWeight: FontWeight.w600,
+    return RepaintBoundary(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: active ? const Color(0xFF1C2029) : const Color(0xFF12141A),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: active ? const Color(0x38FFFFFF) : const Color(0x10FFFFFF),
+            ),
+          ),
+          child: ListTile(
+            contentPadding: const EdgeInsets.fromLTRB(12, 4, 6, 4),
+            leading: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                MusicArtwork(image: track.image, size: 52, radius: 12),
+                if (active)
+                  Positioned(
+                    right: -2,
+                    bottom: -2,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: const Color(0xFF1C2029),
+                          width: 2,
+                        ),
+                      ),
+                      child: const Padding(
+                        padding: EdgeInsets.all(3),
+                        child: Icon(
+                          Icons.graphic_eq_rounded,
+                          size: 11,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            title: Text(
+              track.displayName,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 14.5,
+                color: active ? Colors.white : AppColors.text,
+                fontWeight: active ? FontWeight.w700 : FontWeight.w600,
+                letterSpacing: -0.15,
+              ),
+            ),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                track.artist,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  color: AppColors.secondary,
+                ),
+              ),
+            ),
+            onTap: () {
+              onSelected?.call();
+              final path = GoRouterState.of(context).uri.path;
+              final source = path.startsWith('/album/')
+                  ? 'ALBUM'
+                  : path.startsWith('/artist/')
+                  ? 'ARTIST'
+                  : path.startsWith('/playlist/')
+                  ? 'PLAYLIST'
+                  : path == '/search'
+                  ? 'SEARCH'
+                  : path == '/library'
+                  ? 'LIBRARY'
+                  : path == '/home'
+                  ? 'HOME'
+                  : 'OTHER';
+              ref
+                  .read(playerControllerProvider.notifier)
+                  .select(queue, index, source: source);
+            },
+            selected: active,
+            selectedTileColor: Colors.transparent,
+            trailing: TrackOptionsButton(track: track, remove: remove),
+          ),
         ),
       ),
-      subtitle: Text(
-        track.artist,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      onTap: () {
-        onSelected?.call();
-        final path = GoRouterState.of(context).uri.path;
-        final source = path.startsWith('/album/')
-            ? 'ALBUM'
-            : path.startsWith('/artist/')
-            ? 'ARTIST'
-            : path.startsWith('/playlist/')
-            ? 'PLAYLIST'
-            : path == '/search'
-            ? 'SEARCH'
-            : path == '/library'
-            ? 'LIBRARY'
-            : path == '/home'
-            ? 'HOME'
-            : 'OTHER';
-        ref
-            .read(playerControllerProvider.notifier)
-            .select(queue, index, source: source);
-      },
-      selected: active,
-      selectedTileColor: AppColors.primary.withValues(alpha: .07),
-      trailing: TrackOptionsButton(track: track, remove: remove),
     );
   }
 }
@@ -151,6 +220,7 @@ Future<void> showTrackOptionsSheet(
 }) {
   return showAppModalSheet<void>(
     context: context,
+    isScrollControlled: true,
     showDragHandle: true,
     builder: (sheetContext) => _TrackOptionsSheet(
       track: track,
@@ -199,15 +269,21 @@ class _TrackOptionsSheet extends ConsumerWidget {
     return SafeArea(
       // Sheet cuộn được khi màn hình thấp hoặc chữ lớn.
       child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(16, 2, 16, 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF151822),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0x1FFFFFFF)),
+              ),
               child: Row(
                 children: [
-                  MusicArtwork(image: track.image, size: 48),
+                  MusicArtwork(image: track.image, size: 52, radius: 12),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Column(
@@ -217,9 +293,10 @@ class _TrackOptionsSheet extends ConsumerWidget {
                           track.displayName,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleMedium,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w700),
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 3),
                         Text(
                           track.artist,
                           maxLines: 1,
@@ -233,7 +310,7 @@ class _TrackOptionsSheet extends ConsumerWidget {
                 ],
               ),
             ),
-            const Divider(height: 1),
+            const SizedBox(height: 12),
             _OptionTile(
               icon: liked
                   ? Icons.favorite_rounded
@@ -242,12 +319,14 @@ class _TrackOptionsSheet extends ConsumerWidget {
               enabled: libraryReady,
               onTap: () => _run(context, 'like'),
             ),
+            const SizedBox(height: 8),
             _OptionTile(
               icon: Icons.playlist_add_rounded,
               label: 'Thêm vào playlist',
               enabled: libraryReady,
               onTap: () => _run(context, 'playlist'),
             ),
+            const SizedBox(height: 8),
             _OptionTile(
               icon: downloaded
                   ? Icons.download_done_rounded
@@ -262,30 +341,37 @@ class _TrackOptionsSheet extends ConsumerWidget {
                 downloaded || downloading ? 'downloads' : 'download',
               ),
             ),
-            const Divider(height: 1),
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+              child: Divider(height: 1, color: Color(0x18FFFFFF)),
+            ),
             _OptionTile(
               icon: Icons.queue_music_rounded,
               label: 'Thêm vào hàng đợi',
               onTap: () => _run(context, 'queue'),
             ),
+            const SizedBox(height: 8),
             _OptionTile(
               icon: Icons.playlist_play_rounded,
               label: 'Phát tiếp theo',
               onTap: () => _run(context, 'next'),
             ),
+            const SizedBox(height: 8),
             _OptionTile(
               icon: Icons.ios_share_rounded,
               label: 'Chia sẻ bài hát',
               onTap: () => _run(context, 'share'),
             ),
-            if (remove != null)
+            if (remove != null) ...[
+              const SizedBox(height: 8),
               _OptionTile(
                 icon: Icons.playlist_remove_rounded,
                 label: 'Bỏ khỏi playlist',
                 onTap: () => _run(context, 'remove'),
               ),
+            ],
             if (track.artistId != null) ...[
-              const Divider(height: 1),
+              const SizedBox(height: 8),
               _OptionTile(
                 icon: Icons.person_outline_rounded,
                 label: 'Xem nghệ sĩ',
@@ -312,14 +398,55 @@ class _OptionTile extends StatelessWidget {
   final bool enabled;
 
   @override
-  Widget build(BuildContext context) => ListTile(
-    enabled: enabled,
-    onTap: enabled ? onTap : null,
-    leading: Icon(
-      icon,
-      color: enabled ? AppColors.lavender : AppColors.secondary,
+  Widget build(BuildContext context) => Material(
+    color: const Color(0xFF141720),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(14),
+      side: const BorderSide(color: Color(0x1AFFFFFF)),
     ),
-    title: Text(label),
+    clipBehavior: Clip.antiAlias,
+    child: InkWell(
+      onTap: enabled ? onTap : null,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: const Color(0xFF1F2430),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0x22FFFFFF)),
+              ),
+              child: Icon(
+                icon,
+                size: 19,
+                color: enabled ? Colors.white : AppColors.secondary,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w600,
+                  color: enabled ? AppColors.text : AppColors.secondary,
+                ),
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 18,
+              color: enabled
+                  ? const Color(0x66FFFFFF)
+                  : const Color(0x26FFFFFF),
+            ),
+          ],
+        ),
+      ),
+    ),
   );
 }
 
@@ -351,24 +478,7 @@ Future<void> performTrackAction(
     return;
   }
   if (action == 'share') {
-    try {
-      final box = context.findRenderObject() as RenderBox?;
-      await SharePlus.instance.share(
-        ShareParams(
-          text: '${track.displayName} — ${track.artist}',
-          title: 'Moodify',
-          sharePositionOrigin: box == null
-              ? null
-              : box.localToGlobal(Offset.zero) & box.size,
-        ),
-      );
-    } catch (_) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Chưa mở được bảng chia sẻ.')),
-        );
-      }
-    }
+    showShareTrackSheet(context, track);
     return;
   }
   if (action == 'artist') {
@@ -553,28 +663,41 @@ class GuestPrompt extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
               decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(20),
+                color: AppColors.surfaceRaised,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: AppColors.borderSoft),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const CircleAvatar(
-                    radius: 34,
-                    backgroundColor: AppColors.surfaceRaised,
-                    child: Icon(
+                  Container(
+                    width: 68,
+                    height: 68,
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceGlass,
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: const Icon(
                       Icons.person_outline_rounded,
                       size: 32,
                       color: AppColors.lavender,
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 22),
                   const Text(
                     'Khách vãng lai',
                     style: TextStyle(fontSize: 21, fontWeight: FontWeight.w700),
                   ),
-                  const SizedBox(height: 12),
-                  Text(message, textAlign: TextAlign.center),
+                  const SizedBox(height: 10),
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: AppColors.secondary,
+                      height: 1.45,
+                    ),
+                  ),
                   const SizedBox(height: 24),
                   FilledButton(
                     onPressed: () => context.push(

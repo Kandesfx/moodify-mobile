@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Outer rounded studio frame -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M7,2.75L17,2.75A4.25,4.25 0,0 1,21.25 7L21.25,17A4.25,4.25 0,0 1,17 21.25L7,21.25A4.25,4.25 0,0 1,2.75 17L2.75,7A4.25,4.25 0,0 1,7 2.75z"
+        android:strokeWidth="1.6"
+        android:strokeColor="#FFFFFFFF" />
+    <!-- Primary M wave -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M6.2,13.2 C7.2,11.2 8.2,7.2 9.4,7.2 C10.6,7.2 11.1,13.2 12.2,13.2 C13.3,13.2 14.3,7.3 15.5,7.3 C16.7,7.3 17.0,13.0 18.0,13.0"
+        android:strokeWidth="2.0"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeColor="#FFFFFFFF" />
+    <!-- Equalizer bars -->
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M8.5,16.8 L8.5,17.6 M10.8,16.0 L10.8,18.2 M13.2,16.0 L13.2,18.2 M15.5,16.8 L15.5,17.6"
+        android:strokeWidth="1.6"
+        android:strokeLineCap="round"
+        android:strokeColor="#FFFFFFFF" />
+</vector>
+

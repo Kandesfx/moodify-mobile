@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/widgets/brand_lockup.dart';
+import '../../core/widgets/brand_splash.dart';
 import '../../core/widgets/app_motion.dart';
 import '../../core/widgets/feedback_panel.dart';
 import '../../features/auth/domain/session_state.dart';
@@ -17,6 +17,7 @@ import '../../features/search/presentation/search_screen.dart';
 import '../../features/library/presentation/library_screen.dart';
 import '../../features/karaoke/presentation/karaoke_screen.dart';
 import '../../features/player/presentation/player_screen.dart';
+import '../../features/player/presentation/lyrics_screen.dart';
 import '../../features/player/presentation/listening_history_screen.dart';
 import '../../features/notifications/presentation/notification_screen.dart';
 import '../../features/subscriptions/presentation/subscription_screen.dart';
@@ -38,7 +39,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           session.phase == SessionPhase.restoreFailed) {
         if (session.phase == SessionPhase.restoreFailed &&
             session.offlineUserId != null &&
-            (path == '/offline' || path == '/player')) {
+            (path == '/offline' || path == '/player' || path == '/lyrics')) {
           return null;
         }
         return path == '/restoring'
@@ -62,7 +63,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const ContinueTrackActionScreen(),
       ),
       GoRoute(path: '/', redirect: (_, _) => '/home'),
-      GoRoute(path: '/restoring', builder: (_, _) => const _RestoringScreen()),
+      GoRoute(
+        path: '/restoring',
+        pageBuilder: (_, route) => NoTransitionPage<void>(
+          key: route.pageKey,
+          child: const _RestoringScreen(),
+        ),
+      ),
       GoRoute(
         path: '/sign-in',
         builder: (_, route) => AuthScreen(
@@ -153,6 +160,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/player',
         pageBuilder: (context, route) =>
             _slidePage(context, route, const PlayerScreen()),
+      ),
+      GoRoute(
+        path: '/lyrics',
+        pageBuilder: (context, route) =>
+            _slidePage(context, route, const LyricsScreen()),
       ),
       GoRoute(
         path: '/notifications',
@@ -275,6 +287,7 @@ String _destination(Uri uri) {
         '/library',
         '/account',
         '/player',
+        '/lyrics',
         '/notifications',
         '/history',
         '/devices',
@@ -328,7 +341,7 @@ class _RestoringScreen extends ConsumerWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const BrandLockup(large: true),
+                  const BrandSplashHero(),
                   const SizedBox(height: 32),
                   if (state.phase == SessionPhase.restoreFailed) ...[
                     FeedbackPanel(message: state.failure!.message),

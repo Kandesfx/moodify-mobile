@@ -156,14 +156,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       children: [
                         CircleAvatar(
                           radius: 26,
-                          backgroundColor: const Color(0xFF35264E),
+                          backgroundColor: AppColors.surfaceGlass,
                           backgroundImage: user.avatarUrl == null
                               ? null
                               : NetworkImage(user.avatarUrl!),
                           child: user.avatarUrl == null
                               ? const Icon(
                                   Icons.person_rounded,
-                                  color: AppColors.lavender,
+                                  color: Colors.white,
                                 )
                               : null,
                         ),

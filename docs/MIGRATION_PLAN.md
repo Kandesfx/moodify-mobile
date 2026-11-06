@@ -1,5 +1,7 @@
 # Kế hoạch chuyển Moodify Mobile sang Flutter
 
+Tích hợp06/11/2026: cập nhật main06b3c27 gồm profile/checkout/karaoke/OAuth và audio ads; giữ fullscreen lyrics + splash local. LRC công khai cho mọi người dùng theo upstream, không còn gate Premium phía UI. 134tests/analyze/build đạt; APK đã cài Samsung, smoke chưa thay nghiệm thu M1–M6. Xem ai/STATE và DEVICE_REVIEW_2026-11-06.md; không sửa backend/DB trong lượt này.
+
 Cập nhật: **04/11/2026**. Nguồn khảo sát là working tree, chưa phải bằng chứng production.
 Mục tiêu đầu tiên: chuyển hành vi có thật của React Native sang Flutter dùng backend hiện có.
 Sau khi nghiệm thu chuyển đổi mới mở rộng chức năng consumer từ web/backend.
@@ -100,6 +102,8 @@ Trạng thái Flutter: **IN_PROGRESS**. Password auth/session/profile/logout cơ
 Trạng thái Flutter: **IN_PROGRESS**. Đã có shell 5 tab sau merge karaoke, khách duyệt/phát qua API public, catalog/filter/phân trang, album/artist detail, search thường/cảm xúc/history, liked tracks/favorite albums, playlist create/add/remove/delete/visibility. Player có queue/seek/shuffle/repeat, volume, sleep, share metadata qua native sheet và lời đồng bộ với timestamp thật cho mọi người dùng. Một engine/OS coordinator và listening telemetry từ sự kiện native; không gửi doanh thu cho guest/offline. Home, library, account và player đã được tổ chức lại theo UX_REVIEW.
 
 Thiết kế đã điều chỉnh lại theo source RN theo yêu cầu người dùng: quick grid/spotlight/shelves, mini-player nổi, full-player nền artwork mờ và slide-up; motion có reduced-motion và test màn nhỏ. Không thay engine hay kiến trúc.
+
+Đợt lyrics05/11: `/lyrics` toàn màn hình từ header/preview player, backdrop/metadata/transport, highlight và follow timestamp thật, chạm câu tua, manual/recenter, plain/error/no-right/no-lyrics riêng. Giữ engine/queue khi đóng hoặc đổi màn; không bypass quyền synchronized. User yêu cầu code sửa trước, tạm thời không kết nối điện thoại; source/test/build không đồng nghĩa native synced lyrics đã nghiệm thu.
 
 Chưa nghiệm thu M2: mutation bằng tài khoản thật, mood worker, native share/volume/sleep/synced lyrics và listening telemetry trên server thật; iOS, Bluetooth và interruption. Quảng cáo/entitlement policy do cộng tác viên tích hợp từ nhánh riêng, vẫn là gate release. Chia sẻ hiện là tên bài/nghệ sĩ; chưa có public deep link được xác minh. Xem `ai/STATE.md`.
 

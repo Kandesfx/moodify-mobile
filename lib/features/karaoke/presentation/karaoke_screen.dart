@@ -31,20 +31,16 @@ class KaraokeScreen extends StatelessWidget {
         Container(
           padding: const EdgeInsets.fromLTRB(24, 26, 24, 24),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF29213F), Color(0xFF15141F)],
-            ),
+            color: AppColors.surfaceRaised,
             borderRadius: BorderRadius.circular(26),
-            border: Border.all(color: const Color(0xFF403455)),
+            border: Border.all(color: AppColors.borderSoft),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Icon(
                 Icons.graphic_eq_rounded,
-                color: Color(0xFFC6B6FF),
+                color: Colors.white,
                 size: 30,
               ),
               const SizedBox(height: 22),
@@ -57,7 +53,7 @@ class KaraokeScreen extends StatelessWidget {
               const SizedBox(height: 10),
               const Text(
                 'Chọn cách bạn muốn tận hưởng âm nhạc.',
-                style: TextStyle(color: Color(0xFFC4BDCF), height: 1.5),
+                style: TextStyle(color: AppColors.secondary, height: 1.5),
               ),
             ],
           ),
@@ -96,7 +92,7 @@ class _ModeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Material(
-    color: const Color(0xFF16151D),
+    color: AppColors.surface,
     borderRadius: BorderRadius.circular(20),
     child: InkWell(
       borderRadius: BorderRadius.circular(20),
@@ -105,7 +101,7 @@ class _ModeCard extends StatelessWidget {
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFF2D2937)),
+          border: Border.all(color: AppColors.borderSoft),
         ),
         child: Row(
           children: [
@@ -113,10 +109,11 @@ class _ModeCard extends StatelessWidget {
               width: 52,
               height: 52,
               decoration: BoxDecoration(
-                color: const Color(0xFF302746),
+                color: AppColors.surfaceGlass,
                 borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.borderSoft),
               ),
-              child: Icon(icon, color: const Color(0xFFC8B8FF)),
+              child: Icon(icon, color: Colors.white),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -817,11 +814,9 @@ class _KaraokePerformanceScreenState
             margin: const EdgeInsets.fromLTRB(16, 6, 16, 14),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF211D2C), Color(0xFF17161F)],
-              ),
+              color: AppColors.surfaceRaised,
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFF373043)),
+              border: Border.all(color: AppColors.borderSoft),
             ),
             child: Row(
               children: [
@@ -862,15 +857,9 @@ class _KaraokePerformanceScreenState
               margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
               padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 18),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Color(0xFF211C2C), Color(0xFF12121A)],
-                ),
+                color: AppColors.surface,
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: AppColors.primary.withValues(alpha: .16),
-                ),
+                border: Border.all(color: AppColors.borderSoft),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1813,20 +1802,16 @@ class _KaraokeRoomsScreenState extends ConsumerState<KaraokeRoomsScreen> {
                       Container(
                         padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF302849), Color(0xFF171620)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
+                          color: AppColors.surfaceRaised,
                           borderRadius: BorderRadius.circular(22),
-                          border: Border.all(color: const Color(0xFF493D61)),
+                          border: Border.all(color: AppColors.borderSoft),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Icon(
                               Icons.people_alt_rounded,
-                              color: Color(0xFFC8B7FF),
+                              color: Colors.white,
                             ),
                             const SizedBox(height: 14),
                             Text(
@@ -1984,13 +1969,9 @@ class _RoomDetailView extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFF332A50), Color(0xFF171620)],
-              ),
+              color: AppColors.surfaceRaised,
               borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: const Color(0xFF4A3F64)),
+              border: Border.all(color: AppColors.borderSoft),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1999,7 +1980,7 @@ class _RoomDetailView extends StatelessWidget {
                   children: [
                     const Icon(
                       Icons.graphic_eq_rounded,
-                      color: Color(0xFFBEACFF),
+                      color: Colors.white,
                       size: 20,
                     ),
                     const SizedBox(width: 8),
@@ -2007,7 +1988,7 @@ class _RoomDetailView extends StatelessWidget {
                       child: Text(
                         'PHÒNG KARAOKE',
                         style: textTheme.labelSmall?.copyWith(
-                          color: const Color(0xFFD2C7F6),
+                          color: AppColors.secondary,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 1.1,
                         ),
@@ -2917,13 +2898,9 @@ class _KaraokeScoreDialog extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF302641), Color(0xFF191720)],
-          ),
+          color: AppColors.surfaceRaised,
           borderRadius: BorderRadius.circular(28),
-          border: Border.all(color: const Color(0xFF4B3C5E)),
+          border: Border.all(color: AppColors.border),
         ),
         child: SingleChildScrollView(
           child: Column(
@@ -2933,12 +2910,12 @@ class _KaraokeScoreDialog extends StatelessWidget {
                 width: 48,
                 height: 48,
                 decoration: const BoxDecoration(
-                  color: Color(0xFF413458),
+                  color: AppColors.surfaceGlass,
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
                   Icons.graphic_eq_rounded,
-                  color: Color(0xFFD6C7FF),
+                  color: Colors.white,
                 ),
               ),
               const SizedBox(height: 16),

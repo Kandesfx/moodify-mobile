@@ -182,13 +182,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                         ),
                         SizedBox(height: bounds.maxHeight > 720 ? 48 : 32),
                         Container(
-                          width: 42,
-                          height: 4,
+                          width: 36,
+                          height: 3,
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [AppColors.primary, Color(0xFFF557B6)],
-                            ),
-                            borderRadius: BorderRadius.circular(4),
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(3),
                           ),
                         ),
                         const SizedBox(height: 20),
@@ -329,9 +327,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                         FilledButton(
                           onPressed: session.isBusy ? null : _submit,
                           style: FilledButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                            minimumSize: const Size.fromHeight(56),
+                            backgroundColor: Colors.white,
+                            foregroundColor: const Color(0xFF090A0D),
+                            minimumSize: const Size.fromHeight(54),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14),
                             ),
@@ -341,6 +339,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                                   dimension: 22,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
+                                    color: Color(0xFF090A0D),
                                     semanticsLabel: 'Đang xử lý',
                                   ),
                                 )
@@ -461,7 +460,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               label,
               style: Theme.of(context).textTheme.labelLarge?.copyWith(
                 fontSize: 13,
-                color: const Color(0xFFDDDCE6),
+                color: AppColors.text,
               ),
             ),
           ),
@@ -498,14 +497,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 counterText: '',
                 hintText: hint,
                 hintStyle: const TextStyle(
-                  color: Color(0xFF85838F),
+                  color: AppColors.secondary,
                   fontSize: 14,
                 ),
                 prefixIcon: icon == null
                     ? null
-                    : Icon(icon, size: 20, color: const Color(0xFFAAA3C0)),
+                    : Icon(icon, size: 20, color: AppColors.secondary),
                 filled: true,
-                fillColor: const Color(0xFF15141E),
+                fillColor: AppColors.surfaceRaised,
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 18,

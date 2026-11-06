@@ -110,8 +110,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               children: [
                 DecoratedBox(
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceRaised,
-                    borderRadius: BorderRadius.circular(12),
+                    color: const Color(0xFF13151B),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.borderSoft),
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(4),
@@ -122,16 +123,22 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                             child: Semantics(
                               selected: state.mood == mode,
                               child: AnimatedContainer(
-                                duration: AppMotion.duration(context, 180),
+                                duration: AppMotion.duration(context, 160),
                                 decoration: BoxDecoration(
                                   color: state.mood == mode
-                                      ? AppColors.primary
+                                      ? const Color(0xFF222631)
                                       : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: state.mood == mode
+                                      ? Border.all(
+                                          color: const Color(0x33FFFFFF),
+                                        )
+                                      : null,
                                 ),
                                 child: Material(
                                   type: MaterialType.transparency,
                                   child: Pressable(
+                                    borderRadius: BorderRadius.circular(12),
                                     onTap: () {
                                       // Parity web: tìm kiếm theo cảm xúc
                                       // chỉ dành cho tài khoản VIP.
@@ -143,7 +150,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                     },
                                     child: Padding(
                                       padding: const EdgeInsets.symmetric(
-                                        vertical: 13,
+                                        vertical: 11,
                                         horizontal: 8,
                                       ),
                                       // FittedBox giữ nút không tràn khi

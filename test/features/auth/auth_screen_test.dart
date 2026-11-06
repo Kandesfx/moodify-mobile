@@ -66,7 +66,10 @@ void main() {
       expect(find.text('user1@example.test'), findsNothing);
       await tester.tap(find.text('Quản lý tài khoản'));
       await tester.pumpAndSettle();
-      expect(find.widgetWithText(TextFormField, 'user1@example.test'), findsOneWidget);
+      expect(
+        find.widgetWithText(TextFormField, 'user1@example.test'),
+        findsOneWidget,
+      );
     },
   );
 
@@ -120,11 +123,18 @@ void main() {
       tester.element(find.byType(MoodifyApp)),
     );
     expect(find.text('user1@example.test'), findsNothing);
-    expect(find.text('Quản lý tài khoản'), findsOneWidget,
-      reason: 'route=${container.read(appRouterProvider).routerDelegate.currentConfiguration.uri}, phase=${h.repository.state.phase}');
+    expect(
+      find.text('Quản lý tài khoản'),
+      findsOneWidget,
+      reason:
+          'route=${container.read(appRouterProvider).routerDelegate.currentConfiguration.uri}, phase=${h.repository.state.phase}',
+    );
     await tester.tap(find.text('Quản lý tài khoản'));
     await tester.pumpAndSettle();
-    expect(find.widgetWithText(TextFormField, 'user1@example.test'), findsOneWidget);
+    expect(
+      find.widgetWithText(TextFormField, 'user1@example.test'),
+      findsOneWidget,
+    );
     container.read(appRouterProvider).pop();
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.widgetWithText(TextButton, 'Đăng xuất'));

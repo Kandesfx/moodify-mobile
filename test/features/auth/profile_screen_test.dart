@@ -25,7 +25,10 @@ class _Profiles extends ProfileRepository {
   String? name;
   String? phone;
   @override
-  Future<UserProfile> update({required String fullName, required String phone}) async {
+  Future<UserProfile> update({
+    required String fullName,
+    required String phone,
+  }) async {
     name = fullName;
     this.phone = phone;
     return UserProfile.fromJson(profileResponse());
@@ -35,22 +38,33 @@ class _Profiles extends ProfileRepository {
 void main() {
   testWidgets('validates and saves edited profile', (tester) async {
     final profiles = _Profiles();
-    await tester.pumpWidget(ProviderScope(overrides: [
-      sessionControllerProvider.overrideWith(_Session.new),
-      profileRepositoryProvider.overrideWithValue(profiles),
-    ], child: const MaterialApp(home: ProfileScreen())));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sessionControllerProvider.overrideWith(_Session.new),
+          profileRepositoryProvider.overrideWithValue(profiles),
+        ],
+        child: const MaterialApp(home: ProfileScreen()),
+      ),
+    );
     // Họ và tên chỉ đọc trên màn này (chỉnh sửa tên làm trên web).
     expect(
       find.widgetWithText(TextFormField, 'Người kiểm thử 1'),
       findsOneWidget,
     );
-    await tester.enterText(find.widgetWithText(TextFormField, 'Số điện thoại'), 'invalid');
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Số điện thoại'),
+      'invalid',
+    );
     await tester.ensureVisible(find.text('Lưu thay đổi'));
     await tester.tap(find.text('Lưu thay đổi'));
     await tester.pump();
     expect(find.text('Số điện thoại không hợp lệ.'), findsOneWidget);
     expect(profiles.name, isNull);
-    await tester.enterText(find.widgetWithText(TextFormField, 'Số điện thoại'), '0900000000');
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Số điện thoại'),
+      '0900000000',
+    );
     await tester.ensureVisible(find.text('Lưu thay đổi'));
     await tester.tap(find.text('Lưu thay đổi'));
     await tester.pumpAndSettle();

@@ -109,8 +109,43 @@ Không đánh dấu thiết kế hoàn thiện chỉ vì đã có tài liệu ho
 
 Giữ bố cục RN cho các màn nhạc, thêm tab Karaoke giữa Tìm kiếm và Thư viện sau merge, nền tối/tím Moodify và Be Vietnam Pro. Theo yêu cầu sửa thiết kế, Home bám `Mobile/src/app/(tabs)/index.tsx`: header logo gọn, filter thật, lưới quick tracks 2 cột tối đa 6 bài, spotlight dùng artwork thật làm nền mờ, kệ nhạc ngang, nghệ sĩ tròn, album và danh sách bài. Ẩn shelf album khi API rỗng. Quick/spotlight lấy từ catalog hiện tại; không gọi là lịch sử, trending hay cá nhân hóa khi API không chứng minh.
 
-Mini-player nổi có lề 8, cover 44, yêu thích/play/progress; tab bar cao 64 không có pill Material lớn. Full player có nền cover mờ, cover bo góc, play tròn trắng, seek/volume mảnh, lyrics preview thật và queue/share/sleep; trượt từ dưới lên và vuốt header xuống để đóng. Search có hai segment nền đặc theo RN. Library vẫn là danh sách trong Playlist/Yêu thích/Album, guest có card nhận diện; Account gom avatar/tên vào card gọn. Queue/lyrics ở sheet riêng. Karaoke đã merge; quảng cáo tiếp tục thuộc nhánh cộng tác viên. Đây chưa phải chứng nhận nghiệm thu toàn bộ UI/native.
+Mini-player nổi có lề 8, cover 44, yêu thích/play/progress; tab bar cao 64 không có pill Material lớn. Full player có nền cover mờ, cover bo góc, play tròn trắng, seek/volume mảnh, lyrics preview thật và queue/share/sleep; trượt từ dưới lên và vuốt header xuống để đóng. Search có hai segment nền đặc theo RN. Library vẫn là danh sách trong Playlist/Yêu thích/Album, guest có card nhận diện; Account gom avatar/tên vào card gọn. Queue ở sheet riêng; lyrics chuyển sang màn riêng theo đợt 05/11 bên dưới. Karaoke đã merge; quảng cáo tiếp tục thuộc nhánh cộng tác viên. Đây chưa phải chứng nhận nghiệm thu toàn bộ UI/native.
 
 Nền artwork chỉ blur lớp ảnh riêng, giới hạn decode 360 px và RepaintBoundary; không blur cả subtree tương tác. LRC parse theo thay đổi track thay vì mỗi tick tiến độ. Trạng thái tab và engine được giữ khi chuyển cảnh. Không thêm dependency animation.
 
 Artwork thiếu dùng music-note trung tính; cover Unsplash fallback cứng của backend bị loại. Tên chỉ có hash được hiển thị là chưa có tên, dữ liệu backend giữ nguyên. Plain lyrics hiển thị tĩnh; synchronized lyrics chỉ dùng timestamp thật và entitlement server. Search cuộn cả header khi bàn phím mở. Tiêu chí/test màn nhỏ, chữ lớn và phần chưa có bằng chứng nằm trong STATE và UX_REVIEW.
+
+## 9. Lyrics toàn màn hình — 05/11/2026
+
+Điều chỉnh06/11 sau cập nhật GitHub: lời đồng bộ được mở cho mọi người dùng theo upstream, bỏ gate gói/retry entitlement của thiết kế05/11 phía dưới. LRC thật có thể nằm trong lyricsSynced hoặc lyricsPlain; plain untimed vẫn không nội suy. Khi quảng cáo đang phát, màn lời ẩn cue bài đang chờ và khóa seek/previous/next để không vượt policy quảng cáo.
+
+`/lyrics` mở từ icon rõ ở header full-player hoặc preview có nhãn Mở toàn màn hình. Giữ artwork backdrop hiện có (decode có giới hạn, blur lớp ảnh), safe area, metadata bản đang phát và thanh điều khiển nhạc ở dưới; không tạo engine. Back/đóng chỉ rời màn lời.
+
+Lời đồng bộ dùng chữ 27–32sp đậm, căn trái, khoảng cách theo dòng đã đo; câu hiện tại sáng, câu khác giảm độ nổi. Chuyển màu/scale 260ms và scroll 420ms easeOutCubic; reduced motion bỏ animation. Không tô theo từng từ khi chỉ có timestamp dòng. Đo chiều cao theo width/font/locale/text scale và cache prefix offsets; lazy list với item extent thật, không tính y bằng chỉ số nhân chiều cao cố định. Kéo tay tạm ngừng follow, Về câu đang phát khôi phục; chạm câu tua timestamp thật. Trước cue đầu hiển thị Nhạc dạo và mốc bắt đầu thật.
+
+Thiếu LRC → lời tĩnh có nhãn; thiếu entitlement/lỗi kiểm tra → đọc lời tĩnh và CTA gói/retry. Có thể lấy chữ từ LRC nếu API không có plain lyrics, nhưng không dùng timestamp để highlight/tua khi chưa có quyền. Không nội suy plain lyrics hoặc cấp quyền cục bộ. Thiếu mọi lời có trạng thái riêng cuộn được trên màn nhỏ/chữ lớn. Tên bài đổi reset nội dung/follow, scrub dang dở không seek bài mới. Kiểm chứng thiết bị và hiệu năng profile còn chờ; ảnh render từ widget test không thay bằng chứng điện thoại.
+
+## 10. Splash chuyển động từ logo nền tảng & Pre-Splash Native — 05–06/11/2026
+
+Khi mở app, giai đoạn **trước màn hình splash Flutter** (gồm System SplashScreen của Android 12+ và cửa sổ native trong lúc `AudioServiceActivity` khởi tạo engine) được thiết kế đồng bộ, có chiều sâu và chuyển động:
+
+- **Android 12+ System Splash (`values-v31/styles.xml`, `values-night-v31/styles.xml`)**: Dùng `windowSplashScreenAnimatedIcon="@drawable/avd_launch_logo"` (`animated-vector` vẽ dần đúng 2 nét rời của chữ `M` bằng `trimPathEnd`, khung tròn tím đậm phát sáng `r = 28.5`, vòng sóng âm lan tỏa và 5 cột equalizer dao động) kết hợp `windowSplashScreenBrandingImage="@drawable/launch_branding"` và chuyển giao ngay trong `MainActivity.onCreate` (`splashScreen.setOnExitAnimationListener`).
+- **Cửa sổ Native Pre-Splash & `MainActivity.kt`**:
+  - `MainActivity` gắn lớp phủ native chạy vòng lặp liên tục (`Animatable2.AnimationCallback`) của `@drawable/avd_launch_logo` kèm chữ `moodify` và viên thuốc `"Âm nhạc theo từng cảm xúc"` từ `onCreate` cho tới khi `onFlutterUiDisplayed()` mờ dần (`180 ms`).
+- **Adaptive Launcher Icon & `BrandLockup`**: Bộ icon ứng dụng ngoài màn hình chính (`mipmap-anydpi-v26/ic_launcher.xml`, `ic_launcher_round.xml`, `drawable/ic_launcher_background.xml`, `drawable/ic_launcher_foreground.xml` và `mipmap-*/ic_launcher.png`) dùng khung vuông bo góc nền tím đậm (`#2D224C` → `#0E0C18`), viền tím sáng và logo chữ `M` chính giữa; `BrandLockup` (`lib/core/widgets/brand_lockup.dart`) đồng bộ huy hiệu bo góc chuyển sắc tím.
+- **Lớp `SplashLaunchGate` & `BrandSplashHero` trong Flutter**: Giữ hiệu ứng sóng nhạc đặc trưng từ biểu tượng chữ `M` (`_WaveRevealMark`), 2 dải sóng hình sin uốn lượn + 3 vòng sóng âm elip (`_SplashAuraPainter`), 7 chữ cái `moodify` bật lên lệch nhịp và 9 cột `_SoundwaveEqualizer`, đồng thời bổ sung `_loopController` chạy lặp liên tục trong lúc chờ khôi phục phiên (`SessionPhase.restoring`) cho tới khi vào ứng dụng. Dùng `FadeTransition` / `ScaleTransition` có `RepaintBoundary` và bỏ `ShaderMask` lồng nhau để không tạo `saveLayer` mỗi frame. Khi bật reduced motion (`MediaQuery.disableAnimationsOf`), bỏ qua hiệu ứng và độ trễ chuyển cảnh.
+
+## 11. Hệ thống bo góc đặc trưng & tối ưu độ mượt 60fps — 06/11/2026
+
+Để khắc phục cảm giác mặc định của Flutter và hiện tượng khựng/lag khi cuộn vừa phát nhạc:
+
+- **Hệ thống hình học `AppRadii` & bề mặt có chiều sâu (`lib/app/theme/app_theme.dart`)**: Chuẩn hóa thang bo góc (`xs: 10`, `sm: 14`, `md: 18`, `lg: 22`, `xl: 26`, `pill: 999`), viền mảnh ánh sáng (`#2E2B42` / `#16FFFFFF`) trên nền tối `#161520`–`#1F1D2E`.
+- **Thành phần đặc trưng Moodify**:
+  - `TrackTile` (`lib/features/catalog/presentation/catalog_widgets.dart`): Chuyển từ `ListTile` phẳng sát cạnh sang thẻ bo góc `16px` có nền riêng (`#14131D`, khi đang phát chuyển `#231C38` kèm viền `#5A3FD6` và huy hiệu sóng nhạc `graphic_eq_rounded` ở góc bìa `52×52` bo `12px`).
+  - `HomeScreen` (`lib/features/home/presentation/home_screen.dart`): Chip lọc thể loại dạng viên thuốc (`pill: 999`) có chuyển sắc tím khi chọn; thẻ `_QuickTrack` bo `16px` có gradient nhẹ; thẻ `_Spotlight` bo `24px` kèm nhãn `"Tâm điểm"` và nút `"Nghe ngay"` bo tròn; tiêu đề mục `SectionHeading` có thanh nhấn dọc chuyển sắc tím–hồng (`#8B5CF6` → `#EC4899`); thẻ bài hát ngang có nút play nổi góc dưới.
+  - `MiniPlayer` & thanh điều hướng (`lib/app/main_shell.dart`, `lib/features/player/presentation/player_screen.dart`): `MiniPlayer` dạng viên nang nổi bo `18px` có viền sáng và bóng đổ; thanh điều hướng có đường phân tách mảnh phía trên và chỉ báo chọn bo `14px`.
+  - `SearchScreen`, `LibraryScreen`, `AccountScreen`: Chuyển công tắc chế độ tìm kiếm sang pill bo `16px`/`12px`, `TabBar` thư viện dạng viên thuốc, và gom nhóm mục cài đặt Tài khoản vào thẻ bo `22px` kèm icon đặt trong hộp bo `12px`.
+- **Tối ưu hiệu năng & độ mượt**:
+  - Cô lập cập nhật `position` trong `MiniPlayer` (`_MiniPlayerProgress`) và `PlayerScreen` (`_PlayerSeekSection`) qua `ref.watch(playerControllerProvider.select(...))` để không dựng lại toàn bộ cây widget player/shell mỗi nhịp thời gian phát.
+  - Trong `_MoodifyAudioHandler` (`lib/features/player/data/playback_engine.dart`), tiết lưu `positionStream` (`>= 200 ms`) và chỉ gọi `playbackState.add` qua platform channel Android khi trạng thái phát/loading/seek thực sự đổi.
+  - Trong `ArtworkBackdrop` (`lib/features/catalog/presentation/artwork_backdrop.dart`), bỏ shader `ImageFilter.blur` trực tiếp bên trong thẻ cuộn (`hero: true`) và giảm kích thước mẫu blur nền tĩnh xuống `cacheWidth: 180`; bọc `MusicArtwork` trong `RepaintBoundary` với `gaplessPlayback: true`; dùng `ValueNotifier` trong `Pressable` và bỏ `FadeTransition` toàn màn hình ở `MainShell`.

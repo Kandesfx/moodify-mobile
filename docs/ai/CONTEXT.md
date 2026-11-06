@@ -1,8 +1,12 @@
 # Ngữ cảnh nhanh
 
+06/11/2026: đã lấy GitHub main06b3c27, giữ lyrics/splash local và tích hợp profile/checkout/karaoke/ads. Lyrics hiện không yêu cầu Premium theo upstream, vẫn cần LRC thật. 134tests/analyze/build đạt, APK đã cài Samsung; xem STATE và DEVICE_REVIEW_2026-11-06.md. Không chạy scripts/start-local-api.ps1 hoặc khởi động backend để smoke mobile.
+
 Cập nhật: **05/11/2026**. Đọc tiếp `STATE.md` để biết việc thực sự đã hoàn thành. Đợt đang ưu tiên: tải/offline, lỗi/ràng buộc và lịch sử/hành vi; xem `../UX_PRIORITY_IMPLEMENTATION.md`.
 
 Màn tải đã thiết kế lại và cài Samsung: quyền/quota thật trước khi xin tải, tác vụ có tên và lỗi/hành động, quản lý thư viện local. Tài khoản máy hiện tại Miễn phí nên chỉ kiểm chứng gate quyền; chưa nghiệm thu tải Premium thành công. Không đánh dấu toàn bộ audit hoàn tất.
+
+Đợt lyrics tiếp theo: màn `/lyrics` toàn màn hình thay sheet, mở từ player header/preview, follow LRC thật + manual/recenter và transport chung. Giữ entitlement server; không nội suy plain lyrics. User chọn code/test/build trước, chưa nối máy cho lượt này; xem `../LYRICS_UX_2026-11-05.md`. Đã bổ sung màn splash chuyển động từ logo nền tảng (`lib/core/widgets/brand_splash.dart`) cùng nền launch native `#0C0C10`.
 
 ## Mục tiêu
 

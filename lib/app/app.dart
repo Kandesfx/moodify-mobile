@@ -5,6 +5,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/widgets/brand_lockup.dart';
+import '../core/widgets/brand_splash.dart';
 import '../core/widgets/feedback_panel.dart';
 import '../features/auth/domain/session_state.dart';
 import '../features/auth/presentation/session_controller.dart';
@@ -73,6 +74,8 @@ class _AppRootState extends ConsumerState<MoodifyApp>
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       supportedLocales: const [Locale('vi'), Locale('en')],
       routerConfig: ref.watch(appRouterProvider),
+      builder: (context, child) =>
+          SplashLaunchGate(child: child ?? const SizedBox.shrink()),
     );
   }
 }

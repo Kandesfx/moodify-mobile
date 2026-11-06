@@ -64,51 +64,52 @@ void main() {
       },
     );
   }
-  testWidgets('upgrade opens the in-app subscriptions screen and keeps the ad', (
-    tester,
-  ) async {
-    final repository = MusicRepositoryFake();
-    final engine = PlaybackEngineFake();
-    final auth = AuthHarness();
-    final player = PlayerController(
-      repository,
-      () async => engine,
-      adPolicy: TestAdPolicy(),
-    );
-    await player.select([firstTrack], 0);
-    final router = GoRouter(
-      initialLocation: '/home',
-      routes: [
-        GoRoute(
-          path: '/home',
-          builder: (_, _) =>
-              const Scaffold(bottomNavigationBar: MiniPlayer()),
-        ),
-        GoRoute(
-          path: '/subscriptions',
-          builder: (_, _) => const Scaffold(body: Text('Gói dịch vụ')),
-        ),
-      ],
-    );
-    addTearDown(router.dispose);
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          sessionRepositoryProvider.overrideWithValue(auth.repository),
-          playerControllerProvider.overrideWith((ref) => player),
+  testWidgets(
+    'upgrade opens the in-app subscriptions screen and keeps the ad',
+    (tester) async {
+      final repository = MusicRepositoryFake();
+      final engine = PlaybackEngineFake();
+      final auth = AuthHarness();
+      final player = PlayerController(
+        repository,
+        () async => engine,
+        adPolicy: TestAdPolicy(),
+      );
+      await player.select([firstTrack], 0);
+      final router = GoRouter(
+        initialLocation: '/home',
+        routes: [
+          GoRoute(
+            path: '/home',
+            builder: (_, _) =>
+                const Scaffold(bottomNavigationBar: MiniPlayer()),
+          ),
+          GoRoute(
+            path: '/subscriptions',
+            builder: (_, _) => const Scaffold(body: Text('Gói dịch vụ')),
+          ),
         ],
-        child: MaterialApp.router(routerConfig: router),
-      ),
-    );
-    await tester.tap(find.text('Lên FULL'));
-    await tester.pumpAndSettle();
-    expect(find.text('Gói dịch vụ'), findsOneWidget);
-    // Điều hướng trong app không tự skip quảng cáo như luồng mở web cũ.
-    expect(player.state.isAd, isTrue);
-    expect(engine.loaded, isEmpty);
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pump();
-    await auth.close();
-    repository.remote.dio.close();
-  });
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            sessionRepositoryProvider.overrideWithValue(auth.repository),
+            playerControllerProvider.overrideWith((ref) => player),
+          ],
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
+      await tester.tap(find.text('Lên FULL'));
+      await tester.pumpAndSettle();
+      expect(find.text('Gói dịch vụ'), findsOneWidget);
+      // Điều hướng trong app không tự skip quảng cáo như luồng mở web cũ.
+      expect(player.state.isAd, isTrue);
+      expect(engine.loaded, isEmpty);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await auth.close();
+      repository.remote.dio.close();
+    },
+  );
 }

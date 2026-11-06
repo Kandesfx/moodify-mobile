@@ -45,6 +45,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         .toList();
     final shelf = state.tracks.where((t) => t.hasTitle).take(12).toList();
     final spotlight = quick.isEmpty ? null : quick.first;
+    final activeImage =
+        ref.watch(playerControllerProvider.select((s) => s.track?.image)) ??
+        spotlight?.image;
     void play(Track track) => ref
         .read(playerControllerProvider.notifier)
         .select(
@@ -54,7 +57,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         );
 
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
         titleSpacing: 16,
         title: const BrandLockup(),
         actions: [
@@ -72,318 +77,397 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           const SizedBox(width: 4),
         ],
       ),
-      body: Column(
+      body: Stack(
         children: [
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-            child: Row(
-              children: [
-                for (final filter in _filters.entries)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: Semantics(
-                      selected: _genre == filter.key,
-                      child: AnimatedContainer(
-                        duration: AppMotion.duration(context, 180),
-                        decoration: BoxDecoration(
-                          color: _genre == filter.key
-                              ? AppColors.primary
-                              : AppColors.surfaceRaised,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Material(
-                          type: MaterialType.transparency,
-                          child: Pressable(
-                            onTap: () => setState(() => _genre = filter.key),
-                            borderRadius: BorderRadius.circular(8),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 13,
-                              ),
-                              child: Text(
-                                filter.value,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: _genre == filter.key
-                                      ? FontWeight.w700
-                                      : FontWeight.w500,
-                                  color: _genre == filter.key
-                                      ? Colors.white
-                                      : AppColors.secondary,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 280,
+            child: IgnorePointer(
+              child: ArtworkPaletteBuilder(
+                image: activeImage,
+                builder: (context, palette, _) => AnimatedContainer(
+                  duration: AppMotion.duration(context, 520),
+                  curve: Curves.easeOutCubic,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        palette.dominant.withValues(alpha: 0.52),
+                        palette.deep.withValues(alpha: 0.25),
+                        Colors.transparent,
+                      ],
                     ),
                   ),
-              ],
+                ),
+              ),
             ),
           ),
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: () async {
-                ref.invalidate(albumsProvider);
-                ref.invalidate(artistsProvider(''));
-                await ref
-                    .read(catalogControllerProvider(query).notifier)
-                    .load(reset: true);
-              },
-              child: CustomScrollView(
-                key: const PageStorageKey('home'),
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  if (signedIn && !isPremium)
-                    SliverToBoxAdapter(
-                      child: SectionEntrance(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                          child: _UpsellBanner(
-                            onTap: () => context.push('/subscriptions'),
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (quick.isNotEmpty)
-                    SliverToBoxAdapter(
-                      child: SectionEntrance(
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Bắt đầu nghe',
-                                style: Theme.of(context).textTheme.titleLarge,
+          SafeArea(
+            child: Column(
+              children: [
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
+                  child: Row(
+                    children: [
+                      for (final filter in _filters.entries)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: Semantics(
+                            selected: _genre == filter.key,
+                            child: AnimatedContainer(
+                              duration: AppMotion.duration(context, 160),
+                              decoration: BoxDecoration(
+                                color: _genre == filter.key
+                                    ? const Color(0xFF242833)
+                                    : const Color(0xCC13151B),
+                                borderRadius: BorderRadius.circular(999),
+                                border: Border.all(
+                                  color: _genre == filter.key
+                                      ? const Color(0x45FFFFFF)
+                                      : const Color(0x18FFFFFF),
+                                ),
                               ),
-                              const SizedBox(height: 12),
-                              LayoutBuilder(
-                                builder: (context, bounds) {
-                                  final height =
-                                      (MediaQuery.textScalerOf(
-                                                    context,
-                                                  ).scale(12) *
-                                                  2.8 +
-                                              16)
-                                          .clamp(64.0, 112.0);
-                                  return Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    children: [
-                                      for (final track in quick)
-                                        SizedBox(
-                                          width: (bounds.maxWidth - 8) / 2,
-                                          height: height,
-                                          child: _QuickTrack(
-                                            track: track,
-                                            onTap: () => play(track),
-                                          ),
-                                        ),
-                                    ],
-                                  );
-                                },
+                              child: Material(
+                                type: MaterialType.transparency,
+                                child: Pressable(
+                                  onTap: () =>
+                                      setState(() => _genre = filter.key),
+                                  borderRadius: BorderRadius.circular(999),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 9,
+                                    ),
+                                    child: Text(
+                                      filter.value,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: _genre == filter.key
+                                            ? FontWeight.w700
+                                            : FontWeight.w500,
+                                        color: _genre == filter.key
+                                            ? Colors.white
+                                            : AppColors.secondary,
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (spotlight != null)
-                    SliverToBoxAdapter(
-                      child: SectionEntrance(
-                        order: 1,
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                          child: _Spotlight(
-                            track: spotlight,
-                            onPlay: () => play(spotlight),
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (shelf.isNotEmpty) ...[
-                    const SliverToBoxAdapter(
-                      child: SectionHeading('Khám phá giai điệu'),
-                    ),
-                    SliverToBoxAdapter(
-                      child: SectionEntrance(
-                        order: 2,
-                        child: SizedBox(
-                          height:
-                              160 +
-                              MediaQuery.textScalerOf(context).scale(13) * 4.4,
-                          child: ListView.separated(
-                            scrollDirection: Axis.horizontal,
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            itemCount: shelf.length,
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(width: 14),
-                            itemBuilder: (_, i) => _TrackCard(
-                              track: shelf[i],
-                              onTap: () => play(shelf[i]),
                             ),
                           ),
                         ),
-                      ),
-                    ),
-                  ],
-                  if ((artists.valueOrNull ?? []).isNotEmpty) ...[
-                    const SliverToBoxAdapter(child: SectionHeading('Nghệ sĩ')),
-                    SliverToBoxAdapter(
-                      child: SizedBox(
-                        height:
-                            116 +
-                            MediaQuery.textScalerOf(context).scale(13) * 3,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          itemCount: artists.valueOrNull!.length,
-                          separatorBuilder: (_, _) => const SizedBox(width: 18),
-                          itemBuilder: (_, i) {
-                            final artist = artists.valueOrNull![i];
-                            return SizedBox(
-                              width: 104,
-                              child: Pressable(
-                                onTap: () => context.push(
-                                  Uri(
-                                    path: '/artist/${segment(artist.id)}',
-                                    queryParameters: {'name': artist.name},
-                                  ).toString(),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: RefreshIndicator(
+                    onRefresh: () async {
+                      ref.invalidate(albumsProvider);
+                      ref.invalidate(artistsProvider(''));
+                      await ref
+                          .read(catalogControllerProvider(query).notifier)
+                          .load(reset: true);
+                    },
+                    child: CustomScrollView(
+                      key: const PageStorageKey('home'),
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      slivers: [
+                        if (signedIn && !isPremium)
+                          SliverToBoxAdapter(
+                            child: SectionEntrance(
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  4,
+                                  16,
+                                  16,
                                 ),
-                                child: Column(
-                                  children: [
-                                    MusicArtwork(
-                                      image: artist.image,
-                                      size: 100,
-                                      round: true,
-                                    ),
-                                    const SizedBox(height: 10),
-                                    Text(
-                                      artist.name,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      textAlign: TextAlign.center,
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ],
+                                child: _UpsellBanner(
+                                  onTap: () => context.push('/subscriptions'),
                                 ),
                               ),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                  ],
-                  if ((albums.valueOrNull ?? []).isNotEmpty) ...[
-                    const SliverToBoxAdapter(
-                      child: SectionHeading('Album & tuyển tập'),
-                    ),
-                    SliverToBoxAdapter(
-                      child: SizedBox(
-                        height:
-                            160 +
-                            MediaQuery.textScalerOf(context).scale(13) * 3,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          itemCount: albums.valueOrNull!.length,
-                          separatorBuilder: (_, _) => const SizedBox(width: 14),
-                          itemBuilder: (_, i) {
-                            final album = albums.valueOrNull![i];
-                            return SizedBox(
-                              width: 140,
-                              child: Pressable(
-                                onTap: () =>
-                                    context.push('/album/${segment(album.id)}'),
+                            ),
+                          ),
+                        if (quick.isNotEmpty)
+                          SliverToBoxAdapter(
+                            child: SectionEntrance(
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  4,
+                                  16,
+                                  16,
+                                ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    MusicArtwork(
-                                      image: album.image,
-                                      size: 140,
-                                      radius: 12,
-                                    ),
-                                    const SizedBox(height: 10),
                                     Text(
-                                      album.title,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                                      'Bắt đầu nghe',
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.titleLarge,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    LayoutBuilder(
+                                      builder: (context, bounds) {
+                                        final height =
+                                            (MediaQuery.textScalerOf(
+                                                          context,
+                                                        ).scale(12) *
+                                                        2.8 +
+                                                    16)
+                                                .clamp(64.0, 112.0);
+                                        return Wrap(
+                                          spacing: 8,
+                                          runSpacing: 8,
+                                          children: [
+                                            for (final track in quick)
+                                              SizedBox(
+                                                width:
+                                                    (bounds.maxWidth - 8) / 2,
+                                                height: height,
+                                                child: _QuickTrack(
+                                                  track: track,
+                                                  onTap: () => play(track),
+                                                ),
+                                              ),
+                                          ],
+                                        );
+                                      },
                                     ),
                                   ],
                                 ),
                               ),
-                            );
-                          },
+                            ),
+                          ),
+                        if (spotlight != null)
+                          SliverToBoxAdapter(
+                            child: SectionEntrance(
+                              order: 1,
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  0,
+                                  16,
+                                  8,
+                                ),
+                                child: _Spotlight(
+                                  track: spotlight,
+                                  onPlay: () => play(spotlight),
+                                ),
+                              ),
+                            ),
+                          ),
+                        if (shelf.isNotEmpty) ...[
+                          const SliverToBoxAdapter(
+                            child: SectionHeading('Khám phá giai điệu'),
+                          ),
+                          SliverToBoxAdapter(
+                            child: SectionEntrance(
+                              order: 2,
+                              child: SizedBox(
+                                height:
+                                    160 +
+                                    MediaQuery.textScalerOf(context).scale(13) *
+                                        4.4,
+                                child: ListView.separated(
+                                  scrollDirection: Axis.horizontal,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                  ),
+                                  itemCount: shelf.length,
+                                  separatorBuilder: (_, _) =>
+                                      const SizedBox(width: 14),
+                                  itemBuilder: (_, i) => _TrackCard(
+                                    track: shelf[i],
+                                    onTap: () => play(shelf[i]),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                        if ((artists.valueOrNull ?? []).isNotEmpty) ...[
+                          const SliverToBoxAdapter(
+                            child: SectionHeading('Nghệ sĩ'),
+                          ),
+                          SliverToBoxAdapter(
+                            child: SizedBox(
+                              height:
+                                  116 +
+                                  MediaQuery.textScalerOf(context).scale(13) *
+                                      3,
+                              child: ListView.separated(
+                                scrollDirection: Axis.horizontal,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                ),
+                                itemCount: artists.valueOrNull!.length,
+                                separatorBuilder: (_, _) =>
+                                    const SizedBox(width: 18),
+                                itemBuilder: (_, i) {
+                                  final artist = artists.valueOrNull![i];
+                                  return SizedBox(
+                                    width: 104,
+                                    child: Pressable(
+                                      onTap: () => context.push(
+                                        Uri(
+                                          path: '/artist/${segment(artist.id)}',
+                                          queryParameters: {
+                                            'name': artist.name,
+                                          },
+                                        ).toString(),
+                                      ),
+                                      child: Column(
+                                        children: [
+                                          MusicArtwork(
+                                            image: artist.image,
+                                            size: 100,
+                                            round: true,
+                                          ),
+                                          const SizedBox(height: 10),
+                                          Text(
+                                            artist.name,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            textAlign: TextAlign.center,
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
+                        if ((albums.valueOrNull ?? []).isNotEmpty) ...[
+                          const SliverToBoxAdapter(
+                            child: SectionHeading('Album & tuyển tập'),
+                          ),
+                          SliverToBoxAdapter(
+                            child: SizedBox(
+                              height:
+                                  160 +
+                                  MediaQuery.textScalerOf(context).scale(13) *
+                                      3,
+                              child: ListView.separated(
+                                scrollDirection: Axis.horizontal,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                ),
+                                itemCount: albums.valueOrNull!.length,
+                                separatorBuilder: (_, _) =>
+                                    const SizedBox(width: 14),
+                                itemBuilder: (_, i) {
+                                  final album = albums.valueOrNull![i];
+                                  return SizedBox(
+                                    width: 140,
+                                    child: Pressable(
+                                      onTap: () => context.push(
+                                        '/album/${segment(album.id)}',
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          MusicArtwork(
+                                            image: album.image,
+                                            size: 140,
+                                            radius: 12,
+                                          ),
+                                          const SizedBox(height: 10),
+                                          Text(
+                                            album.title,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
+                        const SliverToBoxAdapter(
+                          child: SectionHeading('Tất cả bài hát'),
                         ),
-                      ),
-                    ),
-                  ],
-                  const SliverToBoxAdapter(
-                    child: SectionHeading('Tất cả bài hát'),
-                  ),
-                  if (state.loading && state.tracks.isEmpty)
-                    const SliverToBoxAdapter(
-                      child: Padding(
-                        padding: EdgeInsets.all(40),
-                        child: Center(child: CircularProgressIndicator()),
-                      ),
-                    ),
-                  SliverList.builder(
-                    itemCount: state.tracks.length,
-                    itemBuilder: (_, i) => TrackTile(
-                      track: state.tracks[i],
-                      queue: state.tracks,
-                      index: i,
-                    ),
-                  ),
-                  if (state.failure != null)
-                    SliverToBoxAdapter(
-                      child: LoadMessage(
-                        message: state.failure!.message,
-                        retry: () => ref
-                            .read(catalogControllerProvider(query).notifier)
-                            .load(),
-                      ),
-                    ),
-                  if (!state.loading &&
-                      state.failure == null &&
-                      state.tracks.isEmpty)
-                    const SliverToBoxAdapter(
-                      child: LoadMessage(
-                        message: 'Chưa có bài hát trong thể loại này.',
-                      ),
-                    ),
-                  if (state.hasMore && state.tracks.isNotEmpty)
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: OutlinedButton(
-                          onPressed: state.loading
-                              ? null
-                              : () => ref
-                                    .read(
-                                      catalogControllerProvider(query).notifier,
-                                    )
-                                    .load(),
-                          child: Text(
-                            state.loading ? 'Đang tải…' : 'Xem thêm bài hát',
+                        if (state.loading && state.tracks.isEmpty)
+                          const SliverToBoxAdapter(
+                            child: Padding(
+                              padding: EdgeInsets.all(40),
+                              child: Center(child: CircularProgressIndicator()),
+                            ),
+                          ),
+                        SliverList.builder(
+                          itemCount: state.tracks.length,
+                          itemBuilder: (_, i) => TrackTile(
+                            track: state.tracks[i],
+                            queue: state.tracks,
+                            index: i,
                           ),
                         ),
-                      ),
+                        if (state.failure != null)
+                          SliverToBoxAdapter(
+                            child: LoadMessage(
+                              message: state.failure!.message,
+                              retry: () => ref
+                                  .read(
+                                    catalogControllerProvider(query).notifier,
+                                  )
+                                  .load(),
+                            ),
+                          ),
+                        if (!state.loading &&
+                            state.failure == null &&
+                            state.tracks.isEmpty)
+                          const SliverToBoxAdapter(
+                            child: LoadMessage(
+                              message: 'Chưa có bài hát trong thể loại này.',
+                            ),
+                          ),
+                        if (state.hasMore && state.tracks.isNotEmpty)
+                          SliverToBoxAdapter(
+                            child: Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: OutlinedButton(
+                                onPressed: state.loading
+                                    ? null
+                                    : () => ref
+                                          .read(
+                                            catalogControllerProvider(
+                                              query,
+                                            ).notifier,
+                                          )
+                                          .load(),
+                                child: Text(
+                                  state.loading
+                                      ? 'Đang tải…'
+                                      : 'Xem thêm bài hát',
+                                ),
+                              ),
+                            ),
+                          ),
+                        const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                      ],
                     ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 24)),
-                ],
-              ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -402,24 +486,24 @@ class _QuickTrack extends ConsumerWidget {
       playerControllerProvider.select((s) => s.track?.id == track.id),
     );
     return AnimatedContainer(
-      duration: AppMotion.duration(context),
+      duration: AppMotion.duration(context, 160),
       decoration: BoxDecoration(
-        color: active ? const Color(0xFF302344) : const Color(0xFF1A1925),
+        color: active ? const Color(0xFF1E222C) : const Color(0xFF13151B),
         border: Border.all(
-          color: active ? AppColors.primary : const Color(0xFF302C3F),
+          color: active ? const Color(0x3DFFFFFF) : const Color(0x12FFFFFF),
         ),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Material(
         type: MaterialType.transparency,
         child: Pressable(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           onTap: onTap,
           child: Row(
             children: [
               Padding(
                 padding: const EdgeInsets.all(6),
-                child: MusicArtwork(image: track.image, size: 48, radius: 9),
+                child: MusicArtwork(image: track.image, size: 48, radius: 11),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -429,9 +513,9 @@ class _QuickTrack extends ConsumerWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 12,
-                    height: 1.35,
+                    height: 1.32,
                     fontWeight: FontWeight.w700,
-                    color: active ? AppColors.lavender : AppColors.text,
+                    color: active ? Colors.white : AppColors.text,
                   ),
                 ),
               ),
@@ -449,71 +533,105 @@ class _Spotlight extends StatelessWidget {
   final Track track;
   final VoidCallback onPlay;
   @override
-  Widget build(BuildContext context) => ClipRRect(
-    borderRadius: BorderRadius.circular(16),
-    child: Stack(
-      children: [
-        Positioned.fill(child: ArtworkBackdrop(image: track.image, hero: true)),
-        Padding(
-          padding: const EdgeInsets.all(18),
-          child: Row(
-            children: [
-              MusicArtwork(
-                image: track.image,
-                size: MediaQuery.sizeOf(context).width < 360 ? 88 : 108,
-                radius: 12,
-              ),
-              const SizedBox(width: 18),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      track.displayName,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        height: 1.3,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      track.artist,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.secondary,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    FilledButton.icon(
-                      onPressed: onPlay,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: AppColors.background,
-                        minimumSize: const Size(48, 48),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 10,
-                        ),
-                        textStyle: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      icon: const Icon(Icons.play_arrow_rounded, size: 20),
-                      label: const Text('Nghe ngay'),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+  Widget build(BuildContext context) => DecoratedBox(
+    position: DecorationPosition.foreground,
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(24),
+      border: Border.all(color: const Color(0x22FFFFFF)),
+    ),
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(24),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: ArtworkBackdrop(image: track.image, hero: true),
           ),
-        ),
-      ],
+          Padding(
+            padding: const EdgeInsets.all(18),
+            child: Row(
+              children: [
+                MusicArtwork(
+                  image: track.image,
+                  size: MediaQuery.sizeOf(context).width < 360 ? 88 : 108,
+                  radius: 16,
+                ),
+                const SizedBox(width: 18),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0x24FFFFFF),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(color: const Color(0x20FFFFFF)),
+                        ),
+                        child: const Text(
+                          'TÂM ĐIỂM',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                            letterSpacing: 0.6,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        track.displayName,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          height: 1.28,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        track.artist,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          color: AppColors.secondary,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      FilledButton.icon(
+                        onPressed: onPlay,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: AppColors.background,
+                          minimumSize: const Size(48, 42),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 9,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          textStyle: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        icon: const Icon(Icons.play_arrow_rounded, size: 20),
+                        label: const Text('Nghe ngay'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     ),
   );
 }
@@ -532,28 +650,39 @@ class _TrackCard extends ConsumerWidget {
     return SizedBox(
       width: 144,
       child: Pressable(
+        borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Stack(
               children: [
-                MusicArtwork(image: track.image, size: 144, radius: 12),
-                if (active)
-                  const Positioned(
-                    right: 8,
-                    bottom: 8,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        shape: BoxShape.circle,
+                MusicArtwork(image: track.image, size: 144, radius: 16),
+                Positioned(
+                  right: 8,
+                  bottom: 8,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: active
+                          ? AppColors.primary
+                          : const Color(0xD90D0E13),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: active ? Colors.white : const Color(0x2EFFFFFF),
                       ),
-                      child: Padding(
-                        padding: EdgeInsets.all(8),
-                        child: Icon(Icons.volume_up_rounded, size: 18),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(7),
+                      child: Icon(
+                        active
+                            ? Icons.volume_up_rounded
+                            : Icons.play_arrow_rounded,
+                        size: 17,
+                        color: Colors.white,
                       ),
                     ),
                   ),
+                ),
               ],
             ),
             const SizedBox(height: 10),
@@ -563,11 +692,11 @@ class _TrackCard extends ConsumerWidget {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 fontSize: 13,
-                height: 1.35,
+                height: 1.32,
                 fontWeight: FontWeight.w700,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 3),
             Text(
               track.artist,
               maxLines: 1,
@@ -586,8 +715,23 @@ class SectionHeading extends StatelessWidget {
   final String text;
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 22, 16, 14),
-    child: Text(text, style: Theme.of(context).textTheme.titleLarge),
+    padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+    child: Row(
+      children: [
+        Container(
+          width: 3.5,
+          height: 18,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(99),
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(text, style: Theme.of(context).textTheme.titleLarge),
+        ),
+      ],
+    ),
   );
 }
 
@@ -610,7 +754,10 @@ class _VipPill extends StatelessWidget {
               ? const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [AppColors.vipGradientTop, AppColors.vipGradientBottom],
+                  colors: [
+                    AppColors.vipGradientTop,
+                    AppColors.vipGradientBottom,
+                  ],
                 )
               : null,
           color: premium ? null : AppColors.surfaceRaised,

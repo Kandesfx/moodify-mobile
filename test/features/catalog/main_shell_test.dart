@@ -106,6 +106,15 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.byType(PlayerScreen), findsOneWidget);
         expect(tester.takeException(), isNull);
+        await tester.tap(find.byTooltip('Mở lời bài hát'));
+        await tester.pumpAndSettle();
+        expect(find.text('Chưa có lời bài hát'), findsOneWidget);
+        expect(engine.loaded, [firstTrack.id]);
+        expect(tester.takeException(), isNull);
+        await tester.tap(find.byTooltip('Đóng lời bài hát'));
+        await tester.pumpAndSettle();
+        expect(find.byType(PlayerScreen), findsOneWidget);
+        expect(engine.loaded, [firstTrack.id]);
         await tester.tap(find.byTooltip('Thu nhỏ'));
         await tester.pumpAndSettle();
         await tester.tap(find.byType(NavigationDestination).at(2));

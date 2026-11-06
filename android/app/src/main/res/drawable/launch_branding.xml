@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="200dp"
+    android:height="80dp"
+    android:viewportWidth="200"
+    android:viewportHeight="80">
+
+    <!-- Subtle ambient pill glow at bottom -->
+    <path
+        android:pathData="M56,24 L144,24 C155,24 164,33 164,44 C164,55 155,64 144,64 L56,64 C45,64 36,55 36,44 C36,33 45,24 56,24 Z"
+        android:strokeWidth="1.0">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:endX="164"
+                android:endY="64"
+                android:startX="36"
+                android:startY="24"
+                android:type="linear">
+                <item android:color="#221B3A" android:offset="0.0" />
+                <item android:color="#141222" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:endX="164"
+                android:endY="44"
+                android:startX="36"
+                android:startY="44"
+                android:type="linear">
+                <item android:color="#668B5CF6" android:offset="0.0" />
+                <item android:color="#88C4B5FD" android:offset="0.5" />
+                <item android:color="#66EC4899" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- 9-bar neon soundwave equalizer in the branding pill -->
+    <path
+        android:pathData="M68,41 L68,47 M76,37 L76,51 M84,33 L84,55 M92,38 L92,50 M100,31 L100,57 M108,38 L108,50 M116,33 L116,55 M124,37 L124,51 M132,41 L132,47"
+        android:strokeLineCap="round"
+        android:strokeWidth="3.2">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:endX="134"
+                android:endY="44"
+                android:startX="66"
+                android:startY="44"
+                android:type="linear">
+                <item android:color="#6366F1" android:offset="0.0" />
+                <item android:color="#8B5CF6" android:offset="0.35" />
+                <item android:color="#C4B5FD" android:offset="0.65" />
+                <item android:color="#EC4899" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>
+
