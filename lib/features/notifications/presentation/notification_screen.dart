@@ -2,6 +2,7 @@ import '../../player/presentation/player_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../app/theme/app_theme.dart';
 import '../../../core/formatters/display_date.dart';
 import '../../../core/errors/app_failure.dart';
 import '../../../core/widgets/app_motion.dart';
@@ -101,80 +102,144 @@ class NotificationScreen extends ConsumerWidget {
             ),
             data: (items) => ListView.separated(
               physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
               itemCount: items.isEmpty ? 1 : items.length,
-              separatorBuilder: (_, _) =>
-                  const Divider(indent: 20, endIndent: 20),
+              separatorBuilder: (_, _) => const SizedBox(height: 8),
               itemBuilder: (_, i) {
                 if (items.isEmpty) {
                   return const LoadMessage(message: 'Bạn chưa có thông báo.');
                 }
                 final item = items[i];
-                return ListTile(
-                  contentPadding: const EdgeInsets.all(20),
-                  isThreeLine: true,
-                  leading: Icon(
-                    item.read
-                        ? Icons.notifications_none_rounded
-                        : Icons.notifications_active_outlined,
-                  ),
-                  title: Text(
-                    item.title,
-                    style: TextStyle(
-                      fontWeight: item.read ? FontWeight.w400 : FontWeight.w700,
+                // Thẻ thông báo cùng ngôn ngữ Studio Dark với các màn khác.
+                return DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceRaised,
+                    borderRadius: BorderRadius.circular(AppRadii.md),
+                    border: Border.all(
+                      color: item.read
+                          ? AppColors.borderSoft
+                          : AppColors.primary.withValues(alpha: .35),
                     ),
                   ),
-                  subtitle: Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(item.message),
-                        const SizedBox(height: 8),
-                        Text(
-                          displayDate(item.createdAt),
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ],
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
                     ),
-                  ),
-                  onTap: () {
-                    if (!item.read) {
-                      ref.read(inboxProvider.notifier).read(item.id);
-                    }
-                    showAppModalSheet<void>(
-                      context: context,
-                      isScrollControlled: true,
-                      builder: (sheetContext) => SafeArea(
-                        child: SingleChildScrollView(
-                          padding: const EdgeInsets.all(24),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                    leading: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: item.read
+                            ? AppColors.surfaceGlass
+                            : AppColors.primary.withValues(alpha: .14),
+                        borderRadius: BorderRadius.circular(AppRadii.xs),
+                        border: Border.all(color: AppColors.borderSoft),
+                      ),
+                      child: Icon(
+                        item.read
+                            ? Icons.notifications_none_rounded
+                            : Icons.notifications_active_rounded,
+                        size: 20,
+                        color: item.read
+                            ? AppColors.secondary
+                            : AppColors.lavender,
+                      ),
+                    ),
+                    title: Text(
+                      item.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: item.read
+                            ? FontWeight.w500
+                            : FontWeight.w700,
+                      ),
+                    ),
+                    subtitle: Padding(
+                      padding: const EdgeInsets.only(top: 5),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.message,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              height: 1.45,
+                              color: AppColors.secondary,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
                             children: [
-                              Text(
-                                item.title,
-                                style: Theme.of(context).textTheme.titleLarge,
-                              ),
-                              const SizedBox(height: 16),
-                              SelectableText(item.message),
-                              const SizedBox(height: 16),
-                              Text(displayDate(item.createdAt)),
-                              if (item.destination != null) ...[
-                                const SizedBox(height: 20),
-                                FilledButton(
-                                  onPressed: () {
-                                    Navigator.pop(sheetContext);
-                                    context.push(item.destination!);
-                                  },
-                                  child: const Text('Xem gói dịch vụ'),
+                              if (!item.read)
+                                Container(
+                                  width: 6,
+                                  height: 6,
+                                  margin: const EdgeInsets.only(right: 6),
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.primary,
+                                    shape: BoxShape.circle,
+                                  ),
                                 ),
-                              ],
+                              Text(
+                                displayDate(item.createdAt),
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  color: AppColors.secondary,
+                                  fontFeatures: [FontFeature.tabularFigures()],
+                                ),
+                              ),
                             ],
                           ),
-                        ),
+                        ],
                       ),
-                    );
-                  },
+                    ),
+                    onTap: () {
+                      if (!item.read) {
+                        ref.read(inboxProvider.notifier).read(item.id);
+                      }
+                      showAppModalSheet<void>(
+                        context: context,
+                        isScrollControlled: true,
+                        builder: (sheetContext) => SafeArea(
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item.title,
+                                  style: Theme.of(context).textTheme.titleLarge,
+                                ),
+                                const SizedBox(height: 16),
+                                SelectableText(item.message),
+                                const SizedBox(height: 16),
+                                Text(displayDate(item.createdAt)),
+                                if (item.destination != null) ...[
+                                  const SizedBox(height: 20),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: FilledButton(
+                                      onPressed: () {
+                                        Navigator.pop(sheetContext);
+                                        context.push(item.destination!);
+                                      },
+                                      child: const Text('Xem gói dịch vụ'),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 );
               },
             ),
