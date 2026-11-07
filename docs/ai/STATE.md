@@ -1,5 +1,15 @@
 # Trạng thái hiện tại
 
+## Hợp nhất toàn bộ các nhánh Duy_Branch và Thuan_Branch vào main — 07/11/2026
+
+- Theo yêu cầu người dùng, đã hợp nhất toàn bộ mã mới từ `Duy_Branch` (bao gồm commit `d3fa824` của Duy, bản sửa lỗi thanh phát ngầm, và thiết kế lại menu chọn mục `_TrackOptionsSheet`) cùng `origin/Thuan_Branch` (commit `4a896af` xử lý lỗi voice phòng karaoke) vào nhánh `main`.
+- **Kiểm chứng toàn diện trên main**:
+  - `dart format --output=none --set-exit-if-changed lib test`: 115 files (0 changed).
+  - `flutter analyze --no-pub`: **No issues found!** (ran in 8.4s).
+  - `flutter test --no-pub`: **All 159/159 tests passed!** (100% pass).
+  - Working tree trên `main` hoàn toàn sạch sẽ.
+
+
 ## Tích hợp commit d3fa824 từ Duy_Branch và kiểm chứng thiết bị Samsung Galaxy A23 — 07/11/2026
 
 - Kéo và hợp nhất commit `d3fa824` ("Đồng bộ animation load/chuyển trang, thiết kế lại màn offline, thêm run.bat") từ `origin/Duy_Branch` vào nhánh local `Duy_Branch` mà không xung đột.
