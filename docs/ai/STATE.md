@@ -1,13 +1,17 @@
 # Trạng thái hiện tại
 
-## Hợp nhất toàn bộ các nhánh Duy_Branch và Thuan_Branch vào main — 07/11/2026
+## Hợp nhất toàn bộ các nhánh Duy_Branch và Thuan_Branch vào main & Nạp máy thật — 07/11/2026
 
-- Theo yêu cầu người dùng, đã hợp nhất toàn bộ mã mới từ `Duy_Branch` (bao gồm commit `d3fa824` của Duy, bản sửa lỗi thanh phát ngầm, và thiết kế lại menu chọn mục `_TrackOptionsSheet`) cùng `origin/Thuan_Branch` (commit `4a896af` xử lý lỗi voice phòng karaoke) vào nhánh `main`.
+- Đã hợp nhất 100% mã nguồn từ tất cả các nhánh remote (`origin/Duy_Branch`, `origin/Thuan_Branch`) và local vào `main`:
+  1. `origin/Duy_Branch`: Commit `d3fa824` + Commit mới nhất `44e8c94` ("Restyle /offline và Thông báo theo hệ Studio Dark của Home": thanh trắng section heading, thẻ surfaceRaised r22 viền borderSoft, khối icon kính 40x40, progress bar bo tròn, thẻ bài tải r16, thẻ thông báo r16 viền tím tin mới).
+  2. `origin/Thuan_Branch`: Commit `4a896af` (xử lý triệt để lỗi voice phòng karaoke 1 chiều, banner cảnh báo WebRTC kèm nút kết nối lại, định hướng loa ngoài/Bluetooth).
+  3. UI & Player Enhancements: Cải tiến menu 3 chấm `_TrackOptionsSheet` dạng 2 card nổi `#131620`, lưu đĩa cache artwork và màu nền động One UI MediaStyle cho thanh phát ngầm Android.
 - **Kiểm chứng toàn diện trên main**:
   - `dart format --output=none --set-exit-if-changed lib test`: 115 files (0 changed).
-  - `flutter analyze --no-pub`: **No issues found!** (ran in 8.4s).
+  - `flutter analyze --no-pub`: **No issues found!** (ran in 101.3s).
   - `flutter test --no-pub`: **All 159/159 tests passed!** (100% pass).
-  - Working tree trên `main` hoàn toàn sạch sẽ.
+  - Biên dịch thành công APK Profile AOT: `build\app\outputs\flutter-apk\app-profile.apk` (129.8MB).
+  - Đã nạp và khởi chạy thành công qua ADB lên Samsung Galaxy A23 (`R58TC0KWATX`).
 
 
 ## Tích hợp commit d3fa824 từ Duy_Branch và kiểm chứng thiết bị Samsung Galaxy A23 — 07/11/2026
