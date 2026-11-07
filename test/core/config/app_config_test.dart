@@ -72,4 +72,72 @@ void main() {
       );
     }
   });
+
+  test('fromEnvironment provides production default when not specified', () {
+    final config = AppConfig.fromEnvironment();
+    expect(config.apiBaseUri.toString(), 'https://api.moodify.click/api/');
+  });
+
+  test('provides precise and actionable error messages for constraints', () {
+    expect(
+      () => AppConfig(apiBaseUrl: ''),
+      throwsA(
+        isA<FormatException>().having(
+          (e) => e.message,
+          'message',
+          contains('Chưa cấu hình API_BASE_URL'),
+        ),
+      ),
+    );
+    expect(
+      () => AppConfig(apiBaseUrl: 'https://user:pass@api.example.com'),
+      throwsA(
+        isA<FormatException>().having(
+          (e) => e.message,
+          'message',
+          contains('thông tin tài khoản'),
+        ),
+      ),
+    );
+    expect(
+      () => AppConfig(apiBaseUrl: 'https://api.example.com?query=1'),
+      throwsA(
+        isA<FormatException>().having(
+          (e) => e.message,
+          'message',
+          contains('tham số truy vấn'),
+        ),
+      ),
+    );
+    expect(
+      () => AppConfig(apiBaseUrl: 'https://api.example.com#section'),
+      throwsA(
+        isA<FormatException>().having(
+          (e) => e.message,
+          'message',
+          contains('fragment (#)'),
+        ),
+      ),
+    );
+    expect(
+      () => AppConfig(apiBaseUrl: 'http://api.example.com', release: true),
+      throwsA(
+        isA<FormatException>().having(
+          (e) => e.message,
+          'message',
+          contains('HTTPS'),
+        ),
+      ),
+    );
+    expect(
+      () => AppConfig(apiBaseUrl: 'https://api.example.com/v1/custom'),
+      throwsA(
+        isA<FormatException>().having(
+          (e) => e.message,
+          'message',
+          contains('origin'),
+        ),
+      ),
+    );
+  });
 }

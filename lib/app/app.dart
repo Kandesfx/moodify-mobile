@@ -99,17 +99,62 @@ class ConfigurationApp extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const BrandLockup(large: true),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 36),
                   Text(
-                    'Chưa thể kết nối',
-                    style: Theme.of(context).textTheme.headlineMedium,
+                    'Cấu hình kết nối chưa hợp lệ',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: -0.5,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   FeedbackPanel(message: message),
-                  const SizedBox(height: 16),
-                  const SelectableText(
-                    'Cấu hình API_BASE_URL khi chạy ứng dụng.\n'
-                    'Xem hướng dẫn môi trường trong README.md.',
+                  const SizedBox(height: 20),
+                  Container(
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceRaised,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.borderSoft),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.lightbulb_outline_rounded,
+                              size: 18,
+                              color: AppColors.lavender,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Hướng dẫn khắc phục',
+                              style: Theme.of(context).textTheme.titleSmall
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                  ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        SelectableText(
+                          '1. Môi trường Production (máy thật/máy ảo):\n'
+                          '   flutter run --dart-define-from-file=config/production.json\n\n'
+                          '2. Môi trường Cục bộ (Local backend):\n'
+                          '   flutter run --dart-define-from-file=config/local/development.json\n\n'
+                          '3. Khởi chạy nhanh bằng công cụ script:\n'
+                          '   Chạy file run.bat trong thư mục dự án.\n\n'
+                          'Xem thêm chi tiết tại tài liệu README.md.',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: AppColors.secondary,
+                                height: 1.55,
+                              ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),

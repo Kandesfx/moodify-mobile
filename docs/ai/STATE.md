@@ -1,5 +1,21 @@
 # Trạng thái hiện tại
 
+## Chuẩn hóa thông báo lỗi, ràng buộc cấu hình và mặc định API_BASE_URL — 07/11/2026
+
+- **Nâng cấp ràng buộc và thông báo lỗi cấu hình môi trường**:
+  - `AppConfig.fromEnvironment()`: Bổ sung giá trị mặc định `defaultProductionApiBaseUrl = 'https://api.moodify.click/api'` khi không truyền biến môi trường `--dart-define=API_BASE_URL=...`. Giúp mọi bản build/run thông thường tự động kết nối được ngay tới backend Production mà không bị dừng lại ở màn hình lỗi cấu hình.
+  - Phân tách cụ thể các ràng buộc lỗi trong `AppConfig._validate` và `_validatePremiumUrl`:
+    - Chuỗi rỗng: thông báo rõ chưa cấu hình thay vì báo chung chung "không chứa tài khoản hoặc tham số".
+    - Báo lỗi chính xác cho từng trường hợp: sai cú pháp / thiếu host, sai scheme (không phải HTTP/HTTPS), chứa userInfo, chứa query parameter, chứa fragment (#), và vi phạm yêu cầu HTTPS trong bản release.
+  - Cải tiến giao diện màn hình `ConfigurationApp`: hiển thị theo phong cách Studio Dark (`AppColors.surfaceRaised`, bo góc 16px, viền `borderSoft`), cung cấp hướng dẫn khắc phục từng bước cụ thể (lệnh flutter run production, local và công cụ `run.bat`).
+- **Nâng cấp xử lý lỗi mạng trong `AppFailure`**:
+  - Bổ sung xử lý chi tiết cho `DioExceptionType.connectionTimeout`, `receiveTimeout`, `sendTimeout` (mã `TIMEOUT`) và `connectionError` (mã `CONNECTION_ERROR`).
+  - Mở rộng từ điển dịch lỗi backend sang tiếng Việt thân thiện: `User not found`, `Token is expired`, `Unauthorized`, `Access denied`, `Song not found`, `Album not found`, `Artist not found`, `Playlist not found`, `Room not found`, `Room is full`...
+- **Kiểm chứng toàn diện**:
+  - `dart format --output=none --set-exit-if-changed lib test`: 115 files (0 changed).
+  - `flutter analyze --no-pub`: **No issues found!** (ran in 57.0s).
+  - `flutter test --no-pub`: **All 161/161 tests passed!** (thêm 2 unit tests kiểm thử fallback mặc định và từng thông báo lỗi ràng buộc).
+
 ## Hợp nhất toàn bộ các nhánh Duy_Branch và Thuan_Branch vào main & Nạp máy thật — 07/11/2026
 
 - Đã hợp nhất 100% mã nguồn từ tất cả các nhánh remote (`origin/Duy_Branch`, `origin/Thuan_Branch`) và local vào `main`:

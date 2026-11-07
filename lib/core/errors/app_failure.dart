@@ -39,6 +39,20 @@ class AppFailure implements Exception {
       if (error.type == DioExceptionType.cancel) {
         return const AppFailure('Thao tác đã được hủy.', code: 'CANCELLED');
       }
+      if (error.type == DioExceptionType.connectionTimeout ||
+          error.type == DioExceptionType.receiveTimeout ||
+          error.type == DioExceptionType.sendTimeout) {
+        return const AppFailure(
+          'Kết nối đến máy chủ bị quá thời gian chờ (timeout). Vui lòng thử lại.',
+          code: 'TIMEOUT',
+        );
+      }
+      if (error.type == DioExceptionType.connectionError) {
+        return const AppFailure(
+          'Không thể kết nối đến máy chủ. Vui lòng kiểm tra mạng hoặc địa chỉ API.',
+          code: 'CONNECTION_ERROR',
+        );
+      }
       final response = error.response;
       final body = response?.data;
       final code = body is Map ? body['error']?.toString() : null;
@@ -58,6 +72,20 @@ class AppFailure implements Exception {
         'Phone number already exists': 'Số điện thoại này đã được sử dụng.',
         'Passwords do not match': 'Mật khẩu xác nhận chưa khớp.',
         'Confirm password does not match': 'Mật khẩu xác nhận chưa khớp.',
+        'User not found': 'Không tìm thấy tài khoản người dùng.',
+        'Token is expired':
+            'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+        'Token has expired':
+            'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+        'Unauthorized': 'Bạn cần đăng nhập để thực hiện thao tác này.',
+        'Access denied': 'Bạn không có quyền thực hiện thao tác này.',
+        'Song not found': 'Không tìm thấy bài hát.',
+        'Track not found': 'Không tìm thấy bài hát.',
+        'Album not found': 'Không tìm thấy album.',
+        'Artist not found': 'Không tìm thấy nghệ sĩ.',
+        'Playlist not found': 'Không tìm thấy danh sách phát.',
+        'Room not found': 'Phòng karaoke không tồn tại hoặc đã đóng.',
+        'Room is full': 'Phòng karaoke đã đủ số lượng thành viên.',
         'Vui lòng nhập mật khẩu hiện tại.': 'Vui lòng nhập mật khẩu hiện tại.',
         'Mật khẩu mới phải có ít nhất 6 ký tự.':
             'Mật khẩu mới phải có ít nhất 6 ký tự.',
