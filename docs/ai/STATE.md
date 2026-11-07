@@ -63,8 +63,9 @@
 
 ## Offline taste-skill + animation đồng bộ, push nhánh Duy_Branch — 07/11/2026
 
-- Thiết kế lại `/offline` theo kỷ luật taste-skill (D42) và đồng bộ animation load/chuyển trang bằng `_slidePage` + `SectionEntrance` (D43) cho Search/Library/Account/Detail/Karaoke/Notifications/Devices/History/Profile; thêm `run.bat` Flutter (D44).
+- Người dùng phản hồi "giao diện không thấy thay đổi": nguyên nhân là bản cài trên máy cũ hơn mọi thay đổi (chưa build được APK vì thiếu Android SDK) và bản Studio Dark của remote đã restyle sẵn nhiều màn nên các thay đổi tinh tế không nổi. Làm lại đợt 2 theo đúng ngôn ngữ Studio Dark mà Home đang dùng (D40: AppRadii, thẻ surfaceRaised + viền borderSoft, icon trong khối kính 40×40, nút pill): `/offline` viết lại toàn bộ presentación — `_SectionHeading` thanh trắng 3.5×18 như Home, thẻ r22, progress bo tròn minHeight 6, hàng bản tải thành thẻ r16 (hết hạn có chip error tint), FilterChip pill, CTA pill; `/notifications` restyle thẻ r16 với icon kính + dot chưa đọc, viền tím cho tin mới. Logic/chuỗi test giữ nguyên 100%. Các màn Search/Library/Account/Device/History/Detail/Karaoke đã khớp hệ nhờ bản restyle của remote + wrapper animation của đợt trước.
 - Tích hợp trên base remote `85ed191` (Studio Dark + karaoke queue + splash, từ origin/main 07/11): bản cục bộ trước đó là snapshot main 06/11 không có git history. Xử lý bằng reset về remote rồi re-apply delta: 3 file chỉ mình có (offline_screen, notification_screen, run.bat) lấy nguyên; 9 lib + 2 docs trùng thay đổi → lấy bản remote mới rồi chèn lại wrapper/import/routes của mình. Không force-push, không mất commit remote. Số quyết định đổi D38/D39 → D42/D43 vì remote đã dùng D38–D41.
+- Kiểm chứng đợt 2: `flutter analyze` chỉ còn 1 info import cupertino (fix iOS cố ý của remote, giữ nguyên); `flutter test --no-pub` **152/152 đạt**. Việc cài Android SDK CLI + JDK 21 để chạy lên điện thoại đã bắt đầu nhưng người dùng tạm dừng chuyển sang push GitHub; cmdline-tools đã tải về `TEMP`, JDK 21 tải lỗi cần tải lại.
 
 ## Khởi tạo và kiểm chứng toolchain macOS/iOS Simulator & Fix lỗi biên dịch Cupertino Transitions — 07/11/2026
 
