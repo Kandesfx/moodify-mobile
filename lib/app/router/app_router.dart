@@ -60,7 +60,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(
         path: '/continue-action',
-        builder: (_, _) => const ContinueTrackActionScreen(),
+        pageBuilder: (context, route) =>
+            _slidePage(context, route, const ContinueTrackActionScreen()),
       ),
       GoRoute(path: '/', redirect: (_, _) => '/home'),
       GoRoute(
@@ -106,24 +107,32 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 routes: [
                   GoRoute(
                     path: 'solo',
-                    builder: (_, _) =>
-                        const _KaraokeSessionPage(child: KaraokeSoloScreen()),
+                    pageBuilder: (context, route) => _slidePage(
+                      context,
+                      route,
+                      const _KaraokeSessionPage(child: KaraokeSoloScreen()),
+                    ),
                     routes: [
                       GoRoute(
                         path: ':songId',
-                        builder: (_, route) => _KaraokeSessionPage(
-                          returnTo: route.uri.toString(),
-                          child: KaraokePerformanceScreen(
-                            songId: route.pathParameters['songId']!,
-                            nextSongIds: route.extra is List<String>
-                                ? route.extra as List<String>
-                                : route.extra is Map &&
-                                      (route.extra as Map)['nextSongIds']
-                                          is List
-                                ? ((route.extra as Map)['nextSongIds'] as List)
-                                      .whereType<String>()
-                                      .toList(growable: false)
-                                : const [],
+                        pageBuilder: (context, route) => _slidePage(
+                          context,
+                          route,
+                          _KaraokeSessionPage(
+                            returnTo: route.uri.toString(),
+                            child: KaraokePerformanceScreen(
+                              songId: route.pathParameters['songId']!,
+                              nextSongIds: route.extra is List<String>
+                                  ? route.extra as List<String>
+                                  : route.extra is Map &&
+                                        (route.extra as Map)['nextSongIds']
+                                            is List
+                                  ? ((route.extra as Map)['nextSongIds']
+                                            as List)
+                                        .whereType<String>()
+                                        .toList(growable: false)
+                                  : const [],
+                            ),
                           ),
                         ),
                       ),
@@ -131,8 +140,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   ),
                   GoRoute(
                     path: 'rooms',
-                    builder: (_, _) =>
-                        const _KaraokeSessionPage(child: KaraokeRoomsScreen()),
+                    pageBuilder: (context, route) => _slidePage(
+                      context,
+                      route,
+                      const _KaraokeSessionPage(child: KaraokeRoomsScreen()),
+                    ),
                   ),
                 ],
               ),
@@ -176,8 +188,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, route) =>
             _slidePage(context, route, const SubscriptionScreen()),
       ),
-      GoRoute(path: '/devices', builder: (_, _) => const DeviceScreen()),
-      GoRoute(path: '/profile', builder: (_, _) => const ProfileScreen()),
+      GoRoute(
+        path: '/devices',
+        pageBuilder: (context, route) =>
+            _slidePage(context, route, const DeviceScreen()),
+      ),
+      GoRoute(
+        path: '/profile',
+        pageBuilder: (context, route) =>
+            _slidePage(context, route, const ProfileScreen()),
+      ),
       GoRoute(
         path: '/history',
         pageBuilder: (context, route) =>

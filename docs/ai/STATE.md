@@ -1,5 +1,11 @@
 # Trạng thái hiện tại
 
+## Offline taste-skill + animation đồng bộ, push nhánh Duy_Branch — 07/11/2026
+
+- Thiết kế lại `/offline` theo kỷ luật taste-skill (D42) và đồng bộ animation load/chuyển trang bằng `_slidePage` + `SectionEntrance` (D43) cho Search/Library/Account/Detail/Karaoke/Notifications/Devices/History/Profile; thêm `run.bat` Flutter (D44).
+- Tích hợp trên base remote `85ed191` (Studio Dark + karaoke queue + splash, từ origin/main 07/11): bản cục bộ trước đó là snapshot main 06/11 không có git history. Xử lý bằng reset về remote rồi re-apply delta: 3 file chỉ mình có (offline_screen, notification_screen, run.bat) lấy nguyên; 9 lib + 2 docs trùng thay đổi → lấy bản remote mới rồi chèn lại wrapper/import/routes của mình. Không force-push, không mất commit remote. Số quyết định đổi D38/D39 → D42/D43 vì remote đã dùng D38–D41.
+- Kiểm chứng trên Windows (Flutter 3.41.6 local `C:\flutter`, chưa có Android SDK/JDK 21 — gate chạy thiết bị còn dang dở): format + analyze + test được chạy sau khi gộp, kết quả ghi ở phần dưới của mục này. Việc cài Android SDK CLI + JDK 21 để chạy lên điện thoại đã bắt đầu nhưng người dùng tạm dừng chuyển sang push GitHub; cmdline-tools đã tải về `TEMP`, JDK 21 tải lỗi cần tải lại.
+
 ## Khởi tạo và kiểm chứng toolchain macOS/iOS Simulator & Fix lỗi biên dịch Cupertino Transitions — 07/11/2026
 
 - **Khởi tạo và kiểm chứng môi trường iOS trên macOS**:

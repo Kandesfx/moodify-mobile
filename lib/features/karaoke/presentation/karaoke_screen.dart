@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:just_audio/just_audio.dart';
 
 import '../../../app/theme/app_theme.dart';
+import '../../../core/widgets/app_motion.dart';
 import '../../../core/widgets/app_sheets.dart';
 import '../../auth/domain/session_state.dart';
 import '../../auth/presentation/session_controller.dart';
@@ -30,51 +31,64 @@ class KaraokeScreen extends StatelessWidget {
     body: ListView(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
       children: [
-        Container(
-          padding: const EdgeInsets.fromLTRB(24, 26, 24, 24),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceRaised,
-            borderRadius: BorderRadius.circular(26),
-            border: Border.all(color: AppColors.borderSoft),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Icon(
-                Icons.graphic_eq_rounded,
-                color: Colors.white,
-                size: 30,
-              ),
-              const SizedBox(height: 22),
-              Text(
-                'Đến lượt bạn\ncất giọng',
-                style: Theme.of(
-                  context,
-                ).textTheme.headlineMedium?.copyWith(height: 1.25),
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                'Chọn cách bạn muốn tận hưởng âm nhạc.',
-                style: TextStyle(color: AppColors.secondary, height: 1.5),
-              ),
-            ],
+        SectionEntrance(
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(24, 26, 24, 24),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceRaised,
+              borderRadius: BorderRadius.circular(26),
+              border: Border.all(color: AppColors.borderSoft),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.graphic_eq_rounded,
+                  color: Colors.white,
+                  size: 30,
+                ),
+                const SizedBox(height: 22),
+                Text(
+                  'Đến lượt bạn\ncất giọng',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.headlineMedium?.copyWith(height: 1.25),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Chọn cách bạn muốn tận hưởng âm nhạc.',
+                  style: TextStyle(color: AppColors.secondary, height: 1.5),
+                ),
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 28),
-        Text('Chọn chế độ', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 12),
-        _ModeCard(
-          icon: Icons.mic_rounded,
-          title: 'Hát một mình',
-          subtitle: 'Chọn bài yêu thích và cất giọng',
-          onTap: () => context.push('/karaoke/solo'),
-        ),
-        const SizedBox(height: 12),
-        _ModeCard(
-          icon: Icons.people_alt_rounded,
-          title: 'Hát cùng nhau',
-          subtitle: 'Tạo phòng hoặc tham gia cùng bạn bè',
-          onTap: () => context.push('/karaoke/rooms'),
+        SectionEntrance(
+          order: 1,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Chọn chế độ',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 12),
+              _ModeCard(
+                icon: Icons.mic_rounded,
+                title: 'Hát một mình',
+                subtitle: 'Chọn bài yêu thích và cất giọng',
+                onTap: () => context.push('/karaoke/solo'),
+              ),
+              const SizedBox(height: 12),
+              _ModeCard(
+                icon: Icons.people_alt_rounded,
+                title: 'Hát cùng nhau',
+                subtitle: 'Tạo phòng hoặc tham gia cùng bạn bè',
+                onTap: () => context.push('/karaoke/rooms'),
+              ),
+            ],
+          ),
         ),
       ],
     ),

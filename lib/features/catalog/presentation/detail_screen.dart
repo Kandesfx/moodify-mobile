@@ -5,6 +5,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../../app/theme/app_theme.dart';
 import '../../../core/errors/app_failure.dart';
+import '../../../core/widgets/app_motion.dart';
 import '../../auth/presentation/session_controller.dart';
 import '../../library/presentation/collection_actions.dart';
 import '../../library/presentation/library_controller.dart';
@@ -150,153 +151,168 @@ class CollectionScreen extends ConsumerWidget {
         data: (item) => CustomScrollView(
           slivers: [
             SliverToBoxAdapter(
-              child: Column(
-                children: [
-                  if (actions.isLoading) const LinearProgressIndicator(),
-                  if (actions.hasError)
-                    LoadMessage(
-                      message: AppFailure.from(actions.error!).message,
-                    ),
-                  Stack(
-                    children: [
-                      Positioned.fill(
-                        child: ArtworkBackdrop(image: item.image, hero: true),
+              // Header artwork/tiêu đề vào nhẹ một lần khi mở detail.
+              child: SectionEntrance(
+                child: Column(
+                  children: [
+                    if (actions.isLoading) const LinearProgressIndicator(),
+                    if (actions.hasError)
+                      LoadMessage(
+                        message: AppFailure.from(actions.error!).message,
                       ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Center(
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(20),
-                                  boxShadow: const [
-                                    BoxShadow(
-                                      color: Color(0x66000000),
-                                      blurRadius: 28,
-                                      offset: Offset(0, 12),
-                                    ),
-                                  ],
-                                ),
-                                child: MusicArtwork(
-                                  image: item.image,
-                                  size: 216,
-                                  radius: 20,
+                    Stack(
+                      children: [
+                        Positioned.fill(
+                          child: ArtworkBackdrop(image: item.image, hero: true),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Center(
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(20),
+                                    boxShadow: const [
+                                      BoxShadow(
+                                        color: Color(0x66000000),
+                                        blurRadius: 28,
+                                        offset: Offset(0, 12),
+                                      ),
+                                    ],
+                                  ),
+                                  child: MusicArtwork(
+                                    image: item.image,
+                                    size: 216,
+                                    radius: 20,
+                                  ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(height: 24),
-                            Text(
-                              item.title,
-                              style: Theme.of(context).textTheme.headlineMedium,
-                            ),
-                            if (item.author != null) ...[
-                              const SizedBox(height: 4),
+                              const SizedBox(height: 24),
                               Text(
-                                item.author!,
+                                item.title,
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.headlineMedium,
+                              ),
+                              if (item.author != null) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  item.author!,
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.secondary,
+                                  ),
+                                ),
+                              ],
+                              if (item.description != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 10),
+                                  child: Text(
+                                    item.description!,
+                                    style: const TextStyle(
+                                      color: AppColors.secondary,
+                                      height: 1.45,
+                                    ),
+                                  ),
+                                ),
+                              const SizedBox(height: 12),
+                              Text(
+                                '${item.tracks.length} bài hát${album
+                                    ? ''
+                                    : item.isPublic
+                                    ? ' · Công khai'
+                                    : ' · Riêng tư'}',
                                 style: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
                                   color: AppColors.secondary,
                                 ),
                               ),
-                            ],
-                            if (item.description != null)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 10),
-                                child: Text(
-                                  item.description!,
-                                  style: const TextStyle(
-                                    color: AppColors.secondary,
-                                    height: 1.45,
-                                  ),
-                                ),
-                              ),
-                            const SizedBox(height: 12),
-                            Text(
-                              '${item.tracks.length} bài hát${album
-                                  ? ''
-                                  : item.isPublic
-                                  ? ' · Công khai'
-                                  : ' · Riêng tư'}',
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: AppColors.secondary,
-                              ),
-                            ),
-                            const SizedBox(height: 18),
-                            Wrap(
-                              spacing: 10,
-                              runSpacing: 10,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              children: [
-                                if (item.tracks.isNotEmpty)
-                                  FilledButton.icon(
-                                    onPressed: () => ref
-                                        .read(playerControllerProvider.notifier)
-                                        .playCollection(
-                                          item.tracks,
-                                          source: album ? 'ALBUM' : 'PLAYLIST',
-                                        ),
-                                    style: FilledButton.styleFrom(
-                                      backgroundColor: Colors.white,
-                                      foregroundColor: AppColors.background,
-                                      shape: const StadiumBorder(),
+                              const SizedBox(height: 18),
+                              Wrap(
+                                spacing: 10,
+                                runSpacing: 10,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  if (item.tracks.isNotEmpty)
+                                    FilledButton.icon(
+                                      onPressed: () => ref
+                                          .read(
+                                            playerControllerProvider.notifier,
+                                          )
+                                          .playCollection(
+                                            item.tracks,
+                                            source: album
+                                                ? 'ALBUM'
+                                                : 'PLAYLIST',
+                                          ),
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: Colors.white,
+                                        foregroundColor: AppColors.background,
+                                        shape: const StadiumBorder(),
+                                      ),
+                                      icon: const Icon(
+                                        Icons.play_arrow_rounded,
+                                      ),
+                                      label: const Text('Phát'),
                                     ),
-                                    icon: const Icon(Icons.play_arrow_rounded),
-                                    label: const Text('Phát'),
-                                  ),
-                                if (item.tracks.isNotEmpty)
-                                  OutlinedButton.icon(
-                                    onPressed: () => ref
-                                        .read(playerControllerProvider.notifier)
-                                        .playCollection(
-                                          item.tracks,
-                                          shuffled: true,
-                                          source: album ? 'ALBUM' : 'PLAYLIST',
+                                  if (item.tracks.isNotEmpty)
+                                    OutlinedButton.icon(
+                                      onPressed: () => ref
+                                          .read(
+                                            playerControllerProvider.notifier,
+                                          )
+                                          .playCollection(
+                                            item.tracks,
+                                            shuffled: true,
+                                            source: album
+                                                ? 'ALBUM'
+                                                : 'PLAYLIST',
+                                          ),
+                                      style: OutlinedButton.styleFrom(
+                                        backgroundColor: AppColors.surfaceGlass,
+                                        side: const BorderSide(
+                                          color: AppColors.border,
                                         ),
+                                        shape: const StadiumBorder(),
+                                      ),
+                                      icon: const Icon(Icons.shuffle),
+                                      label: const Text('Trộn bài'),
+                                    ),
+                                  OutlinedButton.icon(
+                                    onPressed: () => SharePlus.instance.share(
+                                      ShareParams(
+                                        text:
+                                            '${item.title} — ${item.author ?? 'Moodify'}',
+                                      ),
+                                    ),
                                     style: OutlinedButton.styleFrom(
-                                      backgroundColor: AppColors.surfaceGlass,
+                                      backgroundColor: AppColors.surfaceRaised,
                                       side: const BorderSide(
-                                        color: AppColors.border,
+                                        color: AppColors.borderSoft,
                                       ),
                                       shape: const StadiumBorder(),
                                     ),
-                                    icon: const Icon(Icons.shuffle),
-                                    label: const Text('Trộn bài'),
+                                    icon: const Icon(Icons.share_outlined),
+                                    label: const Text('Chia sẻ'),
                                   ),
-                                OutlinedButton.icon(
-                                  onPressed: () => SharePlus.instance.share(
-                                    ShareParams(
-                                      text:
-                                          '${item.title} — ${item.author ?? 'Moodify'}',
-                                    ),
-                                  ),
-                                  style: OutlinedButton.styleFrom(
-                                    backgroundColor: AppColors.surfaceRaised,
-                                    side: const BorderSide(
-                                      color: AppColors.borderSoft,
-                                    ),
-                                    shape: const StadiumBorder(),
-                                  ),
-                                  icon: const Icon(Icons.share_outlined),
-                                  label: const Text('Chia sẻ'),
-                                ),
-                              ],
-                            ),
-                          ],
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  if (item.tracks.isEmpty)
-                    LoadMessage(
-                      message: 'Chưa có bài hát trong danh sách này.',
-                      retry: owned ? () => context.go('/search') : null,
-                      retryLabel: 'Tìm bài hát',
+                      ],
                     ),
-                ],
+                    if (item.tracks.isEmpty)
+                      LoadMessage(
+                        message: 'Chưa có bài hát trong danh sách này.',
+                        retry: owned ? () => context.go('/search') : null,
+                        retryLabel: 'Tìm bài hát',
+                      ),
+                  ],
+                ),
               ),
             ),
             SliverList.builder(
@@ -347,261 +363,273 @@ class ArtistScreen extends ConsumerWidget {
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(
-            child: Stack(
-              children: [
-                if (profile.valueOrNull?.image != null)
-                  Positioned.fill(
-                    child: ArtworkBackdrop(
-                      image: profile.valueOrNull!.image,
-                      hero: true,
+            // Header nghệ sĩ vào nhẹ một lần khi mở trang.
+            child: SectionEntrance(
+              child: Stack(
+                children: [
+                  if (profile.valueOrNull?.image != null)
+                    Positioned.fill(
+                      child: ArtworkBackdrop(
+                        image: profile.valueOrNull!.image,
+                        hero: true,
+                      ),
                     ),
-                  ),
-                Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (profile.isLoading) const LinearProgressIndicator(),
-                      if (profile.hasError)
-                        LoadMessage(
-                          message: AppFailure.from(profile.error!).message,
-                          retry: () =>
-                              ref.invalidate(artistProfileProvider(id)),
-                        ),
-                      if (profile.valueOrNull case final person?) ...[
-                        Center(
-                          child: DecoratedBox(
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Color(0x66000000),
-                                  blurRadius: 24,
-                                  offset: Offset(0, 10),
-                                ),
-                              ],
-                            ),
-                            child: MusicArtwork(
-                              image: person.image,
-                              size: 168,
-                              round: true,
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (profile.isLoading) const LinearProgressIndicator(),
+                        if (profile.hasError)
+                          LoadMessage(
+                            message: AppFailure.from(profile.error!).message,
+                            retry: () =>
+                                ref.invalidate(artistProfileProvider(id)),
+                          ),
+                        if (profile.valueOrNull case final person?) ...[
+                          Center(
+                            child: DecoratedBox(
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Color(0x66000000),
+                                    blurRadius: 24,
+                                    offset: Offset(0, 10),
+                                  ),
+                                ],
+                              ),
+                              child: MusicArtwork(
+                                image: person.image,
+                                size: 168,
+                                round: true,
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 20),
-                        Text(
-                          person.name,
-                          style: Theme.of(context).textTheme.headlineMedium,
-                        ),
-                        if (person.followers != null) ...[
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 20),
                           Text(
-                            '${person.followers} người theo dõi',
-                            style: const TextStyle(
-                              fontSize: 13.5,
+                            person.name,
+                            style: Theme.of(context).textTheme.headlineMedium,
+                          ),
+                          if (person.followers != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              '${person.followers} người theo dõi',
+                              style: const TextStyle(
+                                fontSize: 13.5,
+                                color: AppColors.secondary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                          if (person.bio != null)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: AppColors.surfaceRaised,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: AppColors.borderSoft,
+                                  ),
+                                ),
+                                child: Text(
+                                  person.bio!,
+                                  style: const TextStyle(
+                                    color: AppColors.secondary,
+                                    height: 1.45,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            children: [
+                              OutlinedButton.icon(
+                                onPressed: action.isLoading
+                                    ? null
+                                    : () {
+                                        if (user == null) {
+                                          context.push(
+                                            '/sign-in?from=${Uri.encodeComponent('/artist/${segment(id)}')}',
+                                          );
+                                          return;
+                                        }
+                                        ref
+                                            .read(
+                                              artistFollowActionProvider(
+                                                id,
+                                              ).notifier,
+                                            )
+                                            .run();
+                                      },
+                                style: OutlinedButton.styleFrom(
+                                  backgroundColor: person.followed
+                                      ? AppColors.surfaceGlass
+                                      : AppColors.surfaceRaised,
+                                  side: BorderSide(
+                                    color: person.followed
+                                        ? AppColors.border
+                                        : AppColors.borderSoft,
+                                  ),
+                                  shape: const StadiumBorder(),
+                                ),
+                                icon: Icon(
+                                  person.followed
+                                      ? Icons.check
+                                      : Icons.person_add_outlined,
+                                ),
+                                label: Text(
+                                  person.followed
+                                      ? 'Đang theo dõi'
+                                      : 'Theo dõi',
+                                ),
+                              ),
+                              OutlinedButton.icon(
+                                onPressed: () => SharePlus.instance.share(
+                                  ShareParams(text: '${person.name} — Moodify'),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  backgroundColor: AppColors.surfaceRaised,
+                                  side: const BorderSide(
+                                    color: AppColors.borderSoft,
+                                  ),
+                                  shape: const StadiumBorder(),
+                                ),
+                                icon: const Icon(Icons.share_outlined),
+                                label: const Text('Chia sẻ'),
+                              ),
+                            ],
+                          ),
+                          if (action.hasError)
+                            LoadMessage(
+                              message: AppFailure.from(action.error!).message,
+                            ),
+                          const SizedBox(height: 10),
+                        ],
+                        if (tracks.tracks.isNotEmpty)
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            children: [
+                              FilledButton.icon(
+                                onPressed: () => ref
+                                    .read(playerControllerProvider.notifier)
+                                    .playCollection(
+                                      tracks.tracks,
+                                      source: 'ARTIST',
+                                    ),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: Colors.white,
+                                  foregroundColor: AppColors.background,
+                                  shape: const StadiumBorder(),
+                                ),
+                                icon: const Icon(Icons.play_arrow),
+                                label: const Text('Phát danh sách'),
+                              ),
+                              OutlinedButton.icon(
+                                onPressed: () => ref
+                                    .read(playerControllerProvider.notifier)
+                                    .playCollection(
+                                      tracks.tracks,
+                                      shuffled: true,
+                                      source: 'ARTIST',
+                                    ),
+                                style: OutlinedButton.styleFrom(
+                                  backgroundColor: AppColors.surfaceGlass,
+                                  side: const BorderSide(
+                                    color: AppColors.border,
+                                  ),
+                                  shape: const StadiumBorder(),
+                                ),
+                                icon: const Icon(Icons.shuffle),
+                                label: const Text('Trộn bài'),
+                              ),
+                            ],
+                          ),
+                        if (tracks.hasMore) ...[
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Phát các bài đã tải trong danh sách. Chọn Xem thêm để tải tiếp.',
+                            style: TextStyle(
+                              fontSize: 12.5,
                               color: AppColors.secondary,
-                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ],
-                        if (person.bio != null)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            child: Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: AppColors.surfaceRaised,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: AppColors.borderSoft),
-                              ),
-                              child: Text(
-                                person.bio!,
-                                style: const TextStyle(
-                                  color: AppColors.secondary,
-                                  height: 1.45,
-                                ),
-                              ),
-                            ),
+                        if (profile.valueOrNull?.albums.isNotEmpty == true) ...[
+                          const SizedBox(height: 24),
+                          Text(
+                            'Album',
+                            style: Theme.of(context).textTheme.titleLarge,
                           ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
-                          children: [
-                            OutlinedButton.icon(
-                              onPressed: action.isLoading
-                                  ? null
-                                  : () {
-                                      if (user == null) {
-                                        context.push(
-                                          '/sign-in?from=${Uri.encodeComponent('/artist/${segment(id)}')}',
-                                        );
-                                        return;
-                                      }
-                                      ref
-                                          .read(
-                                            artistFollowActionProvider(
-                                              id,
-                                            ).notifier,
-                                          )
-                                          .run();
-                                    },
-                              style: OutlinedButton.styleFrom(
-                                backgroundColor: person.followed
-                                    ? AppColors.surfaceGlass
-                                    : AppColors.surfaceRaised,
-                                side: BorderSide(
-                                  color: person.followed
-                                      ? AppColors.border
-                                      : AppColors.borderSoft,
-                                ),
-                                shape: const StadiumBorder(),
-                              ),
-                              icon: Icon(
-                                person.followed
-                                    ? Icons.check
-                                    : Icons.person_add_outlined,
-                              ),
-                              label: Text(
-                                person.followed ? 'Đang theo dõi' : 'Theo dõi',
-                              ),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed: () => SharePlus.instance.share(
-                                ShareParams(text: '${person.name} — Moodify'),
-                              ),
-                              style: OutlinedButton.styleFrom(
-                                backgroundColor: AppColors.surfaceRaised,
-                                side: const BorderSide(
-                                  color: AppColors.borderSoft,
-                                ),
-                                shape: const StadiumBorder(),
-                              ),
-                              icon: const Icon(Icons.share_outlined),
-                              label: const Text('Chia sẻ'),
-                            ),
-                          ],
-                        ),
-                        if (action.hasError)
-                          LoadMessage(
-                            message: AppFailure.from(action.error!).message,
-                          ),
-                        const SizedBox(height: 10),
-                      ],
-                      if (tracks.tracks.isNotEmpty)
-                        Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
-                          children: [
-                            FilledButton.icon(
-                              onPressed: () => ref
-                                  .read(playerControllerProvider.notifier)
-                                  .playCollection(
-                                    tracks.tracks,
-                                    source: 'ARTIST',
+                          const SizedBox(height: 8),
+                          for (final album in profile.valueOrNull!.albums)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF12141A),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: AppColors.borderSoft,
                                   ),
-                              style: FilledButton.styleFrom(
-                                backgroundColor: Colors.white,
-                                foregroundColor: AppColors.background,
-                                shape: const StadiumBorder(),
-                              ),
-                              icon: const Icon(Icons.play_arrow),
-                              label: const Text('Phát danh sách'),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed: () => ref
-                                  .read(playerControllerProvider.notifier)
-                                  .playCollection(
-                                    tracks.tracks,
-                                    shuffled: true,
-                                    source: 'ARTIST',
+                                ),
+                                child: ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 4,
                                   ),
-                              style: OutlinedButton.styleFrom(
-                                backgroundColor: AppColors.surfaceGlass,
-                                side: const BorderSide(color: AppColors.border),
-                                shape: const StadiumBorder(),
+                                  leading: MusicArtwork(
+                                    image: album.image,
+                                    size: 52,
+                                    radius: 12,
+                                  ),
+                                  title: Text(
+                                    album.title,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  trailing: const Icon(
+                                    Icons.chevron_right_rounded,
+                                    color: AppColors.secondary,
+                                  ),
+                                  onTap: () => context.push(
+                                    '/album/${segment(album.id)}',
+                                  ),
+                                ),
                               ),
-                              icon: const Icon(Icons.shuffle),
-                              label: const Text('Trộn bài'),
                             ),
-                          ],
-                        ),
-                      if (tracks.hasMore) ...[
-                        const SizedBox(height: 8),
-                        const Text(
-                          'Phát các bài đã tải trong danh sách. Chọn Xem thêm để tải tiếp.',
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            color: AppColors.secondary,
-                          ),
-                        ),
-                      ],
-                      if (profile.valueOrNull?.albums.isNotEmpty == true) ...[
-                        const SizedBox(height: 24),
+                        ],
+                        const SizedBox(height: 20),
                         Text(
-                          'Album',
+                          'Bài hát',
                           style: Theme.of(context).textTheme.titleLarge,
                         ),
-                        const SizedBox(height: 8),
-                        for (final album in profile.valueOrNull!.albums)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF12141A),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: AppColors.borderSoft),
-                              ),
-                              child: ListTile(
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 4,
-                                ),
-                                leading: MusicArtwork(
-                                  image: album.image,
-                                  size: 52,
-                                  radius: 12,
-                                ),
-                                title: Text(
-                                  album.title,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                trailing: const Icon(
-                                  Icons.chevron_right_rounded,
-                                  color: AppColors.secondary,
-                                ),
-                                onTap: () =>
-                                    context.push('/album/${segment(album.id)}'),
-                              ),
-                            ),
+                        if (tracks.loading) const LinearProgressIndicator(),
+                        if (tracks.failure != null)
+                          LoadMessage(
+                            message: tracks.failure!.message,
+                            retry: () => ref
+                                .read(catalogControllerProvider(query).notifier)
+                                .load(),
+                          ),
+                        if (!tracks.loading &&
+                            tracks.failure == null &&
+                            tracks.tracks.isEmpty)
+                          const LoadMessage(
+                            message: 'Chưa có bài hát của nghệ sĩ này.',
                           ),
                       ],
-                      const SizedBox(height: 20),
-                      Text(
-                        'Bài hát',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      if (tracks.loading) const LinearProgressIndicator(),
-                      if (tracks.failure != null)
-                        LoadMessage(
-                          message: tracks.failure!.message,
-                          retry: () => ref
-                              .read(catalogControllerProvider(query).notifier)
-                              .load(),
-                        ),
-                      if (!tracks.loading &&
-                          tracks.failure == null &&
-                          tracks.tracks.isEmpty)
-                        const LoadMessage(
-                          message: 'Chưa có bài hát của nghệ sĩ này.',
-                        ),
-                    ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
           SliverList.builder(

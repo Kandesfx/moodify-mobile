@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/formatters/display_date.dart';
 import '../../../core/errors/app_failure.dart';
+import '../../../core/widgets/app_motion.dart';
 import '../../../core/widgets/app_sheets.dart';
 import '../../auth/presentation/session_controller.dart';
 import '../../catalog/presentation/catalog_widgets.dart';
@@ -85,94 +86,98 @@ class NotificationScreen extends ConsumerWidget {
       ),
       body: RefreshIndicator(
         onRefresh: () => ref.read(inboxProvider.notifier).load(),
-        child: state.when(
-          loading: () => ListView(children: const [LinearProgressIndicator()]),
-          error: (error, _) => ListView(
-            children: [
-              LoadMessage(
-                message: AppFailure.from(error).message,
-                retry: () => ref.read(inboxProvider.notifier).load(),
-              ),
-            ],
-          ),
-          data: (items) => ListView.separated(
-            physics: const AlwaysScrollableScrollPhysics(),
-            itemCount: items.isEmpty ? 1 : items.length,
-            separatorBuilder: (_, _) =>
-                const Divider(indent: 20, endIndent: 20),
-            itemBuilder: (_, i) {
-              if (items.isEmpty) {
-                return const LoadMessage(message: 'Bạn chưa có thông báo.');
-              }
-              final item = items[i];
-              return ListTile(
-                contentPadding: const EdgeInsets.all(20),
-                isThreeLine: true,
-                leading: Icon(
-                  item.read
-                      ? Icons.notifications_none_rounded
-                      : Icons.notifications_active_outlined,
+        // Thân màn vào nhẹ một lần khi mở; đổi trạng thái loading/data không chạy lại.
+        child: SectionEntrance(
+          child: state.when(
+            loading: () =>
+                ListView(children: const [LinearProgressIndicator()]),
+            error: (error, _) => ListView(
+              children: [
+                LoadMessage(
+                  message: AppFailure.from(error).message,
+                  retry: () => ref.read(inboxProvider.notifier).load(),
                 ),
-                title: Text(
-                  item.title,
-                  style: TextStyle(
-                    fontWeight: item.read ? FontWeight.w400 : FontWeight.w700,
+              ],
+            ),
+            data: (items) => ListView.separated(
+              physics: const AlwaysScrollableScrollPhysics(),
+              itemCount: items.isEmpty ? 1 : items.length,
+              separatorBuilder: (_, _) =>
+                  const Divider(indent: 20, endIndent: 20),
+              itemBuilder: (_, i) {
+                if (items.isEmpty) {
+                  return const LoadMessage(message: 'Bạn chưa có thông báo.');
+                }
+                final item = items[i];
+                return ListTile(
+                  contentPadding: const EdgeInsets.all(20),
+                  isThreeLine: true,
+                  leading: Icon(
+                    item.read
+                        ? Icons.notifications_none_rounded
+                        : Icons.notifications_active_outlined,
                   ),
-                ),
-                subtitle: Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(item.message),
-                      const SizedBox(height: 8),
-                      Text(
-                        displayDate(item.createdAt),
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
+                  title: Text(
+                    item.title,
+                    style: TextStyle(
+                      fontWeight: item.read ? FontWeight.w400 : FontWeight.w700,
+                    ),
                   ),
-                ),
-                onTap: () {
-                  if (!item.read) {
-                    ref.read(inboxProvider.notifier).read(item.id);
-                  }
-                  showAppModalSheet<void>(
-                    context: context,
-                    isScrollControlled: true,
-                    builder: (sheetContext) => SafeArea(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              item.title,
-                              style: Theme.of(context).textTheme.titleLarge,
-                            ),
-                            const SizedBox(height: 16),
-                            SelectableText(item.message),
-                            const SizedBox(height: 16),
-                            Text(displayDate(item.createdAt)),
-                            if (item.destination != null) ...[
-                              const SizedBox(height: 20),
-                              FilledButton(
-                                onPressed: () {
-                                  Navigator.pop(sheetContext);
-                                  context.push(item.destination!);
-                                },
-                                child: const Text('Xem gói dịch vụ'),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(item.message),
+                        const SizedBox(height: 8),
+                        Text(
+                          displayDate(item.createdAt),
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                  onTap: () {
+                    if (!item.read) {
+                      ref.read(inboxProvider.notifier).read(item.id);
+                    }
+                    showAppModalSheet<void>(
+                      context: context,
+                      isScrollControlled: true,
+                      builder: (sheetContext) => SafeArea(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                item.title,
+                                style: Theme.of(context).textTheme.titleLarge,
                               ),
+                              const SizedBox(height: 16),
+                              SelectableText(item.message),
+                              const SizedBox(height: 16),
+                              Text(displayDate(item.createdAt)),
+                              if (item.destination != null) ...[
+                                const SizedBox(height: 20),
+                                FilledButton(
+                                  onPressed: () {
+                                    Navigator.pop(sheetContext);
+                                    context.push(item.destination!);
+                                  },
+                                  child: const Text('Xem gói dịch vụ'),
+                                ),
+                              ],
                             ],
-                          ],
+                          ),
                         ),
                       ),
-                    ),
-                  );
-                },
-              );
-            },
+                    );
+                  },
+                );
+              },
+            ),
           ),
         ),
       ),

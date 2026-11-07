@@ -100,287 +100,79 @@ class LibraryScreen extends ConsumerWidget {
         ),
         body: TabBarView(
           children: [
-            RefreshIndicator(
-              onRefresh: controller.load,
-              child: ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.only(top: 16, bottom: 24),
-                children: [
-                  if (state.loading) const LinearProgressIndicator(),
-                  if (state.failure != null)
-                    LoadMessage(
-                      message: state.failure!.message,
-                      retry: controller.load,
-                    ),
-                  if (!state.loading &&
-                      state.playlists.isEmpty &&
-                      state.failure == null)
-                    Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 32,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceRaised,
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: AppColors.borderSoft),
-                        ),
-                        child: Column(
-                          children: [
-                            Container(
-                              width: 64,
-                              height: 64,
-                              decoration: BoxDecoration(
-                                color: AppColors.surfaceGlass,
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: AppColors.border),
-                              ),
-                              child: const Icon(
-                                Icons.queue_music_rounded,
-                                size: 30,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            Text(
-                              'Nhạc của bạn, theo cách của bạn',
-                              textAlign: TextAlign.center,
-                              style: Theme.of(context).textTheme.titleLarge,
-                            ),
-                            const SizedBox(height: 10),
-                            const Text(
-                              'Gom những bài bạn muốn nghe vào một playlist.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(color: AppColors.secondary),
-                            ),
-                            const SizedBox(height: 24),
-                            FilledButton.icon(
-                              onPressed: () => showCreatePlaylist(context),
-                              style: FilledButton.styleFrom(
-                                backgroundColor: Colors.white,
-                                foregroundColor: AppColors.background,
-                                shape: const StadiumBorder(),
-                              ),
-                              icon: const Icon(Icons.add_rounded),
-                              label: const Text('Tạo playlist đầu tiên'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  for (final playlist in state.playlists)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 4,
-                      ),
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF12141A),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0x10FFFFFF)),
-                        ),
-                        child: ListTile(
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          leading: MusicArtwork(
-                            image: playlist.image,
-                            size: 56,
-                            radius: 12,
-                          ),
-                          title: Text(
-                            playlist.title,
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          subtitle: Text(
-                            '${playlist.trackCount} bài hát · ${playlist.isPublic ? 'Công khai' : 'Riêng tư'}',
-                            style: const TextStyle(
-                              fontSize: 12.5,
-                              color: AppColors.secondary,
-                            ),
-                          ),
-                          trailing: const Icon(
-                            Icons.chevron_right_rounded,
-                            color: AppColors.secondary,
-                          ),
-                          onTap: () =>
-                              context.push('/playlist/${segment(playlist.id)}'),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            RefreshIndicator(
-              onRefresh: controller.load,
-              child: ListView.builder(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.only(top: 16, bottom: 24),
-                itemCount: state.tracks.length + 2,
-                itemBuilder: (_, i) {
-                  if (i == 0) {
-                    return Column(
-                      children: [
-                        if (state.tracks.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: Wrap(
-                                spacing: 10,
-                                runSpacing: 10,
-                                children: [
-                                  FilledButton.icon(
-                                    onPressed: () => ref
-                                        .read(playerControllerProvider.notifier)
-                                        .playCollection(
-                                          state.tracks,
-                                          source: 'LIBRARY',
-                                        ),
-                                    style: FilledButton.styleFrom(
-                                      backgroundColor: Colors.white,
-                                      foregroundColor: AppColors.background,
-                                      minimumSize: const Size(48, 44),
-                                      shape: const StadiumBorder(),
-                                    ),
-                                    icon: const Icon(Icons.play_arrow_rounded),
-                                    label: const Text('Phát danh sách'),
-                                  ),
-                                  OutlinedButton.icon(
-                                    onPressed: () => ref
-                                        .read(playerControllerProvider.notifier)
-                                        .playCollection(
-                                          state.tracks,
-                                          shuffled: true,
-                                          source: 'LIBRARY',
-                                        ),
-                                    style: OutlinedButton.styleFrom(
-                                      backgroundColor: AppColors.surfaceGlass,
-                                      minimumSize: const Size(48, 44),
-                                      side: const BorderSide(
-                                        color: AppColors.border,
-                                      ),
-                                      shape: const StadiumBorder(),
-                                    ),
-                                    icon: const Icon(Icons.shuffle),
-                                    label: const Text('Trộn bài'),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        if (state.loading) const LinearProgressIndicator(),
-                        if (state.failure != null)
-                          LoadMessage(
-                            message: state.failure!.message,
-                            retry: controller.load,
-                          ),
-                        if (state.tracks.isEmpty &&
-                            !state.loading &&
-                            state.failure == null)
-                          Padding(
-                            padding: const EdgeInsets.all(20),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                                vertical: 32,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppColors.surfaceRaised,
-                                borderRadius: BorderRadius.circular(24),
-                                border: Border.all(color: AppColors.borderSoft),
-                              ),
-                              child: Column(
-                                children: [
-                                  Container(
-                                    width: 64,
-                                    height: 64,
-                                    decoration: BoxDecoration(
-                                      color: AppColors.surfaceGlass,
-                                      borderRadius: BorderRadius.circular(20),
-                                      border: Border.all(
-                                        color: AppColors.border,
-                                      ),
-                                    ),
-                                    child: const Icon(
-                                      Icons.favorite_border_rounded,
-                                      size: 30,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 20),
-                                  const Text(
-                                    'Lưu những bài bạn muốn nghe lại.',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      color: AppColors.secondary,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 20),
-                                  OutlinedButton(
-                                    onPressed: () => context.go('/search'),
-                                    style: OutlinedButton.styleFrom(
-                                      shape: const StadiumBorder(),
-                                    ),
-                                    child: const Text('Tìm bài hát'),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                      ],
-                    );
-                  }
-                  if (i > state.tracks.length) {
-                    return state.hasMore
-                        ? Padding(
-                            padding: const EdgeInsets.all(20),
-                            child: OutlinedButton(
-                              onPressed: state.loading || state.busy
-                                  ? null
-                                  : () => controller.load(more: true),
-                              child: const Text('Xem thêm'),
-                            ),
-                          )
-                        : const SizedBox();
-                  }
-                  return TrackTile(
-                    track: state.tracks[i - 1],
-                    queue: state.tracks,
-                    index: i - 1,
-                  );
-                },
-              ),
-            ),
-            RefreshIndicator(
-              onRefresh: () async {
-                ref.invalidate(favoriteAlbumsProvider);
-                await ref.read(favoriteAlbumsProvider.future);
-              },
-              child: albums.when(
-                loading: () =>
-                    ListView(children: const [LinearProgressIndicator()]),
-                error: (_, _) => ListView(
-                  children: [
-                    LoadMessage(
-                      message: 'Chưa tải được album đã lưu.',
-                      retry: () => ref.invalidate(favoriteAlbumsProvider),
-                    ),
-                  ],
-                ),
-                data: (items) => ListView(
+            // Nội dung mỗi tab vào nhẹ một lần khi tab được mở.
+            SectionEntrance(
+              child: RefreshIndicator(
+                onRefresh: controller.load,
+                child: ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: const EdgeInsets.only(top: 16, bottom: 24),
                   children: [
-                    if (items.isEmpty)
-                      const LoadMessage(
-                        message: 'Album bạn lưu sẽ xuất hiện ở đây.',
+                    if (state.loading) const LinearProgressIndicator(),
+                    if (state.failure != null)
+                      LoadMessage(
+                        message: state.failure!.message,
+                        retry: controller.load,
                       ),
-                    for (final album in items)
+                    if (!state.loading &&
+                        state.playlists.isEmpty &&
+                        state.failure == null)
+                      Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 32,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceRaised,
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(color: AppColors.borderSoft),
+                          ),
+                          child: Column(
+                            children: [
+                              Container(
+                                width: 64,
+                                height: 64,
+                                decoration: BoxDecoration(
+                                  color: AppColors.surfaceGlass,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: AppColors.border),
+                                ),
+                                child: const Icon(
+                                  Icons.queue_music_rounded,
+                                  size: 30,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                              Text(
+                                'Nhạc của bạn, theo cách của bạn',
+                                textAlign: TextAlign.center,
+                                style: Theme.of(context).textTheme.titleLarge,
+                              ),
+                              const SizedBox(height: 10),
+                              const Text(
+                                'Gom những bài bạn muốn nghe vào một playlist.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: AppColors.secondary),
+                              ),
+                              const SizedBox(height: 24),
+                              FilledButton.icon(
+                                onPressed: () => showCreatePlaylist(context),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: Colors.white,
+                                  foregroundColor: AppColors.background,
+                                  shape: const StadiumBorder(),
+                                ),
+                                icon: const Icon(Icons.add_rounded),
+                                label: const Text('Tạo playlist đầu tiên'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    for (final playlist in state.playlists)
                       Padding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 14,
@@ -398,18 +190,18 @@ class LibraryScreen extends ConsumerWidget {
                               vertical: 6,
                             ),
                             leading: MusicArtwork(
-                              image: album.image,
+                              image: playlist.image,
                               size: 56,
                               radius: 12,
                             ),
                             title: Text(
-                              album.title,
+                              playlist.title,
                               style: const TextStyle(
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
                             subtitle: Text(
-                              album.author ?? 'Album',
+                              '${playlist.trackCount} bài hát · ${playlist.isPublic ? 'Công khai' : 'Riêng tư'}',
                               style: const TextStyle(
                                 fontSize: 12.5,
                                 color: AppColors.secondary,
@@ -419,8 +211,9 @@ class LibraryScreen extends ConsumerWidget {
                               Icons.chevron_right_rounded,
                               color: AppColors.secondary,
                             ),
-                            onTap: () =>
-                                context.push('/album/${segment(album.id)}'),
+                            onTap: () => context.push(
+                              '/playlist/${segment(playlist.id)}',
+                            ),
                           ),
                         ),
                       ),
@@ -428,7 +221,236 @@ class LibraryScreen extends ConsumerWidget {
                 ),
               ),
             ),
-            const FollowedArtistsView(),
+            SectionEntrance(
+              order: 1,
+              child: RefreshIndicator(
+                onRefresh: controller.load,
+                child: ListView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.only(top: 16, bottom: 24),
+                  itemCount: state.tracks.length + 2,
+                  itemBuilder: (_, i) {
+                    if (i == 0) {
+                      return Column(
+                        children: [
+                          if (state.tracks.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: Wrap(
+                                  spacing: 10,
+                                  runSpacing: 10,
+                                  children: [
+                                    FilledButton.icon(
+                                      onPressed: () => ref
+                                          .read(
+                                            playerControllerProvider.notifier,
+                                          )
+                                          .playCollection(
+                                            state.tracks,
+                                            source: 'LIBRARY',
+                                          ),
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: Colors.white,
+                                        foregroundColor: AppColors.background,
+                                        minimumSize: const Size(48, 44),
+                                        shape: const StadiumBorder(),
+                                      ),
+                                      icon: const Icon(
+                                        Icons.play_arrow_rounded,
+                                      ),
+                                      label: const Text('Phát danh sách'),
+                                    ),
+                                    OutlinedButton.icon(
+                                      onPressed: () => ref
+                                          .read(
+                                            playerControllerProvider.notifier,
+                                          )
+                                          .playCollection(
+                                            state.tracks,
+                                            shuffled: true,
+                                            source: 'LIBRARY',
+                                          ),
+                                      style: OutlinedButton.styleFrom(
+                                        backgroundColor: AppColors.surfaceGlass,
+                                        minimumSize: const Size(48, 44),
+                                        side: const BorderSide(
+                                          color: AppColors.border,
+                                        ),
+                                        shape: const StadiumBorder(),
+                                      ),
+                                      icon: const Icon(Icons.shuffle),
+                                      label: const Text('Trộn bài'),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          if (state.loading) const LinearProgressIndicator(),
+                          if (state.failure != null)
+                            LoadMessage(
+                              message: state.failure!.message,
+                              retry: controller.load,
+                            ),
+                          if (state.tracks.isEmpty &&
+                              !state.loading &&
+                              state.failure == null)
+                            Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                  vertical: 32,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.surfaceRaised,
+                                  borderRadius: BorderRadius.circular(24),
+                                  border: Border.all(
+                                    color: AppColors.borderSoft,
+                                  ),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Container(
+                                      width: 64,
+                                      height: 64,
+                                      decoration: BoxDecoration(
+                                        color: AppColors.surfaceGlass,
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(
+                                          color: AppColors.border,
+                                        ),
+                                      ),
+                                      child: const Icon(
+                                        Icons.favorite_border_rounded,
+                                        size: 30,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 20),
+                                    const Text(
+                                      'Lưu những bài bạn muốn nghe lại.',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: AppColors.secondary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 20),
+                                    OutlinedButton(
+                                      onPressed: () => context.go('/search'),
+                                      style: OutlinedButton.styleFrom(
+                                        shape: const StadiumBorder(),
+                                      ),
+                                      child: const Text('Tìm bài hát'),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
+                      );
+                    }
+                    if (i > state.tracks.length) {
+                      return state.hasMore
+                          ? Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: OutlinedButton(
+                                onPressed: state.loading || state.busy
+                                    ? null
+                                    : () => controller.load(more: true),
+                                child: const Text('Xem thêm'),
+                              ),
+                            )
+                          : const SizedBox();
+                    }
+                    return TrackTile(
+                      track: state.tracks[i - 1],
+                      queue: state.tracks,
+                      index: i - 1,
+                    );
+                  },
+                ),
+              ),
+            ),
+            SectionEntrance(
+              order: 2,
+              child: RefreshIndicator(
+                onRefresh: () async {
+                  ref.invalidate(favoriteAlbumsProvider);
+                  await ref.read(favoriteAlbumsProvider.future);
+                },
+                child: albums.when(
+                  loading: () =>
+                      ListView(children: const [LinearProgressIndicator()]),
+                  error: (_, _) => ListView(
+                    children: [
+                      LoadMessage(
+                        message: 'Chưa tải được album đã lưu.',
+                        retry: () => ref.invalidate(favoriteAlbumsProvider),
+                      ),
+                    ],
+                  ),
+                  data: (items) => ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    children: [
+                      if (items.isEmpty)
+                        const LoadMessage(
+                          message: 'Album bạn lưu sẽ xuất hiện ở đây.',
+                        ),
+                      for (final album in items)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 4,
+                          ),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF12141A),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: const Color(0x10FFFFFF),
+                              ),
+                            ),
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              leading: MusicArtwork(
+                                image: album.image,
+                                size: 56,
+                                radius: 12,
+                              ),
+                              title: Text(
+                                album.title,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              subtitle: Text(
+                                album.author ?? 'Album',
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  color: AppColors.secondary,
+                                ),
+                              ),
+                              trailing: const Icon(
+                                Icons.chevron_right_rounded,
+                                color: AppColors.secondary,
+                              ),
+                              onTap: () =>
+                                  context.push('/album/${segment(album.id)}'),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            SectionEntrance(order: 3, child: const FollowedArtistsView()),
           ],
         ),
       ),

@@ -104,83 +104,86 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       body: ListView(
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-            child: Column(
-              children: [
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF13151B),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.borderSoft),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: Row(
-                      children: [
-                        for (final mode in [false, true])
-                          Expanded(
-                            child: Semantics(
-                              selected: state.mood == mode,
-                              child: AnimatedContainer(
-                                duration: AppMotion.duration(context, 160),
-                                decoration: BoxDecoration(
-                                  color: state.mood == mode
-                                      ? const Color(0xFF222631)
-                                      : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: state.mood == mode
-                                      ? Border.all(
-                                          color: const Color(0x33FFFFFF),
-                                        )
-                                      : null,
-                                ),
-                                child: Material(
-                                  type: MaterialType.transparency,
-                                  child: Pressable(
+          // Ô tìm kiếm vào nhẹ một lần khi mở tab; gõ phím không chạy lại.
+          SectionEntrance(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+              child: Column(
+                children: [
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF13151B),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.borderSoft),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Row(
+                        children: [
+                          for (final mode in [false, true])
+                            Expanded(
+                              child: Semantics(
+                                selected: state.mood == mode,
+                                child: AnimatedContainer(
+                                  duration: AppMotion.duration(context, 160),
+                                  decoration: BoxDecoration(
+                                    color: state.mood == mode
+                                        ? const Color(0xFF222631)
+                                        : Colors.transparent,
                                     borderRadius: BorderRadius.circular(12),
-                                    onTap: () {
-                                      // Parity web: tìm kiếm theo cảm xúc
-                                      // chỉ dành cho tài khoản VIP.
-                                      if (mode && !isPremium) {
-                                        _showMoodUpsell(context);
-                                        return;
-                                      }
-                                      controller.mode(mode);
-                                    },
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 11,
-                                        horizontal: 8,
-                                      ),
-                                      // FittedBox giữ nút không tràn khi
-                                      // người dùng đặt cỡ chữ lớn.
-                                      child: FittedBox(
-                                        fit: BoxFit.scaleDown,
-                                        child: Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            if (mode && !isPremium) ...[
-                                              const Icon(
-                                                Icons.lock_rounded,
-                                                size: 13,
-                                                color: AppColors.secondary,
+                                    border: state.mood == mode
+                                        ? Border.all(
+                                            color: const Color(0x33FFFFFF),
+                                          )
+                                        : null,
+                                  ),
+                                  child: Material(
+                                    type: MaterialType.transparency,
+                                    child: Pressable(
+                                      borderRadius: BorderRadius.circular(12),
+                                      onTap: () {
+                                        // Parity web: tìm kiếm theo cảm xúc
+                                        // chỉ dành cho tài khoản VIP.
+                                        if (mode && !isPremium) {
+                                          _showMoodUpsell(context);
+                                          return;
+                                        }
+                                        controller.mode(mode);
+                                      },
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 11,
+                                          horizontal: 8,
+                                        ),
+                                        // FittedBox giữ nút không tràn khi
+                                        // người dùng đặt cỡ chữ lớn.
+                                        child: FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              if (mode && !isPremium) ...[
+                                                const Icon(
+                                                  Icons.lock_rounded,
+                                                  size: 13,
+                                                  color: AppColors.secondary,
+                                                ),
+                                                const SizedBox(width: 5),
+                                              ],
+                                              Text(
+                                                mode ? 'Cảm xúc' : 'Bài hát',
+                                                textAlign: TextAlign.center,
+                                                style: TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: state.mood == mode
+                                                      ? Colors.white
+                                                      : AppColors.secondary,
+                                                ),
                                               ),
-                                              const SizedBox(width: 5),
                                             ],
-                                            Text(
-                                              mode ? 'Cảm xúc' : 'Bài hát',
-                                              textAlign: TextAlign.center,
-                                              style: TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w700,
-                                                color: state.mood == mode
-                                                    ? Colors.white
-                                                    : AppColors.secondary,
-                                              ),
-                                            ),
-                                          ],
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -188,51 +191,51 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                 ),
                               ),
                             ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                TextField(
-                  controller: _text,
-                  onChanged: controller.change,
-                  onSubmitted: (_) => _submit(),
-                  textInputAction: TextInputAction.search,
-                  maxLength: state.mood ? 500 : 100,
-                  decoration: InputDecoration(
-                    labelText: state.mood
-                        ? 'Bạn đang cảm thấy thế nào?'
-                        : 'Tên bài hát hoặc nghệ sĩ',
-                    prefixIcon: const Icon(Icons.search_rounded),
-                    counterText: '',
-                    suffixIcon: state.query.isEmpty
-                        ? null
-                        : IconButton(
-                            tooltip: 'Xóa nội dung',
-                            onPressed: () {
-                              _text.clear();
-                              controller.change('');
-                            },
-                            icon: const Icon(Icons.close_rounded),
-                          ),
-                  ),
-                ),
-                if (state.mood)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: state.loading || state.query.trim().isEmpty
-                            ? null
-                            : _submit,
-                        icon: const Icon(Icons.graphic_eq_rounded),
-                        label: const Text('Tìm nhạc theo cảm xúc'),
+                        ],
                       ),
                     ),
                   ),
-              ],
+                  const SizedBox(height: 20),
+                  TextField(
+                    controller: _text,
+                    onChanged: controller.change,
+                    onSubmitted: (_) => _submit(),
+                    textInputAction: TextInputAction.search,
+                    maxLength: state.mood ? 500 : 100,
+                    decoration: InputDecoration(
+                      labelText: state.mood
+                          ? 'Bạn đang cảm thấy thế nào?'
+                          : 'Tên bài hát hoặc nghệ sĩ',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      counterText: '',
+                      suffixIcon: state.query.isEmpty
+                          ? null
+                          : IconButton(
+                              tooltip: 'Xóa nội dung',
+                              onPressed: () {
+                                _text.clear();
+                                controller.change('');
+                              },
+                              icon: const Icon(Icons.close_rounded),
+                            ),
+                    ),
+                  ),
+                  if (state.mood)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: state.loading || state.query.trim().isEmpty
+                              ? null
+                              : _submit,
+                          icon: const Icon(Icons.graphic_eq_rounded),
+                          label: const Text('Tìm nhạc theo cảm xúc'),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
           if (state.loading) const LinearProgressIndicator(),
@@ -356,11 +359,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     : 'Không tìm thấy bài hát phù hợp.',
               ),
             if (state.submitted && state.tracks.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-                child: Text(
-                  state.mood ? 'Kết quả theo cảm xúc' : 'Kết quả bài hát',
-                  style: Theme.of(context).textTheme.titleMedium,
+              SectionEntrance(
+                order: 1,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                  child: Text(
+                    state.mood ? 'Kết quả theo cảm xúc' : 'Kết quả bài hát',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                 ),
               ),
             if (state.moodResult?.matchStatus == 'LIMITED')

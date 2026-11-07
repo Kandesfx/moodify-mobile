@@ -5,6 +5,7 @@ import '../../../app/bootstrap.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../core/errors/app_failure.dart';
 import '../../../core/formatters/display_date.dart';
+import '../../../core/widgets/app_motion.dart';
 import '../../auth/presentation/session_controller.dart';
 import '../../catalog/domain/catalog_models.dart';
 import '../../catalog/presentation/catalog_widgets.dart';
@@ -147,139 +148,143 @@ class _ListeningHistoryScreenState
             );
           }
           final items = raw.map(objectJson).toList();
-          return ListView(
-            children: [
-              if (busy) const LinearProgressIndicator(),
-              if (failure != null) LoadMessage(message: failure!.message),
-              if (items.isEmpty)
-                const LoadMessage(
-                  message: 'Chưa có lượt nghe trong trang lịch sử này.',
-                ),
-              for (final item in items)
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 4,
+          // Mỗi lần dữ liệu trang sẵn sàng, nội dung vào nhẹ một lần.
+          return SectionEntrance(
+            child: ListView(
+              children: [
+                if (busy) const LinearProgressIndicator(),
+                if (failure != null) LoadMessage(message: failure!.message),
+                if (items.isEmpty)
+                  const LoadMessage(
+                    message: 'Chưa có lượt nghe trong trang lịch sử này.',
                   ),
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF12141A),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: const Color(0x10FFFFFF)),
+                for (final item in items)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 4,
                     ),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
-                      leading: MusicArtwork(
-                        image:
-                            optionalText(item['audioUrl'])?.isNotEmpty == true
-                            ? optionalText(item['coverUrl'])
-                            : null,
-                        size: 52,
-                        radius: 12,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF12141A),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0x10FFFFFF)),
                       ),
-                      title: Text(
-                        optionalText(item['audioUrl'])?.isNotEmpty == true
-                            ? (optionalText(item['title']) ??
-                                  'Chưa có tên bài hát')
-                            : 'Chưa nhận diện được bài hát trong lịch sử',
-                        style: const TextStyle(
-                          fontSize: 14.5,
-                          fontWeight: FontWeight.w600,
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
+                        leading: MusicArtwork(
+                          image:
+                              optionalText(item['audioUrl'])?.isNotEmpty == true
+                              ? optionalText(item['coverUrl'])
+                              : null,
+                          size: 52,
+                          radius: 12,
                         ),
-                      ),
-                      subtitle: Padding(
-                        padding: const EdgeInsets.only(top: 3),
-                        child: Text(
-                          '${optionalText(item['audioUrl'])?.isNotEmpty == true ? (optionalText(item['artist']) ?? '') : 'Máy chủ chưa cung cấp đủ thông tin bản thu'}\n${displayDate(optionalText(item['startedAt']))}',
+                        title: Text(
+                          optionalText(item['audioUrl'])?.isNotEmpty == true
+                              ? (optionalText(item['title']) ??
+                                    'Chưa có tên bài hát')
+                              : 'Chưa nhận diện được bài hát trong lịch sử',
                           style: const TextStyle(
-                            fontSize: 12.5,
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        subtitle: Padding(
+                          padding: const EdgeInsets.only(top: 3),
+                          child: Text(
+                            '${optionalText(item['audioUrl'])?.isNotEmpty == true ? (optionalText(item['artist']) ?? '') : 'Máy chủ chưa cung cấp đủ thông tin bản thu'}\n${displayDate(optionalText(item['startedAt']))}',
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              color: AppColors.secondary,
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                        isThreeLine: true,
+                        onTap:
+                            busy ||
+                                optionalText(item['audioUrl'])?.isNotEmpty !=
+                                    true ||
+                                optionalText(item['trackId']) == null
+                            ? null
+                            : () => ref
+                                  .read(playerControllerProvider.notifier)
+                                  .select(
+                                    [
+                                      Track(
+                                        id: item['trackId'].toString(),
+                                        spotifyId:
+                                            optionalText(item['spotifyId']) ??
+                                            item['trackId'].toString(),
+                                        name:
+                                            optionalText(item['title']) ??
+                                            'Bài hát',
+                                        artist:
+                                            optionalText(item['artist']) ??
+                                            'Chưa rõ nghệ sĩ',
+                                      ),
+                                    ],
+                                    0,
+                                    source: 'LIBRARY',
+                                  ),
+                        trailing: IconButton(
+                          tooltip: 'Xóa mục lịch sử',
+                          onPressed: busy
+                              ? null
+                              : () => _remove(requiredText(item, 'id')),
+                          icon: const Icon(
+                            Icons.close_rounded,
                             color: AppColors.secondary,
-                            height: 1.4,
                           ),
                         ),
                       ),
-                      isThreeLine: true,
-                      onTap:
-                          busy ||
-                              optionalText(item['audioUrl'])?.isNotEmpty !=
-                                  true ||
-                              optionalText(item['trackId']) == null
-                          ? null
-                          : () => ref
-                                .read(playerControllerProvider.notifier)
-                                .select(
-                                  [
-                                    Track(
-                                      id: item['trackId'].toString(),
-                                      spotifyId:
-                                          optionalText(item['spotifyId']) ??
-                                          item['trackId'].toString(),
-                                      name:
-                                          optionalText(item['title']) ??
-                                          'Bài hát',
-                                      artist:
-                                          optionalText(item['artist']) ??
-                                          'Chưa rõ nghệ sĩ',
-                                    ),
-                                  ],
-                                  0,
-                                  source: 'LIBRARY',
-                                ),
-                      trailing: IconButton(
-                        tooltip: 'Xóa mục lịch sử',
-                        onPressed: busy
-                            ? null
-                            : () => _remove(requiredText(item, 'id')),
-                        icon: const Icon(
-                          Icons.close_rounded,
-                          color: AppColors.secondary,
+                    ),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceRaised,
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: AppColors.borderSoft),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        TextButton(
+                          onPressed: busy || page == 0
+                              ? null
+                              : () => setState(() => page--),
+                          child: const Text('Trang trước'),
                         ),
-                      ),
+                        Text(
+                          'Trang ${page + 1}',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        TextButton(
+                          onPressed:
+                              busy ||
+                                  page + 1 >=
+                                      ((data['totalPages'] as num?)?.toInt() ??
+                                          0)
+                              ? null
+                              : () => setState(() => page++),
+                          child: const Text('Trang sau'),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceRaised,
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: AppColors.borderSoft),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      TextButton(
-                        onPressed: busy || page == 0
-                            ? null
-                            : () => setState(() => page--),
-                        child: const Text('Trang trước'),
-                      ),
-                      Text(
-                        'Trang ${page + 1}',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      TextButton(
-                        onPressed:
-                            busy ||
-                                page + 1 >=
-                                    ((data['totalPages'] as num?)?.toInt() ?? 0)
-                            ? null
-                            : () => setState(() => page++),
-                        child: const Text('Trang sau'),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           );
         },
       ),
