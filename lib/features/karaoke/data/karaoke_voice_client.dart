@@ -6,6 +6,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart' show Provider;
 import 'package:mediasfu_mediasoup_client/mediasfu_mediasoup_client.dart';
 import 'package:mediasfu_mediasoup_client/src/handlers/handler_interface.dart'
@@ -47,6 +48,29 @@ class KaraokeVoiceClient {
   bool connected = false;
   String? error;
   bool get microphoneOn => connected && _producer != null && !_producer!.closed;
+
+  // Nhận âm thanh hai chiều: mobile vừa gửi (mic) vừa nhận. Lỗi trên đường
+  // nhận từng bị nuốt lặng lẽ (package FlexQueue nuốt exception, UI chỉ hiện
+  // lỗi lúc kết nối), khiến phòng nghe một chiều mà không có cảnh báo nào.
+  // Ba lớp dưới giúp phát hiện chính xác lớp nào đang hỏng:
+  // - _connectionIssue: ICE/DTLS của transport send hoặc recv.
+  // - _consumeIssue: server từ chối/treo khi tạo consumer.
+  // - _mediaIssue: consumer đã tạo nhưng RTP không chạm thiết bị (đo qua
+  //   thống kê inbound-rtp của receiver khi nền tảng hỗ trợ).
+  String? _connectionIssue;
+  String? _consumeIssue;
+  String? _mediaIssue;
+  final _stalledProducers = <String>{};
+  String? _sendState;
+  String? _recvState;
+  bool _audioRoutingApplied = false;
+
+  /// Chẩn đoán đường nhận âm thanh khi đã kết nối; null nghĩa là đang khỏe.
+  String? get issue {
+    if (!connected) return null;
+    return _connectionIssue ?? _consumeIssue ?? _mediaIssue;
+  }
+
   final onChanged = StreamController<void>.broadcast();
   final remoteUserIds = <String>{};
 
@@ -221,6 +245,7 @@ class KaraokeVoiceClient {
       }
       connected = true;
       error = null;
+      _applyAudioRouting();
       _notify();
       for (final raw in (auth['existingProducers'] as List? ?? const [])) {
         final p = Map<String, dynamic>.from(raw as Map);
@@ -295,6 +320,9 @@ class KaraokeVoiceClient {
         },
       );
       transport.on('connect', connectHandler);
+      transport.on('connectionstatechange', (state) {
+        _noteTransportState('send', state);
+      });
       transportForProducer = transport;
       transport.on('produce', (Map data) async {
         final callback = data['callback'] as Function;
@@ -327,7 +355,50 @@ class KaraokeVoiceClient {
       },
     );
     transport.on('connect', connectHandler);
+    transport.on('connectionstatechange', (state) {
+      _noteTransportState('recv', state);
+    });
     return transport;
+  }
+
+  /// Ghi lại trạng thái ICE/DTLS của từng transport để UI cảnh báo ngay khi
+  /// đường truyền hỏng thay vì im lặng đến khi consumer timeout.
+  void _noteTransportState(String direction, Object? state) {
+    final value = state is Map
+        ? state['connectionState']?.toString()
+        : state?.toString();
+    if (value == null) return;
+    if (direction == 'send') {
+      _sendState = value;
+    } else {
+      _recvState = value;
+    }
+    const broken = {'failed', 'disconnected', 'closed'};
+    if (broken.contains(value)) {
+      _connectionIssue = direction == 'send'
+          ? 'Mất đường truyền gửi âm thanh (ICE). Mic có thể không tới được máy chủ. Hãy kết nối lại.'
+          : 'Mất đường truyền nhận âm thanh (ICE). Kiểm tra mạng rồi kết nối lại.';
+    } else if (value == 'connected' || value == 'completed') {
+      final other = direction == 'send' ? _recvState : _sendState;
+      final otherBroken = other == null || !broken.contains(other);
+      if (otherBroken) _connectionIssue = null;
+    }
+    _notify();
+  }
+
+  /// Điều hướng loa: mặc định loa ngoài, ưu tiên tai nghe Bluetooth nếu đang
+  /// nối (thói quen của app mediasfu); không đặt lại khi đã áp dụng phiên này.
+  Future<void> _applyAudioRouting() async {
+    if (_audioRoutingApplied || _disposed) return;
+    _audioRoutingApplied = true;
+    try {
+      await Helper.ensureAudioSession();
+      if (Platform.isAndroid) {
+        await Helper.setSpeakerphoneOnButPreferBluetooth();
+      }
+    } catch (_) {
+      _audioRoutingApplied = false;
+    }
   }
 
   Future<void> _consume(String producerId, String userId) async {
@@ -373,6 +444,8 @@ class KaraokeVoiceClient {
       final volume = _userVolumes[userId];
       if (volume != null) await Helper.setVolume(volume, consumer.track);
       await _request('resume-consumer', {'consumerId': consumer.id});
+      _consumeIssue = null;
+      unawaited(_verifyConsumerMedia(producerId, consumer));
       _notify();
     } catch (e) {
       _consumerWaiters.remove(producerId);
@@ -382,7 +455,13 @@ class KaraokeVoiceClient {
         _usersByProducer.remove(producerId);
       }
       if (!_disposed && connected && !_closedProducers.contains(producerId)) {
-        error = 'Không nhận được âm thanh thành viên. Hãy thử kết nối lại.';
+        final recvBroken =
+            _recvState == 'failed' ||
+            _recvState == 'disconnected' ||
+            _recvState == 'closed';
+        _consumeIssue = recvBroken
+            ? 'Không nhận được âm thanh thành viên vì đường truyền xuống thiết bị đang hỏng (ICE). Hãy kết nối lại.'
+            : 'Không nhận được âm thanh thành viên. Hãy thử kết nối lại.';
       }
       _notify();
     } finally {
@@ -391,9 +470,65 @@ class KaraokeVoiceClient {
     }
   }
 
+  /// Sau khi resume, đợi một nhịp rồi kiểm tra RTP đã tới thiết bị chưa qua
+  /// thống kê của receiver (`inbound-rtp.bytesReceived`). Trên nền tảng không
+  /// đọc được thống kê thì bỏ qua, không báo nhầm.
+  Future<void> _verifyConsumerMedia(
+    String producerId,
+    Consumer consumer,
+  ) async {
+    await Future<void>.delayed(const Duration(seconds: 5));
+    if (_disposed || !connected || consumer.closed) return;
+    if (!identical(_consumers[producerId], consumer)) return;
+    final flowing = await _consumerMediaFlowing(consumer);
+    if (flowing != null && !_disposed && connected && !consumer.closed) {
+      noteConsumerMedia(producerId, mediaFlowing: flowing);
+    }
+  }
+
+  /// null = không xác định được trên nền tảng này (ví dụ Windows desktop).
+  Future<bool?> _consumerMediaFlowing(Consumer consumer) async {
+    if (consumer.track.muted == true) return false;
+    final receiver = consumer.rtpReceiver;
+    if (receiver == null) return null;
+    try {
+      final stats = await receiver.getStats().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => const [],
+      );
+      for (final report in stats) {
+        final values = Map<String, dynamic>.from(report.values);
+        final type = report.type;
+        if (type != 'inbound-rtp' && type != 'inboundrtp') continue;
+        final bytes = values['bytesReceived'];
+        if (bytes is num) return bytes > 0;
+      }
+    } catch (_) {
+      return null;
+    }
+    return null;
+  }
+
+  /// Cập nhật trạng thái có dữ liệu âm thanh của một consumer.
+  @visibleForTesting
+  void noteConsumerMedia(String producerId, {required bool mediaFlowing}) {
+    final changed = mediaFlowing
+        ? _stalledProducers.remove(producerId)
+        : _stalledProducers.add(producerId);
+    if (!changed) return;
+    _mediaIssue = _stalledProducers.isEmpty
+        ? null
+        : 'Đã kết nối voice nhưng chưa nhận được dữ liệu âm thanh từ máy chủ. '
+              'Kiểm tra mạng (Wi-Fi/VPN/TURN) rồi kết nối lại.';
+    _notify();
+  }
+
   void _closeRemote(String producerId) {
     _closedProducers.add(producerId);
     _announcedProducers.remove(producerId);
+    if (_stalledProducers.remove(producerId) && _stalledProducers.isEmpty) {
+      _mediaIssue = null;
+    }
     final consumer = _consumers.remove(producerId);
     if (consumer != null) {
       final userId = _usersByProducer.remove(producerId);
@@ -489,6 +624,13 @@ class KaraokeVoiceClient {
     _announcedProducers.clear();
     _closedProducers.clear();
     _consuming.clear();
+    _stalledProducers.clear();
+    _connectionIssue = null;
+    _consumeIssue = null;
+    _mediaIssue = null;
+    _sendState = null;
+    _recvState = null;
+    _audioRoutingApplied = false;
     remoteUserIds.clear();
     await _send?.close();
     await _receive?.close();

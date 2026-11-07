@@ -1,5 +1,54 @@
 # Trạng thái hiện tại
 
+## Voice phòng karaoke: hết nuốt lỗi đường nhận, thêm chẩn đoán một chiều — 07/11/2026
+
+- Người dùng báo phòng karaoke nghe một chiều: web nghe được mobile, mobile
+  không nghe được web và không có bất kỳ lỗi nào hiển thị.
+- Điều tra: dựng môi trường tái hiện tại `E:/karaoke-repro` (mock mediasoup
+  server sao chép đúng giao thức `karaoke-media/server.js` + Flutter harness
+  dùng đúng package `mediasfu_mediasoup_client 0.1.4`). Kết quả:
+  - Luồng Dart signaling/consume chạy đúng trên Windows desktop (device.load,
+    transport, consume, resume đều thành công) → logic client không sai cấu trúc.
+  - Package FlexQueue nuốt mọi exception bên trong `transport.consume()`; app
+    chỉ phát hiện qua timeout 10s và `error` không bao giờ được hiển thị khi
+    `connected == true` → mọi lỗi đường nhận đều im lặng hoàn toàn.
+  - Web/harness peer của `dart_webrtc` báo ICE `failed` trên cả hai transport
+    khi mediasoup server vẫn tưởng phiên bình thường → cần đo trạng thái
+    transport ở client thay vì tin phía server.
+  - Android emulator (x86_64, API 35) crash libwebrtc (jvm.cc:81, network
+    thread, sau setLocalDescription / network-monitor) — là đặc thù emulator,
+    không tái hiện logic lỗi của người dùng.
+- Sửa `karaoke_voice_client.dart`:
+  - Lắng nghe `connectionstatechange` của cả hai transport; ICE fail/disconnect
+    giờ nâng `issue` với thông điệp riêng cho đường gửi và đường nhận, tự xóa
+    khi transport nối lại.
+  - Lỗi consume giờ phân biệt ICE hỏng với lỗi khác và không còn bị che.
+  - Sau `resume-consumer` 5s thì đo `inbound-rtp.bytesReceived` của receiver:
+    nếu máy chủ không đẩy RTP về thì `issue` báo "chưa nhận được dữ liệu âm
+    thanh" (nền tảng không đọc được stats thì bỏ qua, không báo nhầm).
+  - Kết nối xong áp dụng định hướng loa: `Helper.ensureAudioSession()` +
+    Android `Helper.setSpeakerphoneOnButPreferBluetooth()` (loa ngoài, ưu tiên
+    Bluetooth) — tránh âm thanh rơi vào tai nghe/earpiece không nghe thấy.
+- Sửa `karaoke_screen.dart`: banner chẩn đoán trong phòng khi `voice.issue`
+  khác null, kèm nút "Kết nối lại" (dùng lại `_connectVoice`).
+- Kiểm chứng: `flutter analyze` sạch ở 3 tệp sửa; `flutter test` toàn dự án
+  154/154 đạt (thêm 2 test cho `issue` khi consumer bị stall/hồi phục và khi
+  chưa kết nối). Chưa nghiệm thu trên máy thật.
+- Việc còn lại cho người dùng: chạy bản mới trên 2 thiết bị, bật mic cả hai
+  bên; nếu vẫn không nghe được thì đọc banner trong phòng để biết chính xác
+  lớp hỏng (ICE / consumer / RTP); đồng thời xem log karaoke-media (`voice
+  request rejected`) và kiểm tra âm lượng "cuộc gọi" trên Android vì voice
+  WebRTC đi kênh âm lượng riêng, khác âm lượng nhạc.
+
+## Bỏ gạch vàng dưới chữ màn khởi động — 07/11/2026
+
+- Sửa `lib/core/widgets/brand_splash.dart`: dùng `Material` thay `ColoredBox`
+  cho nền splash phía trên Navigator, cung cấp kiểu chữ Material thay kiểu chữ
+  fallback có gạch vàng của Flutter. Giữ màu nền, logo và hiệu ứng hiện có.
+- Kiểm chứng: format 1 file, 0 thay đổi; analyze riêng tệp đã sửa sạch;
+  2 test trong `test/core/brand_splash_test.dart` đạt. Analyze toàn dự án đã
+  dừng vì không phản hồi; chưa build/cài bản mới hoặc kiểm tra trên điện thoại.
+
 ## Sửa hàng chờ và mic phòng karaoke — 06/11/2026
 
 - Người dùng yêu cầu mobile thêm nhiều bài/người, điều chỉnh âm lượng thành viên

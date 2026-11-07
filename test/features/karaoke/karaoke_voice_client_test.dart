@@ -41,4 +41,30 @@ void main() {
       expect(voice.microphoneOn, isFalse);
     },
   );
+
+  test('stalled consumer media raises and clears the receive issue', () async {
+    final voice = KaraokeVoiceClient(KaraokeRepository(Dio()))
+      ..connected = true;
+    expect(voice.issue, isNull);
+    voice.noteConsumerMedia('producer-1', mediaFlowing: false);
+    expect(voice.issue, contains('chưa nhận được dữ liệu âm thanh'));
+    // Một producer khác vẫn giữ cảnh báo sau khi producer đầu hồi phục.
+    voice.noteConsumerMedia('producer-2', mediaFlowing: false);
+    voice.noteConsumerMedia('producer-1', mediaFlowing: true);
+    expect(voice.issue, isNotNull);
+    voice.noteConsumerMedia('producer-2', mediaFlowing: true);
+    expect(voice.issue, isNull);
+    await voice.dispose();
+  });
+
+  test('issue is hidden while disconnected', () async {
+    final voice = KaraokeVoiceClient(KaraokeRepository(Dio()));
+    voice.noteConsumerMedia('producer-1', mediaFlowing: false);
+    expect(voice.connected, isFalse);
+    expect(voice.issue, isNull);
+    voice.connected = true;
+    expect(voice.issue, isNotNull);
+    await voice.dispose();
+    expect(voice.issue, isNull);
+  });
 }
