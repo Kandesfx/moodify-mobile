@@ -1,5 +1,10 @@
 # Trạng thái hiện tại
 
+## Làm đẹp /offline đợt 3 — 08/11/2026
+
+- Theo yêu cầu "làm đẹp phần offline tiếp": khối tóm tắt lên hạng typographic (số 26px w700 + nhãn + chip "N cần gia hạn" bên phải thay dòng text rich); hàng bản tải thành ConsumerWidget đánh dấu bài đang phát từ player thật (viền tím .4 + chữ lavender + icon equalizer tĩnh, cùng cách TrackTile tô bài active) và thêm đếm ngược "Còn N ngày"/"Hết hạn hôm nay" khi expiresAt ≤3 ngày (chip neutral, ngày 0 → error tint); empty state căn giữa icon 64 theo idiom màn Thư viện. Không thêm animation chạy liên tục; mọi số liệu lấy từ state/engine thật.
+- Kiểm chứng: `flutter analyze` chỉ còn 1 info import cupertino (fix iOS cố ý của remote); `flutter test --no-pub` **152/152 đạt**. Chưa xem trên thiết bị (Android SDK/JDK 21 vẫn đang dở).
+
 ## Offline taste-skill + animation đồng bộ, push nhánh Duy_Branch — 07/11/2026
 
 - Người dùng phản hồi "giao diện không thấy thay đổi": nguyên nhân là bản cài trên máy cũ hơn mọi thay đổi (chưa build được APK vì thiếu Android SDK) và bản Studio Dark của remote đã restyle sẵn nhiều màn nên các thay đổi tinh tế không nổi. Làm lại đợt 2 theo đúng ngôn ngữ Studio Dark mà Home đang dùng (D40: AppRadii, thẻ surfaceRaised + viền borderSoft, icon trong khối kính 40×40, nút pill): `/offline` viết lại toàn bộ presentación — `_SectionHeading` thanh trắng 3.5×18 như Home, thẻ r22, progress bo tròn minHeight 6, hàng bản tải thành thẻ r16 (hết hạn có chip error tint), FilterChip pill, CTA pill; `/notifications` restyle thẻ r16 với icon kính + dot chưa đọc, viền tím cho tin mới. Logic/chuỗi test giữ nguyên 100%. Các màn Search/Library/Account/Device/History/Detail/Karaoke đã khớp hệ nhờ bản restyle của remote + wrapper animation của đợt trước.
