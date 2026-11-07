@@ -16,10 +16,45 @@
   - Cài đặt trực tiếp qua ADB lên Samsung Galaxy A23 (`R58TC0KWATX`) lúc 18:26:41 (`Performing Streamed Install -> Success`).
   - Khởi chạy thành công ứng dụng trên thiết bị thực.
 
+## Voice phòng karaoke: hết nuốt lỗi đường nhận, thêm chẩn đoán một chiều — 07/11/2026
+
+- Người dùng báo phòng karaoke nghe một chiều: web nghe được mobile, mobile
+  không nghe được web và không có bất kỳ lỗi nào hiển thị.
+- Điều tra: dựng môi trường tái hiện tại `E:/karaoke-repro` (mock mediasoup
+  server sao chép đúng giao thức `karaoke-media/server.js` + Flutter harness
+  dùng đúng package `mediasfu_mediasoup_client 0.1.4`). Kết quả:
+  - Luồng Dart signaling/consume chạy đúng trên Windows desktop (device.load,
+    transport, consume, resume đều thành công) → logic client không sai cấu trúc.
+  - Package FlexQueue nuốt mọi exception bên trong `transport.consume()`; app
+    chỉ phát hiện qua timeout 10s và `error` không bao giờ được hiển thị khi
+    `connected == true` → mọi lỗi đường nhận đều im lặng hoàn toàn.
+  - Web/harness peer của `dart_webrtc` báo ICE `failed` trên cả hai transport
+    khi mediasoup server vẫn tưởng phiên bình thường → cần đo trạng thái
+    transport ở client thay vì tin phía server.
+  - Android emulator (x86_64, API 35) crash libwebrtc (jvm.cc:81, network
+    thread, sau setLocalDescription / network-monitor) — là đặc thù emulator,
+    không tái hiện logic lỗi của người dùng.
+- Sửa `karaoke_voice_client.dart`:
+  - Lắng nghe `connectionstatechange` của cả hai transport; ICE fail/disconnect
+    giờ nâng `issue` với thông điệp riêng cho đường gửi và đường nhận, tự xóa
+    khi transport nối lại.
+  - Lỗi consume giờ phân biệt ICE hỏng với lỗi khác và không còn bị che.
+  - Sau `resume-consumer` 5s thì đo `inbound-rtp.bytesReceived` của receiver:
+    nếu máy chủ không đẩy RTP về thì `issue` báo "chưa nhận được dữ liệu âm
+    thanh" (nền tảng không đọc được stats thì bỏ qua, không báo nhầm).
+  - Kết nối xong áp dụng định hướng loa: `Helper.ensureAudioSession()` +
+    Android `Helper.setSpeakerphoneOnButPreferBluetooth()` (loa ngoài, ưu tiên
+    Bluetooth) — tránh âm thanh rơi vào tai nghe/earpiece không nghe thấy.
+- Sửa `karaoke_screen.dart`: banner chẩn đoán trong phòng khi `voice.issue`
+  khác null, kèm nút "Kết nối lại" (dùng lại `_connectVoice`).
+- Kiểm chứng: `flutter analyze` sạch ở 3 tệp sửa; `flutter test` toàn dự án
+  154/154 đạt (thêm 2 test cho `issue` khi consumer bị stall/hồi phục và khi
+  chưa kết nối). Chưa nghiệm thu trên máy thật.
+
+## Offline taste-skill + animation đồng bộ, push nhánh Duy_Branch — 07/11/2026
 
 - Thiết kế lại `/offline` theo kỷ luật taste-skill (D42) và đồng bộ animation load/chuyển trang bằng `_slidePage` + `SectionEntrance` (D43) cho Search/Library/Account/Detail/Karaoke/Notifications/Devices/History/Profile; thêm `run.bat` Flutter (D44).
 - Tích hợp trên base remote `85ed191` (Studio Dark + karaoke queue + splash, từ origin/main 07/11): bản cục bộ trước đó là snapshot main 06/11 không có git history. Xử lý bằng reset về remote rồi re-apply delta: 3 file chỉ mình có (offline_screen, notification_screen, run.bat) lấy nguyên; 9 lib + 2 docs trùng thay đổi → lấy bản remote mới rồi chèn lại wrapper/import/routes của mình. Không force-push, không mất commit remote. Số quyết định đổi D38/D39 → D42/D43 vì remote đã dùng D38–D41.
-- Kiểm chứng trên Windows (Flutter 3.41.6 local `C:\flutter`, chưa có Android SDK/JDK 21 — gate chạy thiết bị còn dang dở): format + analyze + test được chạy sau khi gộp, kết quả ghi ở phần dưới của mục này. Việc cài Android SDK CLI + JDK 21 để chạy lên điện thoại đã bắt đầu nhưng người dùng tạm dừng chuyển sang push GitHub; cmdline-tools đã tải về `TEMP`, JDK 21 tải lỗi cần tải lại.
 
 ## Khởi tạo và kiểm chứng toolchain macOS/iOS Simulator & Fix lỗi biên dịch Cupertino Transitions — 07/11/2026
 
@@ -31,6 +66,13 @@
 - **Kiểm chứng**:
   - `flutter analyze`: **No issues found**.
   - `flutter build ios --simulator --dart-define-from-file=config/production.json`: **Build succeeded**.
+
+## Bỏ gạch vàng dưới chữ màn khởi động — 07/11/2026
+
+- Sửa `lib/core/widgets/brand_splash.dart`: dùng `Material` thay `ColoredBox`
+  cho nền splash phía trên Navigator, cung cấp kiểu chữ Material thay kiểu chữ
+  fallback có gạch vàng của Flutter. Giữ màu nền, logo và hiệu ứng hiện có.
+
 
 ## Sửa hàng chờ và mic phòng karaoke — 06/11/2026
 

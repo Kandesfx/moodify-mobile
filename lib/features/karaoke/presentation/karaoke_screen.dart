@@ -1990,6 +1990,10 @@ class _KaraokeRoomsScreenState extends ConsumerState<KaraokeRoomsScreen> {
           ? _RoomDetailView(
               room: joined,
               audio: _roomAudio,
+              voice: _voice,
+              onRetryVoice: _voiceConnecting
+                  ? null
+                  : () => unawaited(_connectVoice()),
               onAddTrack: _queueAdding ? null : _addTrack,
               onCommand: _roomCommand,
               onMemberTap: _showMemberVolume,
@@ -2166,6 +2170,55 @@ class _KaraokeRoomsScreenState extends ConsumerState<KaraokeRoomsScreen> {
   }
 }
 
+/// Cảnh báo chẩn đoán đường nhận/gửi voice trong phòng, kèm nút kết nối lại.
+class _VoiceIssueBanner extends StatelessWidget {
+  const _VoiceIssueBanner({required this.message, this.onRetry});
+
+  final String message;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2A2113),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF6B5426)),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.warning_amber_rounded,
+            size: 20,
+            color: Color(0xFFFFC760),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: const Color(0xFFF2E7CF),
+                height: 1.35,
+              ),
+            ),
+          ),
+          if (onRetry != null)
+            TextButton(
+              onPressed: onRetry,
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFFFFC760),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+              ),
+              child: const Text('Kết nối lại'),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _RoomDetailView extends StatelessWidget {
   const _RoomDetailView({
     required this.room,
@@ -2175,9 +2228,13 @@ class _RoomDetailView extends StatelessWidget {
     required this.onCommand,
     required this.onRemoveQueue,
     required this.onMemberTap,
+    this.voice,
+    this.onRetryVoice,
   });
   final Map<String, dynamic> room;
   final KaraokePlayback audio;
+  final KaraokeVoiceClient? voice;
+  final VoidCallback? onRetryVoice;
   final VoidCallback onRefresh;
   final VoidCallback? onAddTrack;
   final ValueChanged<String> onCommand;
@@ -2192,12 +2249,15 @@ class _RoomDetailView extends StatelessWidget {
     final canManage = room['canManage'] == true;
     final playing = playback['status'] == 'PLAYING';
     final textTheme = Theme.of(context).textTheme;
+    final voiceIssue = voice?.issue;
     return RefreshIndicator(
       onRefresh: () async => onRefresh(),
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         children: [
+          if (voiceIssue != null)
+            _VoiceIssueBanner(message: voiceIssue, onRetry: onRetryVoice),
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
