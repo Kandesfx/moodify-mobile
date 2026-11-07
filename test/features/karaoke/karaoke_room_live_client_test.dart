@@ -128,7 +128,11 @@ void main() {
     first.receive({'type': 'subscribed'});
     first.disconnect();
 
-    await harness.waitUntil(() => harness.connections.length > 1);
+    await harness.waitUntil(
+      () =>
+          harness.connections.length > 1 &&
+          harness.connections.last.sentMessages.isNotEmpty,
+    );
     final second = harness.connections.last;
     expect(second, isNot(same(first)));
     expect(second.sentMessages.first['type'], 'subscribeRoom');
