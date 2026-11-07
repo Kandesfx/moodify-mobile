@@ -1,5 +1,16 @@
 # Trạng thái hiện tại
 
+## Khởi tạo và kiểm chứng toolchain macOS/iOS Simulator & Fix lỗi biên dịch Cupertino Transitions — 07/11/2026
+
+- **Khởi tạo và kiểm chứng môi trường iOS trên macOS**:
+  1. Cấu hình toolchain Flutter 3.47 trên macOS Apple Silicon (M1), Xcode 27.2 và CocoaPods 1.17.
+  2. Bổ sung `import 'package:flutter/cupertino.dart';` tại `lib/app/theme/app_theme.dart` khắc phục lỗi thiếu `CupertinoPageTransitionsBuilder` khi build iOS và chạy analyzer.
+  3. Cập nhật `IPHONEOS_DEPLOYMENT_TARGET = 15.0` và tích hợp Swift Package Manager trong `ios/Runner.xcodeproj`.
+  4. Biên dịch thành công `build/ios/iphonesimulator/Runner.app` và khởi chạy kiểm chứng hiển thị đầy đủ catalog production trên iOS Simulator (iPhone 11 / iPhone 17).
+- **Kiểm chứng**:
+  - `flutter analyze`: **No issues found**.
+  - `flutter build ios --simulator --dart-define-from-file=config/production.json`: **Build succeeded**.
+
 ## Sửa hàng chờ và mic phòng karaoke — 06/11/2026
 
 - Người dùng yêu cầu mobile thêm nhiều bài/người, điều chỉnh âm lượng thành viên
