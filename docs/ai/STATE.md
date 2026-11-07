@@ -1,5 +1,26 @@
 # Trạng thái hiện tại
 
+## Khảo sát và chuẩn hóa cấu hình OAuth Google & Facebook — 07/11/2026
+
+- **Khắc phục cấu hình mã nguồn Android & SDK**:
+  - `android/app/build.gradle.kts`: Bổ sung `resValue("string", "fb_login_protocol_scheme", "fb" + providers.gradleProperty("facebookAppId").orElse("0").get())` để hỗ trợ custom scheme chuyển hướng của Facebook Login.
+  - `android/app/src/main/AndroidManifest.xml`: Khai báo `com.facebook.CustomTabActivity` với intent-filter `fb_login_protocol_scheme` để hứng callback đăng nhập từ Facebook SDK.
+  - `lib/features/auth/presentation/auth_screen.dart`: Bắt chi tiết `FacebookError` (`localizedDescription` / `developerMessage`) thay vì nuốt lỗi thành thông báo chung chung.
+  - `lib/core/errors/app_failure.dart`: Hiển thị mô tả lỗi chi tiết `error.description` và hướng dẫn đăng ký SHA-1 cho `GoogleSignInException`.
+- **Thông số cấu hình trên cổng Google Cloud Console & Meta for Developers**:
+  - **Android Package Name**: `dev.moodify.moodify_flutter`
+  - **Main Activity**: `dev.moodify.moodify_flutter.MainActivity`
+  - **Keystore SHA-1 (Debug/Profile)**: `AA:9D:19:B0:0C:87:4D:D5:B4:86:09:3E:9B:55:CF:30:AE:A8:BD:A0`
+  - **Keystore SHA-256 (Debug/Profile)**: `67:B0:EB:CD:24:F7:64:34:CB:72:47:66:16:A7:F6:8F:B9:78:4E:15:14:7A:5F:A5:88:DA:6D:38:99:F8:91:26`
+  - **Facebook Key Hash (Base64)**: `qp0ZsAyHTdW0hgk+m1XPMK6ovaA=`
+  - **Google Cloud Console**: Cần tạo OAuth 2.0 Client ID loại **Android** với Package name và SHA-1 ở trên trong cùng project với Web Client ID (`711124485487-2qb1s0uqa7e1uja1qio1kjggqgqdka7i.apps.googleusercontent.com`).
+  - **Meta for Developers (App ID: 2981895912150587)**: Cần thêm Key Hash trên vào Cài đặt cơ bản → Android, và đảm bảo tài khoản test được phân quyền trong mục Roles (nếu app In Development) hoặc chuyển app sang chế độ Live.
+- **Kiểm chứng kỹ thuật**:
+  - `dart format`: 115 files (0 changed).
+  - `flutter analyze --no-pub`: **No issues found!**
+  - `flutter test --no-pub`: **All 161/161 tests passed!**
+  - Đã biên dịch APK và nạp lên Samsung Galaxy A23 (`R58TC0KWATX`).
+
 ## Chuẩn hóa thông báo lỗi, ràng buộc cấu hình và mặc định API_BASE_URL — 07/11/2026
 
 - **Nâng cấp ràng buộc và thông báo lỗi cấu hình môi trường**:

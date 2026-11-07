@@ -19,6 +19,8 @@ class AppFailure implements Exception {
   static AppFailure from(Object error) {
     if (error is AppFailure) return error;
     if (error is GoogleSignInException) {
+      final desc = error.description;
+      final extra = desc != null && desc.isNotEmpty ? ' ($desc)' : '';
       final message = switch (error.code) {
         GoogleSignInExceptionCode.canceled =>
           'Xác minh tài khoản Google chưa hoàn tất hoặc đã bị hủy. Vui lòng thử lại.',
@@ -26,11 +28,11 @@ class AppFailure implements Exception {
           'Đăng nhập Google bị gián đoạn. Vui lòng thử lại.',
         GoogleSignInExceptionCode.clientConfigurationError ||
         GoogleSignInExceptionCode.providerConfigurationError =>
-          'Không thể kết nối đăng nhập Google do cấu hình ứng dụng hoặc dịch vụ Google.',
+          'Chưa hoàn tất cấu hình OAuth Google (cần đăng ký Android Client ID và SHA-1 trên Google Cloud Console)$extra.',
         GoogleSignInExceptionCode.uiUnavailable =>
           'Không thể mở màn hình đăng nhập Google. Vui lòng thử lại.',
         _ =>
-          'Không thể xác minh tài khoản Google. Vui lòng kiểm tra dịch vụ Google trên thiết bị và thử lại.',
+          'Không thể xác minh tài khoản Google$extra. Vui lòng kiểm tra dịch vụ Google trên thiết bị và thử lại.',
       };
       return AppFailure(message, code: 'GOOGLE_${error.code.name}');
     }

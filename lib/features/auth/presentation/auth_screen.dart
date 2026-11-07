@@ -132,12 +132,22 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       if (result.status == FacebookLoginStatus.cancel) {
         throw const AppFailure('Bạn đã hủy đăng nhập Facebook.');
       }
+      if (result.status == FacebookLoginStatus.error) {
+        final err =
+            result.error?.localizedDescription ??
+            result.error?.developerMessage;
+        throw AppFailure(
+          err != null && err.isNotEmpty
+              ? 'Lỗi xác thực Facebook: $err'
+              : 'Không thể kết nối Facebook. Vui lòng kiểm tra quyền ứng dụng hoặc thử lại.',
+        );
+      }
       final token = result.accessToken?.token;
       if (result.status != FacebookLoginStatus.success ||
           token == null ||
           token.isEmpty) {
         throw const AppFailure(
-          'Không thể đăng nhập Facebook. Vui lòng thử lại.',
+          'Không thể nhận mã xác thực Facebook. Vui lòng thử lại.',
         );
       }
       return token;

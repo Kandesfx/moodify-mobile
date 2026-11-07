@@ -26,6 +26,7 @@ android {
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         resValue("string", "facebook_app_id", providers.gradleProperty("facebookAppId").orElse("0").get())
         resValue("string", "facebook_client_token", providers.gradleProperty("facebookClientToken").orElse("unconfigured").get())
+        resValue("string", "fb_login_protocol_scheme", "fb" + providers.gradleProperty("facebookAppId").orElse("0").get())
         minSdk = 24
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
