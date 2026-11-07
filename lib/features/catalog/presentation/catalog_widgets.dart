@@ -269,21 +269,38 @@ class _TrackOptionsSheet extends ConsumerWidget {
     return SafeArea(
       // Sheet cuộn được khi màn hình thấp hoặc chữ lớn.
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 2, 16, 16),
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Header bài hát
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFF151822),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0x1FFFFFFF)),
+                color: const Color(0xFF161922),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: const Color(0x24FFFFFF)),
               ),
               child: Row(
                 children: [
-                  MusicArtwork(image: track.image, size: 52, radius: 12),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x40000000),
+                          blurRadius: 12,
+                          offset: Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: MusicArtwork(
+                      image: track.image,
+                      size: 56,
+                      radius: 14,
+                    ),
+                  ),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Column(
@@ -293,16 +310,22 @@ class _TrackOptionsSheet extends ConsumerWidget {
                           track.displayName,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w700),
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                            letterSpacing: -0.2,
+                          ),
                         ),
-                        const SizedBox(height: 3),
+                        const SizedBox(height: 4),
                         Text(
                           track.artist,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(color: AppColors.secondary),
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.white.withValues(alpha: 0.65),
+                          ),
                         ),
                       ],
                     ),
@@ -310,74 +333,149 @@ class _TrackOptionsSheet extends ConsumerWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 12),
-            _OptionTile(
-              icon: liked
-                  ? Icons.favorite_rounded
-                  : Icons.favorite_border_rounded,
-              label: liked ? 'Bỏ lưu yêu thích' : 'Lưu vào yêu thích',
-              enabled: libraryReady,
-              onTap: () => _run(context, 'like'),
-            ),
-            const SizedBox(height: 8),
-            _OptionTile(
-              icon: Icons.playlist_add_rounded,
-              label: 'Thêm vào playlist',
-              enabled: libraryReady,
-              onTap: () => _run(context, 'playlist'),
-            ),
-            const SizedBox(height: 8),
-            _OptionTile(
-              icon: downloaded
-                  ? Icons.download_done_rounded
-                  : Icons.download_rounded,
-              label: downloaded
-                  ? 'Xem bản đã tải'
-                  : downloading
-                  ? 'Xem tiến độ tải'
-                  : 'Tải để nghe offline',
-              onTap: () => _run(
-                context,
-                downloaded || downloading ? 'downloads' : 'download',
+            const SizedBox(height: 14),
+
+            // Nhóm 1: Thư viện & Tải nhạc
+            Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF131620),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: const Color(0x1FFFFFFF)),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  _OptionTile(
+                    icon: liked
+                        ? Icons.favorite_rounded
+                        : Icons.favorite_border_rounded,
+                    iconColor: liked ? const Color(0xFFFF4D6D) : Colors.white,
+                    label: liked ? 'Bỏ lưu yêu thích' : 'Lưu vào yêu thích',
+                    enabled: libraryReady,
+                    onTap: () => _run(context, 'like'),
+                  ),
+                  const Divider(
+                    height: 1,
+                    thickness: 1,
+                    indent: 68,
+                    endIndent: 16,
+                    color: Color(0x10FFFFFF),
+                  ),
+                  _OptionTile(
+                    icon: Icons.playlist_add_rounded,
+                    label: 'Thêm vào playlist',
+                    enabled: libraryReady,
+                    onTap: () => _run(context, 'playlist'),
+                  ),
+                  const Divider(
+                    height: 1,
+                    thickness: 1,
+                    indent: 68,
+                    endIndent: 16,
+                    color: Color(0x10FFFFFF),
+                  ),
+                  _OptionTile(
+                    icon: downloaded
+                        ? Icons.check_circle_rounded
+                        : downloading
+                        ? Icons.downloading_rounded
+                        : Icons.download_rounded,
+                    iconColor: downloaded
+                        ? const Color(0xFF2ECC71)
+                        : downloading
+                        ? const Color(0xFFFFB800)
+                        : Colors.white,
+                    label: downloaded
+                        ? 'Xem bản đã tải'
+                        : downloading
+                        ? 'Xem tiến độ tải'
+                        : 'Tải để nghe offline',
+                    subtitle: downloaded
+                        ? 'Đã tải về máy'
+                        : downloading
+                        ? 'Đang tải xuống...'
+                        : null,
+                    onTap: () => _run(
+                      context,
+                      downloaded || downloading ? 'downloads' : 'download',
+                    ),
+                  ),
+                ],
               ),
             ),
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 10, horizontal: 6),
-              child: Divider(height: 1, color: Color(0x18FFFFFF)),
-            ),
-            _OptionTile(
-              icon: Icons.queue_music_rounded,
-              label: 'Thêm vào hàng đợi',
-              onTap: () => _run(context, 'queue'),
-            ),
-            const SizedBox(height: 8),
-            _OptionTile(
-              icon: Icons.playlist_play_rounded,
-              label: 'Phát tiếp theo',
-              onTap: () => _run(context, 'next'),
-            ),
-            const SizedBox(height: 8),
-            _OptionTile(
-              icon: Icons.ios_share_rounded,
-              label: 'Chia sẻ bài hát',
-              onTap: () => _run(context, 'share'),
-            ),
-            if (remove != null) ...[
-              const SizedBox(height: 8),
-              _OptionTile(
-                icon: Icons.playlist_remove_rounded,
-                label: 'Bỏ khỏi playlist',
-                onTap: () => _run(context, 'remove'),
+            const SizedBox(height: 14),
+
+            // Nhóm 2: Phát nhạc & Điều hướng
+            Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF131620),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: const Color(0x1FFFFFFF)),
               ),
-            ],
-            if (track.artistId != null) ...[
-              const SizedBox(height: 8),
-              _OptionTile(
-                icon: Icons.person_outline_rounded,
-                label: 'Xem nghệ sĩ',
-                onTap: () => _run(context, 'artist'),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  _OptionTile(
+                    icon: Icons.queue_music_rounded,
+                    label: 'Thêm vào hàng đợi',
+                    onTap: () => _run(context, 'queue'),
+                  ),
+                  const Divider(
+                    height: 1,
+                    thickness: 1,
+                    indent: 68,
+                    endIndent: 16,
+                    color: Color(0x10FFFFFF),
+                  ),
+                  _OptionTile(
+                    icon: Icons.playlist_play_rounded,
+                    label: 'Phát tiếp theo',
+                    onTap: () => _run(context, 'next'),
+                  ),
+                  const Divider(
+                    height: 1,
+                    thickness: 1,
+                    indent: 68,
+                    endIndent: 16,
+                    color: Color(0x10FFFFFF),
+                  ),
+                  _OptionTile(
+                    icon: Icons.ios_share_rounded,
+                    label: 'Chia sẻ bài hát',
+                    onTap: () => _run(context, 'share'),
+                  ),
+                  if (track.artistId != null) ...[
+                    const Divider(
+                      height: 1,
+                      thickness: 1,
+                      indent: 68,
+                      endIndent: 16,
+                      color: Color(0x10FFFFFF),
+                    ),
+                    _OptionTile(
+                      icon: Icons.person_rounded,
+                      label: 'Xem nghệ sĩ',
+                      onTap: () => _run(context, 'artist'),
+                    ),
+                  ],
+                  if (remove != null) ...[
+                    const Divider(
+                      height: 1,
+                      thickness: 1,
+                      indent: 68,
+                      endIndent: 16,
+                      color: Color(0x10FFFFFF),
+                    ),
+                    _OptionTile(
+                      icon: Icons.playlist_remove_rounded,
+                      iconColor: const Color(0xFFFF5252),
+                      label: 'Bỏ khỏi playlist',
+                      onTap: () => _run(context, 'remove'),
+                    ),
+                  ],
+                ],
               ),
-            ],
+            ),
           ],
         ),
       ),
@@ -390,58 +488,75 @@ class _OptionTile extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
+    this.iconColor,
+    this.subtitle,
     this.enabled = true,
   });
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+  final Color? iconColor;
+  final String? subtitle;
   final bool enabled;
 
   @override
   Widget build(BuildContext context) => Material(
-    color: const Color(0xFF141720),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(14),
-      side: const BorderSide(color: Color(0x1AFFFFFF)),
-    ),
-    clipBehavior: Clip.antiAlias,
+    color: Colors.transparent,
     child: InkWell(
       onTap: enabled ? onTap : null,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
             Container(
-              width: 38,
-              height: 38,
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
-                color: const Color(0xFF1F2430),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0x22FFFFFF)),
+                color: const Color(0xFF1D2230),
+                borderRadius: BorderRadius.circular(11),
+                border: Border.all(color: const Color(0x24FFFFFF)),
               ),
               child: Icon(
                 icon,
-                size: 19,
-                color: enabled ? Colors.white : AppColors.secondary,
+                size: 20,
+                color: enabled
+                    ? (iconColor ?? Colors.white)
+                    : const Color(0x4DFFFFFF),
               ),
             ),
             const SizedBox(width: 14),
             Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 14.5,
-                  fontWeight: FontWeight.w600,
-                  color: enabled ? AppColors.text : AppColors.secondary,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w600,
+                      color: enabled ? Colors.white : const Color(0x59FFFFFF),
+                    ),
+                  ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle!,
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        color: Color(0x8CFFFFFF),
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
             Icon(
               Icons.chevron_right_rounded,
-              size: 18,
+              size: 20,
               color: enabled
-                  ? const Color(0x66FFFFFF)
-                  : const Color(0x26FFFFFF),
+                  ? const Color(0x52FFFFFF)
+                  : const Color(0x1FFFFFFF),
             ),
           ],
         ),

@@ -1,6 +1,21 @@
 # Trạng thái hiện tại
 
-## Offline taste-skill + animation đồng bộ, push nhánh Duy_Branch — 07/11/2026
+## Tích hợp commit d3fa824 từ Duy_Branch và kiểm chứng thiết bị Samsung Galaxy A23 — 07/11/2026
+
+- Kéo và hợp nhất commit `d3fa824` ("Đồng bộ animation load/chuyển trang, thiết kế lại màn offline, thêm run.bat") từ `origin/Duy_Branch` vào nhánh local `Duy_Branch` mà không xung đột.
+- Tích hợp trọn vẹn với các bản sửa lỗi thanh thông báo hệ thống media trên Android:
+  1. Caching ảnh bìa cục bộ và truyền `artCacheFile` trong `lib/features/player/data/playback_engine.dart`.
+  2. Xóa bỏ màu tĩnh `notificationColor` giúp Android One UI tự trích xuất Palette đổi màu nền thanh phát ngầm.
+  3. Bật `android:usesCleartextTraffic="true"` trong `AndroidManifest.xml`.
+  4. Bổ sung 5 bài unit test cho bộ chuẩn hóa URI ảnh bìa (`test/features/player/playback_engine_art_test.dart`).
+- **Kiểm chứng kỹ thuật**:
+  - `dart format --output=none --set-exit-if-changed lib test`: 115 files (0 changed).
+  - `flutter analyze --no-pub`: **No issues found!** (91.5s).
+  - `flutter test --no-pub`: **All 157/157 tests passed!** (152 test gốc + 5 test artwork URI).
+  - Biên dịch thành công APK AOT Profile: `build\app\outputs\flutter-apk\app-profile.apk` (88.6MB) trong 84.8s.
+  - Cài đặt trực tiếp qua ADB lên Samsung Galaxy A23 (`R58TC0KWATX`) lúc 18:26:41 (`Performing Streamed Install -> Success`).
+  - Khởi chạy thành công ứng dụng trên thiết bị thực.
+
 
 - Thiết kế lại `/offline` theo kỷ luật taste-skill (D42) và đồng bộ animation load/chuyển trang bằng `_slidePage` + `SectionEntrance` (D43) cho Search/Library/Account/Detail/Karaoke/Notifications/Devices/History/Profile; thêm `run.bat` Flutter (D44).
 - Tích hợp trên base remote `85ed191` (Studio Dark + karaoke queue + splash, từ origin/main 07/11): bản cục bộ trước đó là snapshot main 06/11 không có git history. Xử lý bằng reset về remote rồi re-apply delta: 3 file chỉ mình có (offline_screen, notification_screen, run.bat) lấy nguyên; 9 lib + 2 docs trùng thay đổi → lấy bản remote mới rồi chèn lại wrapper/import/routes của mình. Không force-push, không mất commit remote. Số quyết định đổi D38/D39 → D42/D43 vì remote đã dùng D38–D41.

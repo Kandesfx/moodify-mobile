@@ -1,9 +1,11 @@
 import 'dart:async';
-import 'dart:ui' show Color;
+import 'dart:io';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:just_audio/just_audio.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../catalog/domain/catalog_models.dart';
 
@@ -55,21 +57,27 @@ Future<PlaybackEngine> createNativeEngine() async {
       androidNotificationChannelId: 'dev.moodify.playback',
       androidNotificationChannelName: 'Phát nhạc Moodify',
       androidNotificationIcon: 'drawable/ic_stat_moodify',
-      notificationColor: Color(0xFF14161D),
       androidStopForegroundOnPause: false,
       preloadArtwork: true,
+      artDownscaleWidth: 512,
+      artDownscaleHeight: 512,
     ),
   );
   return _NativePlaybackEngine(handler);
 }
 
-Uri? _resolveNotificationArtUri(Uri streamUri, String? rawImage) {
+@visibleForTesting
+Uri? resolveNotificationArtUri(Uri streamUri, String? rawImage) {
   if (rawImage == null || rawImage.trim().isEmpty) return null;
   final parsed = Uri.tryParse(rawImage.trim());
   if (parsed == null) return null;
-  if (parsed.hasScheme &&
-      (parsed.scheme == 'https' || parsed.scheme == 'http')) {
-    return parsed;
+  if (parsed.hasScheme) {
+    if (parsed.scheme == 'https' ||
+        parsed.scheme == 'http' ||
+        parsed.scheme == 'file') {
+      return parsed;
+    }
+    return null;
   }
   if (streamUri.scheme == 'https' || streamUri.scheme == 'http') {
     return streamUri
@@ -86,18 +94,114 @@ class _NativePlaybackEngine implements PlaybackEngine {
   Stream<EngineEvent> get events => handler.events.stream;
   @override
   void bind(PlayerCommands commands) => handler.commands = commands;
+
+  static String _safeTrackFileKey(String id) =>
+      id.replaceAll(RegExp(r'[^a-zA-Z0-9_\-]'), '_');
+
+  static Future<File?> _findCachedArtwork(String trackId) async {
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final file = File(
+        '${tempDir.path}/moodify_artworks/${_safeTrackFileKey(trackId)}.jpg',
+      );
+      if (file.existsSync() && file.lengthSync() > 256) {
+        return file;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  static Future<void> _downloadAndCacheArtwork({
+    required _MoodifyAudioHandler handler,
+    required String trackId,
+    required Uri remoteUri,
+  }) async {
+    try {
+      final tempDir = await getTemporaryDirectory();
+      final dir = Directory('${tempDir.path}/moodify_artworks');
+      if (!dir.existsSync()) {
+        await dir.create(recursive: true);
+      }
+      final file = File('${dir.path}/${_safeTrackFileKey(trackId)}.jpg');
+      final client = HttpClient()
+        ..connectionTimeout = const Duration(seconds: 8)
+        ..badCertificateCallback = (_, _, _) => true;
+      try {
+        final request = await client.getUrl(remoteUri);
+        request.headers.set(
+          'User-Agent',
+          'Mozilla/5.0 (Linux; Android 14) Moodify/1.0',
+        );
+        final response = await request.close();
+        if (response.statusCode == 200) {
+          final bytes = await response.fold<List<int>>(
+            <int>[],
+            (acc, data) => acc..addAll(data),
+          );
+          if (bytes.length > 256) {
+            await file.writeAsBytes(bytes, flush: true);
+            final current = handler.mediaItem.value;
+            if (current != null && current.id == trackId) {
+              handler.mediaItem.add(
+                current.copyWith(
+                  artUri: Uri.file(file.path),
+                  extras: {
+                    if (current.extras != null) ...current.extras!,
+                    'artCacheFile': file.path,
+                  },
+                ),
+              );
+            }
+          }
+        }
+      } finally {
+        client.close();
+      }
+    } catch (_) {}
+  }
+
   @override
   Future<void> load(Uri uri, Track track) async {
     handler.adMode = false;
+    final resolvedUri = resolveNotificationArtUri(uri, track.image);
+
+    File? cachedArtFile;
+    if (resolvedUri != null) {
+      if (resolvedUri.scheme == 'file') {
+        cachedArtFile = File(resolvedUri.toFilePath());
+      } else {
+        cachedArtFile = await _findCachedArtwork(track.id);
+      }
+    }
+
+    final hasLocalArt = cachedArtFile != null && cachedArtFile.existsSync();
+    final effectiveArtUri = hasLocalArt
+        ? Uri.file(cachedArtFile.path)
+        : resolvedUri;
+
     handler.mediaItem.add(
       MediaItem(
         id: track.id,
         title: track.displayName,
         artist: track.artist,
         duration: Duration(milliseconds: track.durationMs),
-        artUri: _resolveNotificationArtUri(uri, track.image),
+        artUri: effectiveArtUri,
+        extras: hasLocalArt ? {'artCacheFile': cachedArtFile.path} : null,
       ),
     );
+
+    if (resolvedUri != null &&
+        (resolvedUri.scheme == 'http' || resolvedUri.scheme == 'https') &&
+        !hasLocalArt) {
+      unawaited(
+        _downloadAndCacheArtwork(
+          handler: handler,
+          trackId: track.id,
+          remoteUri: resolvedUri,
+        ),
+      );
+    }
+
     await handler.player.setUrl(uri.toString());
   }
 
