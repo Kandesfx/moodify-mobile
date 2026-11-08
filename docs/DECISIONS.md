@@ -99,3 +99,12 @@ Theo yêu cầu người dùng, hiển thị lời có timestamp cho mọi ngư�
 - D44 (07/11): Thêm `run.bat` cho repo mobile Flutter: chọn Production API hoặc Local API (10.0.2.2:8088, tự khởi động backend local qua `scripts/start-local-api.ps1 -BackendPath ..\Moodify-Backend-main`), tự dò thiết bị Android/iOS qua `flutter devices --machine`, cho phép truyền device id làm tham số. `run-all.bat` gốc trỏ sang mobile Flutter thay cho mục Expo cũ.
 - D45 (08/11): Tái thiết kế màn hình Splash (`lib/core/widgets/brand_splash.dart`, `android/app/src/main/res/drawable/avd_launch_logo.xml`): loại bỏ hoàn toàn các thanh gạch equalizer (`_SoundwaveEqualizer` và `eq_bar_1..5`) bị nhảy giật cục, đứt gãy và rối mắt theo yêu cầu người dùng; chuyển cơ chế entrance của Logo chữ M từ cắt xén ShaderMask ngang sang Smooth Scale & Soft Fade-In mượt mà kèm vệt sáng tráng gương (specular sheen); làm mềm vầng hào quang âm thanh tỏa tròn (ambient bloom) và 2 vòng sóng âm đồng tâm tự nhiên.
 
+# 08/11/2026 — Social login đa nền tảng (nhánh Thuan_Branch)
+
+- D46 (08/11): Mở Google/Facebook login cho iOS ngoài Android native, dùng lại
+  hợp đồng `POST auth/{provider}` (idToken/accessToken + device) không đổi.
+  Google dùng Web Client ID làm `serverClientId` trên cả hai nền tảng để
+  idToken khớp audience backend; iOS thêm dart-define `GOOGLE_IOS_CLIENT_ID`
+  (iOS OAuth Client riêng) và `GIDClientID` + URL scheme đảo ngược trong
+  Info.plist. Facebook cấu hình iOS qua Info.plist (AppID/ClientToken/scheme
+  `fb<id>`); key hash vẫn chỉ áp dụng Android. Không thêm package mới.

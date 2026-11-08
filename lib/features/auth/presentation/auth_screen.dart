@@ -88,26 +88,39 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   }
 
   Future<void> _socialSignIn(String provider) async {
-    const googleClientId = String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID');
+    const googleServerClientId = String.fromEnvironment(
+      'GOOGLE_SERVER_CLIENT_ID',
+    );
+    const googleIosClientId = String.fromEnvironment('GOOGLE_IOS_CLIENT_ID');
     const facebookConfigured = bool.fromEnvironment(
       'FACEBOOK_LOGIN_CONFIGURED',
     );
     final controller = ref.read(sessionControllerProvider.notifier);
     await controller.socialLogin(provider, () async {
-      if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
-        throw const AppFailure(
-          'Đăng nhập này chưa được cấu hình trên thiết bị này.',
-        );
+      if (kIsWeb) {
+        throw const AppFailure('Đăng nhập này chưa được hỗ trợ trên web.');
       }
       if (provider == 'google') {
-        if (googleClientId.isEmpty) {
+        if (googleServerClientId.isEmpty) {
           throw const AppFailure(
             'Đăng nhập Google chưa được cấu hình cho ứng dụng.',
           );
         }
+        // iOS yêu cầu thêm iOS Client ID riêng (khác Web Client ID dùng làm
+        // serverClientId): không có nó thì GIDConfiguration không được tạo và
+        // idToken trả về sai audience so với backend.
+        final isIos = defaultTargetPlatform == TargetPlatform.iOS;
+        if (isIos && googleIosClientId.isEmpty) {
+          throw const AppFailure(
+            'Đăng nhập Google chưa được cấu hình cho iOS.',
+          );
+        }
         final google = GoogleSignIn.instance;
         if (!_googleInitialized) {
-          await google.initialize(serverClientId: googleClientId);
+          await google.initialize(
+            clientId: isIos ? googleIosClientId : null,
+            serverClientId: googleServerClientId,
+          );
           _googleInitialized = true;
         }
         final account = await google.authenticate();

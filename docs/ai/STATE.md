@@ -1,5 +1,15 @@
 # Trạng thái hiện tại
 
+## Đăng nhập social (Google/Facebook) mở cho iOS — 08/11/2026
+
+- Người dùng báo nhấn Google/Facebook trên mobile hiện "Đăng nhập này chưa được cấu hình trên thiết bị này." Thiết bị trong ảnh là iPhone bản iOS native; code cũ (`auth_screen.dart`) chặn mọi nền tảng trừ Android native nên lỗi hiện ngay.
+- Sửa `lib/features/auth/presentation/auth_screen.dart`: cho phép iOS chạy cùng luồng; web vẫn chặn với thông báo riêng. Google trên iOS thêm dart-define `GOOGLE_IOS_CLIENT_ID` và truyền `initialize(clientId:, serverClientId:)` — không có iOS client ID thì iOS plugin không tạo `GIDConfiguration` và idToken trả về sai audience so với backend (đã đọc source `google_sign_in_ios 6.3.8`).
+- `ios/Runner/Info.plist`: thêm `FacebookAppID`/`FacebookClientToken`/`FacebookDisplayName`, URL scheme `fb2981895912150587`, `LSApplicationQueriesSchemes` (fbapi, fb-messenger-share-api), `GIDClientID` và URL scheme đảo ngược `com.googleusercontent.apps.711124485487-rlr3utmj7108gdgd09ssk785a0m48be3`.
+- Tạo `ios/Podfile` (trước đó thiếu — build iOS sẽ fail vì `flutter_login_facebook` dùng CocoaPods, FBSDKLoginKit 18.0.3; iOS target 13.0 khớp `IPHONEOS_DEPLOYMENT_TARGET` hiện có).
+- `config/production.json` + `config/development.example.json`: thêm `GOOGLE_IOS_CLIENT_ID` `711124485487-rlr3utmj7108gdgd09ssk785a0m48be3.apps.googleusercontent.com` (iOS OAuth Client "Moodify iOS" do người dùng tạo 08/11/2026, bundle `dev.moodify.moodifyFlutter`).
+- Bằng chứng Android kiểm tra trong lượt này: SHA-1 debug keystore `73:C1:BB:2D:E1:0C:...` khớp Google Cloud Console; key hash Facebook trong Meta console trước đó sai ký tự (`cBG7...0Vq` thay vì `c8G7...70Vq`) — người dùng đã cập nhật đúng hash và đang thêm platform iOS (bundle trùng) trên Meta.
+- Kiểm chứng: format 0 changed; analyze `auth_screen.dart` sạch; 28/28 test auth đạt; full suite 154/154 đạt; JSON config parse OK; Info.plist XML OK.
+
 ## Tái thiết kế Màn hình Splash Studio Dark & Loại bỏ các thanh gạch/equalizer đứt gãy — 08/11/2026
 
 - **Loại bỏ triệt để các thanh gạch/equalizer đứt gãy và sửa toàn diện animation màn hình Splash (`lib/core/widgets/brand_splash.dart`, `android/app/src/main/res/drawable/avd_launch_logo.xml`)**:

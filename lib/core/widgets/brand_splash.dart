@@ -204,7 +204,7 @@ class _SplashLaunchGateState extends ConsumerState<SplashLaunchGate>
                     ignoring: exiting,
                     child: ExcludeSemantics(
                       excluding: exiting,
-                      child: ColoredBox(
+                      child: Material(
                         color: AppColors.background,
                         child: SafeArea(
                           child: Center(
