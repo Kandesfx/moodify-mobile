@@ -224,31 +224,64 @@ class _OfflineScreenState extends ConsumerState<OfflineScreen>
                       ),
                     ),
                     _SectionHeading('Bản tải trên máy'),
-                    // Một dòng số thật thay cho các thẻ số liệu.
+                    // Khối số thật: số lớn + nhãn, chip hết hạn bên phải.
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text.rich(
-                        TextSpan(
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: AppColors.secondary),
-                          children: [
-                            TextSpan(
-                              text: '${ready.length} bài sẵn sàng',
-                              style: const TextStyle(
-                                color: AppColors.text,
-                                fontWeight: FontWeight.w600,
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Text(
+                            '${ready.length}',
+                            style: Theme.of(
+                              context,
+                            ).textTheme.headlineMedium?.copyWith(height: 1),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'bài sẵn sàng nghe',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${offlineSize(totalBytes)} đã tải${expired > 0 ? ' · $expired hết hạn' : ''}',
+                                  style: const TextStyle(
+                                    color: AppColors.secondary,
+                                    fontSize: 12,
+                                    fontFeatures: [
+                                      FontFeature.tabularFigures(),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (expired > 0)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.error.withValues(alpha: .12),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                '$expired cần gia hạn',
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.error,
+                                ),
                               ),
                             ),
-                            TextSpan(
-                              text: ' · ${offlineSize(totalBytes)} đã tải',
-                            ),
-                            if (expired > 0)
-                              TextSpan(
-                                text: ' · $expired hết hạn',
-                                style: const TextStyle(color: AppColors.error),
-                              ),
-                          ],
-                        ),
+                        ],
                       ),
                     ),
                     SectionEntrance(
@@ -839,7 +872,7 @@ class _AccessCard extends StatelessWidget {
 }
 
 /// Hàng bản tải — thẻ nhỏ cùng ngôn ngữ với các hàng playlist/thiết bị.
-class _DownloadRow extends StatelessWidget {
+class _DownloadRow extends ConsumerWidget {
   const _DownloadRow({
     required this.entry,
     required this.onPlay,
@@ -849,17 +882,30 @@ class _DownloadRow extends StatelessWidget {
   final VoidCallback onPlay;
   final VoidCallback? onRemove;
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final expired = entry.expired;
+    // Trạng thái đang phát lấy từ player thật, không suy đoán.
+    final playing = ref.watch(
+      playerControllerProvider.select(
+        (s) => s.offline && s.track?.id == entry.track.id,
+      ),
+    );
+    // Đếm ngược từ expiresAt của server; chỉ hiện khi gần hết hạn.
+    final daysLeft = expired
+        ? null
+        : entry.expiresAt.difference(DateTime.now()).inDays;
+    final soon = daysLeft != null && daysLeft >= 0 && daysLeft <= 3;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: playing ? AppColors.surfaceRaised : AppColors.surface,
           borderRadius: BorderRadius.circular(AppRadii.md),
           border: Border.all(
             color: expired
                 ? AppColors.error.withValues(alpha: .28)
+                : playing
+                ? AppColors.primary.withValues(alpha: .4)
                 : AppColors.borderSoft,
           ),
         ),
@@ -870,11 +916,29 @@ class _DownloadRow extends StatelessWidget {
           ),
           onTap: expired ? null : onPlay,
           leading: MusicArtwork(image: entry.track.image, size: 52, radius: 12),
-          title: Text(
-            entry.track.displayName,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5),
+          title: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  entry.track.displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14.5,
+                    color: playing ? const Color(0xFFB7A7FF) : null,
+                  ),
+                ),
+              ),
+              if (playing) ...[
+                const SizedBox(width: 6),
+                const Icon(
+                  Icons.graphic_eq_rounded,
+                  size: 15,
+                  color: AppColors.lavender,
+                ),
+              ],
+            ],
           ),
           subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -921,15 +985,48 @@ class _DownloadRow extends StatelessWidget {
                         ],
                       ),
                     )
-                  : Text(
-                      'Quyền đến ${displayDate(entry.expiresAt.toLocal().toIso8601String())}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.secondary,
-                        fontSize: 11.5,
-                        fontFeatures: [FontFeature.tabularFigures()],
-                      ),
+                  : Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            'Quyền đến ${displayDate(entry.expiresAt.toLocal().toIso8601String())}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: AppColors.secondary,
+                              fontSize: 11.5,
+                              fontFeatures: [FontFeature.tabularFigures()],
+                            ),
+                          ),
+                        ),
+                        if (soon) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: daysLeft == 0
+                                  ? AppColors.error.withValues(alpha: .12)
+                                  : AppColors.surfaceGlass,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              daysLeft == 0
+                                  ? 'Hết hạn hôm nay'
+                                  : 'Còn $daysLeft ngày',
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w600,
+                                color: daysLeft == 0
+                                    ? AppColors.error
+                                    : AppColors.secondary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
             ],
           ),
@@ -955,30 +1052,30 @@ class _EmptyDownloads extends StatelessWidget {
   final bool online;
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+    padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 32),
     child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          width: 48,
-          height: 48,
+          width: 64,
+          height: 64,
           decoration: BoxDecoration(
             color: AppColors.surfaceGlass,
-            borderRadius: BorderRadius.circular(AppRadii.sm),
+            borderRadius: BorderRadius.circular(AppRadii.md),
             border: Border.all(color: AppColors.borderSoft),
           ),
           child: const Icon(
             Icons.library_music_outlined,
-            size: 22,
+            size: 28,
             color: AppColors.secondary,
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 18),
         Text(
           'Chưa có bản tải trên máy',
+          textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.titleMedium,
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         Text(
           !online
               ? 'Các bài đã tải hợp lệ sẽ xuất hiện ở đây để nghe khi mất mạng.'
@@ -987,13 +1084,14 @@ class _EmptyDownloads extends StatelessWidget {
               : allowed!
               ? 'Mở menu của bài hát và chọn Tải để nghe offline. Bài tải xong sẽ xuất hiện tại đây.'
               : 'Bạn vẫn có thể nghe nhạc trực tuyến. Để lưu nhạc trên thiết bị, cần gói có quyền offline.',
+          textAlign: TextAlign.center,
           style: const TextStyle(
             color: AppColors.secondary,
             fontSize: 13,
             height: 1.55,
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 14),
         TextButton.icon(
           onPressed: () => context.go('/search'),
           icon: const Icon(Icons.search_rounded, size: 17),

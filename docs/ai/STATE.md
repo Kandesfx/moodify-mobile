@@ -1,5 +1,13 @@
 # Trạng thái hiện tại
 
+## Tích hợp Làm đẹp /offline đợt 3 từ Duy_Branch — 08/11/2026
+
+- Tích hợp commit `da7b2be` từ `origin/Duy_Branch`:
+  - Màn hình `/offline`: Khối tóm tắt typography nâng cấp (số 26px w700 + nhãn + chip "N cần gia hạn" bên phải).
+  - Hàng bài hát đã tải thành `ConsumerWidget` đánh dấu bài đang phát từ player thật (viền tím .4, chữ lavender, icon equalizer tĩnh) và đếm ngược hạn giấy phép "Còn N ngày" / "Hết hạn hôm nay" khi expiresAt ≤ 3 ngày.
+  - Empty state căn giữa icon 64 theo idiom màn Thư viện.
+- Khảo sát và chuẩn hóa cấu hình OAuth Google & Facebook, bổ sung `fb_login_protocol_scheme` và `CustomTabActivity`.
+
 ## Khảo sát và chuẩn hóa cấu hình OAuth Google & Facebook — 07/11/2026
 
 - **Khắc phục cấu hình mã nguồn Android & SDK**:
@@ -101,6 +109,7 @@
 - Kiểm chứng: `flutter analyze` sạch ở 3 tệp sửa; `flutter test` toàn dự án
   154/154 đạt (thêm 2 test cho `issue` khi consumer bị stall/hồi phục và khi
   chưa kết nối). Chưa nghiệm thu trên máy thật.
+
 
 ## Offline taste-skill + animation đồng bộ, push nhánh Duy_Branch — 07/11/2026
 
