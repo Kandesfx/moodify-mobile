@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:just_audio/just_audio.dart';
@@ -1721,6 +1722,11 @@ class _KaraokeRoomsScreenState extends ConsumerState<KaraokeRoomsScreen> {
   void _message(String text) =>
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
 
+  Future<void> _copyInviteCode(String code) async {
+    await Clipboard.setData(ClipboardData(text: code));
+    if (mounted) _message('Đã sao chép mã mời: $code');
+  }
+
   Future<void> _create() async {
     var name = '';
     var private = false;
@@ -1983,6 +1989,7 @@ class _KaraokeRoomsScreenState extends ConsumerState<KaraokeRoomsScreen> {
               onAddTrack: _queueAdding ? null : _addTrack,
               onCommand: _roomCommand,
               onMemberTap: _showMemberVolume,
+              onCopyInviteCode: _copyInviteCode,
               onRemoveQueue: (itemId) async {
                 try {
                   final id = (joined['id'] as num).toInt();
@@ -2214,6 +2221,7 @@ class _RoomDetailView extends StatelessWidget {
     required this.onCommand,
     required this.onRemoveQueue,
     required this.onMemberTap,
+    required this.onCopyInviteCode,
     this.voice,
     this.onRetryVoice,
   });
@@ -2226,6 +2234,7 @@ class _RoomDetailView extends StatelessWidget {
   final ValueChanged<String> onCommand;
   final ValueChanged<int> onRemoveQueue;
   final ValueChanged<Map<String, dynamic>> onMemberTap;
+  final ValueChanged<String> onCopyInviteCode;
   @override
   Widget build(BuildContext context) {
     final members = room['members'] as List? ?? const [];
@@ -2408,9 +2417,38 @@ class _RoomDetailView extends StatelessWidget {
               canManage) ...[
             const SizedBox(height: 12),
             _RoomPanel(
-              child: SelectableText(
-                'Mã mời: ${room['inviteCode']}',
-                style: const TextStyle(color: AppColors.secondary),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Mã mời',
+                          style: textTheme.labelSmall?.copyWith(
+                            color: AppColors.secondary,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.1,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        SelectableText(
+                          room['inviteCode'].toString(),
+                          style: textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Sao chép mã mời',
+                    onPressed: () =>
+                        onCopyInviteCode(room['inviteCode'].toString()),
+                    icon: const Icon(Icons.copy_rounded),
+                  ),
+                ],
               ),
             ),
           ],

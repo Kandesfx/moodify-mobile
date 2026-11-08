@@ -63,7 +63,6 @@ class KaraokeVoiceClient {
   final _stalledProducers = <String>{};
   String? _sendState;
   String? _recvState;
-  bool _audioRoutingApplied = false;
 
   /// Chẩn đoán đường nhận âm thanh khi đã kết nối; null nghĩa là đang khỏe.
   String? get issue {
@@ -387,17 +386,39 @@ class KaraokeVoiceClient {
   }
 
   /// Điều hướng loa: mặc định loa ngoài, ưu tiên tai nghe Bluetooth nếu đang
-  /// nối (thói quen của app mediasfu); không đặt lại khi đã áp dụng phiên này.
+  /// nối (thói quen của app mediasfu). An toàn để gọi nhiều lần — cần áp lại
+  /// sau mỗi lần bật micro vì việc kích hoạt audio unit của WebRTC có thể đặt
+  /// lại phiên audio về cấu hình mặc định (mất định tuyến).
+  ///
+  /// iOS phải cấu hình qua `setAppleAudioConfiguration` (nó ghi vào cấu hình
+  /// WebRTC dùng chung nên được giữ lại cả khi WebRTC kích hoạt lại phiên):
+  /// nếu chỉ `ensureAudioSession`, phiên giữ category playback của trình phát
+  /// nhạc và tiếng chat bị dẫn ra loa đàm thoại (receiver) thay vì loa ngoài.
+  /// Mode `voiceChat` giữ AEC phần cứng, giúp giảm tiếng vọng và độ trễ.
   Future<void> _applyAudioRouting() async {
-    if (_audioRoutingApplied || _disposed) return;
-    _audioRoutingApplied = true;
+    if (_disposed) return;
     try {
       await Helper.ensureAudioSession();
       if (Platform.isAndroid) {
         await Helper.setSpeakerphoneOnButPreferBluetooth();
+      } else if (Platform.isIOS) {
+        await Helper.setAppleAudioConfiguration(
+          AppleAudioConfiguration(
+            appleAudioCategory: AppleAudioCategory.playAndRecord,
+            appleAudioCategoryOptions: {
+              AppleAudioCategoryOption.defaultToSpeaker,
+              AppleAudioCategoryOption.allowBluetooth,
+              AppleAudioCategoryOption.allowBluetoothA2DP,
+              AppleAudioCategoryOption.allowAirPlay,
+            },
+            appleAudioMode: AppleAudioMode.voiceChat,
+          ),
+        );
+        await Helper.setSpeakerphoneOnButPreferBluetooth();
       }
     } catch (_) {
-      _audioRoutingApplied = false;
+      // Thiết bị không hỗ trợ (ví dụ Windows desktop); âm thanh vẫn chạy theo
+      // route mặc định của nền tảng.
     }
   }
 
@@ -581,6 +602,9 @@ class KaraokeVoiceClient {
         stopTracks: false,
       );
       await ready.future.timeout(const Duration(seconds: 12));
+      // Bật micro kích hoạt audio unit của WebRTC và có thể đặt lại phiên audio
+      // về cấu hình mặc định của iOS; áp lại định tuyến loa ngay sau đó.
+      await _applyAudioRouting();
     } catch (_) {
       _producer?.close();
       _producer = null;
@@ -630,7 +654,6 @@ class KaraokeVoiceClient {
     _mediaIssue = null;
     _sendState = null;
     _recvState = null;
-    _audioRoutingApplied = false;
     remoteUserIds.clear();
     await _send?.close();
     await _receive?.close();

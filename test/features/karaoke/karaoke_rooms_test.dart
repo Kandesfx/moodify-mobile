@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show SystemChannels;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:moodify_flutter/features/auth/presentation/session_controller.dart';
@@ -256,6 +257,84 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+  testWidgets('private room shows the invite code with a copy button', (
+    tester,
+  ) async {
+    final repository = TestKaraokeRepository()
+      ..detail = {
+        'id': 9,
+        'name': 'Phòng riêng',
+        'visibility': 'PRIVATE',
+        'inviteCode': 'ABC123',
+        'members': [],
+        'queue': [],
+        'memberCount': 1,
+        'maxMembers': 6,
+        'canManage': true,
+        'playback': {'status': 'IDLE'},
+      }
+      ..initialRooms = [
+        {
+          'id': 9,
+          'name': 'Phòng riêng',
+          'visibility': 'PRIVATE',
+          'memberCount': 1,
+          'maxMembers': 6,
+        },
+      ];
+    final music = MusicRepositoryFake();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sessionControllerProvider.overrideWith(TestSessionController.new),
+          karaokeRepositoryProvider.overrideWithValue(repository),
+          karaokeVoiceFactoryProvider.overrideWithValue(TestKaraokeVoice.new),
+          karaokeRoomLiveFactoryProvider.overrideWithValue(
+            (roomId) => TestKaraokeRoomLive(),
+          ),
+          adPolicyProvider.overrideWithValue(TestAdPolicy()),
+          playbackEngineFactoryProvider.overrideWithValue(
+            () async => PlaybackEngineFake(),
+          ),
+          catalogRepositoryProvider.overrideWithValue(music),
+        ],
+        child: const MaterialApp(home: KaraokeRoomsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Phòng riêng'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'ABC123');
+    await tester.tap(find.widgetWithText(FilledButton, 'Tham gia'));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('ABC123'),
+      300,
+      scrollable: find.byType(Scrollable).last,
+    );
+    expect(find.text('Mã mời'), findsOneWidget);
+    String? copied;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copied = (call.arguments as Map)['text'] as String?;
+        }
+        return null;
+      },
+    );
+    addTearDown(() => tester.binding.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, null));
+    await tester.tap(find.byTooltip('Sao chép mã mời'));
+    await tester.pumpAndSettle();
+    expect(copied, 'ABC123');
+    expect(find.textContaining('Đã sao chép mã mời'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    music.remote.dio.close();
+    expect(tester.takeException(), isNull);
+  });
   testWidgets('create room dialog fits a small screen and enlarged text', (
     tester,
   ) async {
