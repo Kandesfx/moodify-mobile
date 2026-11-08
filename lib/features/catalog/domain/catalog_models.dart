@@ -39,7 +39,22 @@ class Track {
     'imageUrl': image,
     'localPath': localPath,
     'durationMs': durationMs,
+    if (lyrics != null) 'lyricsPlain': lyrics,
+    if (lyricsSynced != null) 'lyricsSynced': lyricsSynced,
   };
+
+  Track withImage(String? newImage) => Track(
+    id: id,
+    spotifyId: spotifyId,
+    name: name,
+    artist: artist,
+    artistId: artistId,
+    image: newImage,
+    localPath: localPath,
+    durationMs: durationMs,
+    lyrics: lyrics,
+    lyricsSynced: lyricsSynced,
+  );
 }
 
 class TrackPage {

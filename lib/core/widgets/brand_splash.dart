@@ -242,9 +242,8 @@ class _SplashLaunchGateState extends ConsumerState<SplashLaunchGate>
 }
 
 /// Animated Moodify logo lockup driven by normalized [progress] in `0.0..1.0`.
-/// Renders the soundwave 'M' mark with a progressive wave reveal, specular
-/// sheen, harmonic aura rings, staggered letter-by-letter wordmark, and live
-/// 9-bar neon soundwave equalizer.
+/// Renders the soundwave 'M' mark with smooth scale & specular sheen,
+/// acoustic ambient aura bloom, and staggered letter-by-letter wordmark.
 class BrandSplashHero extends StatelessWidget {
   const BrandSplashHero({super.key, this.progress = 1.0, this.loopPhase = 0.0});
 
@@ -255,27 +254,28 @@ class BrandSplashHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = progress.clamp(0.0, 1.0);
     final cycle = t + loopPhase;
-    final markReveal = const Interval(
+    final markOpacity = const Interval(
       0.0,
-      0.58,
-      curve: Curves.easeInOutCubic,
+      0.48,
+      curve: Curves.easeOut,
     ).transform(t);
-    final markScale = Tween<double>(begin: 0.38, end: 1.0).transform(
-      const Interval(0.0, 0.65, curve: Curves.easeOutBack).transform(t),
+    final markScale = Tween<double>(begin: 0.72, end: 1.0).transform(
+      const Interval(0.0, 0.60, curve: Curves.easeOutCubic).transform(t),
     );
     final markSlideY =
-        24.0 *
-        (1.0 - const Interval(0.0, 0.58, curve: Curves.easeOut).transform(t));
+        16.0 *
+        (1.0 -
+            const Interval(0.0, 0.52, curve: Curves.easeOutCubic).transform(t));
 
     final taglineProgress = const Interval(
-      0.52,
-      0.94,
+      0.48,
+      0.90,
       curve: Curves.easeOutCubic,
     ).transform(t);
 
-    final shimmerPhase = ((t - 0.36) / 0.52).clamp(0.0, 1.0);
+    final shimmerPhase = ((t - 0.42) / 0.48).clamp(0.0, 1.0);
     final shimmerAlpha = shimmerPhase > 0 && shimmerPhase < 1
-        ? math.sin(shimmerPhase * math.pi) * 0.55
+        ? math.sin(shimmerPhase * math.pi) * 0.45
         : 0.0;
 
     return Semantics(
@@ -296,7 +296,7 @@ class BrandSplashHero extends StatelessWidget {
                     child: Transform.scale(
                       scale: markScale,
                       child: _WaveRevealMark(
-                        reveal: markReveal,
+                        opacity: markOpacity,
                         shimmerPhase: shimmerPhase,
                         shimmerAlpha: shimmerAlpha,
                       ),
@@ -305,25 +305,23 @@ class BrandSplashHero extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             FittedBox(
               fit: BoxFit.scaleDown,
               child: _AnimatedWordmark(progress: t),
             ),
-            const SizedBox(height: 14),
-            _SoundwaveEqualizer(progress: t, cycle: cycle),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             Opacity(
               opacity: taglineProgress,
               child: Transform.translate(
-                offset: Offset(0, 8.0 * (1.0 - taglineProgress)),
+                offset: Offset(0, 6.0 * (1.0 - taglineProgress)),
                 child: const Text(
                   'Âm nhạc theo từng cảm xúc',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
-                    letterSpacing: 0.5,
+                    letterSpacing: 0.4,
                     color: AppColors.secondary,
                   ),
                 ),
@@ -353,13 +351,13 @@ class _AnimatedWordmark extends StatelessWidget {
   }
 
   Widget _buildLetter(int index, String char) {
-    final start = 0.22 + (index * 0.055);
-    final end = (start + 0.36).clamp(0.0, 1.0);
+    final start = 0.20 + (index * 0.05);
+    final end = (start + 0.32).clamp(0.0, 1.0);
     final raw = ((progress - start) / (end - start)).clamp(0.0, 1.0);
     final opacity = Curves.easeOut.transform(raw);
-    final pop = Curves.easeOutBack.transform(raw);
-    final slideY = 18.0 * (1.0 - pop);
-    final scale = 0.65 + (0.35 * pop);
+    final pop = Curves.easeOutCubic.transform(raw);
+    final slideY = 12.0 * (1.0 - pop);
+    final scale = 0.8 + (0.2 * pop);
 
     final color = raw < 0.6
         ? Color.lerp(AppColors.primary, AppColors.lavender, raw / 0.6)!
@@ -374,9 +372,9 @@ class _AnimatedWordmark extends StatelessWidget {
           child: Text(
             char,
             style: TextStyle(
-              fontSize: 40,
+              fontSize: 38,
               fontWeight: FontWeight.w700,
-              letterSpacing: -1.1,
+              letterSpacing: -1.0,
               color: color,
               height: 1.05,
             ),
@@ -387,79 +385,14 @@ class _AnimatedWordmark extends StatelessWidget {
   }
 }
 
-class _SoundwaveEqualizer extends StatelessWidget {
-  const _SoundwaveEqualizer({required this.progress, required this.cycle});
-
-  final double progress;
-  final double cycle;
-  static const _baseHeights = <double>[10, 18, 26, 16, 30, 18, 26, 16, 10];
-
-  @override
-  Widget build(BuildContext context) {
-    final visibility = const Interval(
-      0.32,
-      0.75,
-      curve: Curves.easeOut,
-    ).transform(progress);
-    if (visibility <= 0) return const SizedBox(height: 30);
-
-    return Opacity(
-      opacity: visibility,
-      child: SizedBox(
-        height: 30,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            for (var i = 0; i < _baseHeights.length; i++) ...[
-              if (i > 0) const SizedBox(width: 5),
-              _buildBar(i, visibility),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBar(int index, double visibility) {
-    final activeWave = progress < 0.999 || cycle > 1.0;
-    final wave = activeWave
-        ? 0.45 +
-              0.55 *
-                  (0.5 +
-                      0.5 * math.sin((cycle * math.pi * 6.0) - (index * 0.65)))
-        : 0.55;
-    final h = (_baseHeights[index] * wave * visibility).clamp(4.0, 30.0);
-    final t = index / (_baseHeights.length - 1);
-    final color = t < 0.5
-        ? Color.lerp(AppColors.primary, AppColors.lavender, t * 2)!
-        : Color.lerp(AppColors.lavender, AppColors.liked, (t - 0.5) * 2)!;
-
-    return Container(
-      width: 4,
-      height: h,
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(99),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.45 * visibility),
-            blurRadius: 6,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _WaveRevealMark extends StatelessWidget {
   const _WaveRevealMark({
-    required this.reveal,
+    required this.opacity,
     required this.shimmerPhase,
     required this.shimmerAlpha,
   });
 
-  final double reveal;
+  final double opacity;
   final double shimmerPhase;
   final double shimmerAlpha;
 
@@ -473,19 +406,8 @@ class _WaveRevealMark extends StatelessWidget {
       filterQuality: FilterQuality.high,
     );
 
-    if (reveal < 0.999) {
-      final lead = (reveal * 1.28).clamp(0.0, 1.0);
-      final trail = (lead - 0.28).clamp(0.0, 1.0);
-      mark = ShaderMask(
-        blendMode: BlendMode.dstIn,
-        shaderCallback: (bounds) => LinearGradient(
-          colors: const [Colors.white, Colors.white, Color(0x00FFFFFF)],
-          stops: [0.0, trail, lead],
-        ).createShader(bounds),
-        child: mark,
-      );
-    } else if (shimmerAlpha > 0.005) {
-      final center = -0.9 + (2.8 * shimmerPhase);
+    if (shimmerAlpha > 0.005) {
+      final center = -1.0 + (3.0 * shimmerPhase);
       mark = ShaderMask(
         blendMode: BlendMode.srcATop,
         shaderCallback: (bounds) => LinearGradient(
@@ -501,7 +423,7 @@ class _WaveRevealMark extends StatelessWidget {
       );
     }
 
-    return mark;
+    return Opacity(opacity: opacity.clamp(0.0, 1.0), child: mark);
   }
 }
 
@@ -516,17 +438,17 @@ class _SplashAuraPainter extends CustomPainter {
     if (progress <= 0) return;
     final center = Offset(size.width / 2, size.height / 2);
     final glowCurve = Curves.easeOutCubic.transform(progress);
-    final pulse = math.sin(cycle * math.pi * 2).abs();
+    final pulse = math.sin(cycle * math.pi * 1.5).abs();
 
-    final glowRadius = (size.width * 0.48) * (0.55 + (0.45 * glowCurve));
+    final glowRadius = (size.width * 0.46) * (0.65 + (0.35 * glowCurve));
     final glowPaint = Paint()
       ..shader = RadialGradient(
         colors: [
           AppColors.primary.withValues(
-            alpha: (0.34 * glowCurve) + (0.12 * pulse),
+            alpha: (0.30 * glowCurve) + (0.10 * pulse),
           ),
           AppColors.liked.withValues(
-            alpha: (0.18 * glowCurve) + (0.08 * pulse),
+            alpha: (0.15 * glowCurve) + (0.06 * pulse),
           ),
           AppColors.background.withValues(alpha: 0),
         ],
@@ -534,59 +456,18 @@ class _SplashAuraPainter extends CustomPainter {
       ).createShader(Rect.fromCircle(center: center, radius: glowRadius));
     canvas.drawCircle(center, glowRadius, glowPaint);
 
-    // Continuous flowing soundwave ribbons behind the M mark.
-    final ribbonAlpha = (math.sin(progress * math.pi) * 0.42).clamp(0.14, 0.42);
-    for (var waveIndex = 0; waveIndex < 2; waveIndex++) {
-      final path = Path();
-      final amplitude = (waveIndex == 0 ? 18.0 : 12.0) * glowCurve;
-      final phaseShift = (cycle * math.pi * 5.0) + (waveIndex * math.pi * 0.85);
-      final width = size.width * 0.92;
-      final startX = (size.width - width) / 2;
-      const steps = 36;
-      for (var step = 0; step <= steps; step++) {
-        final norm = step / steps;
-        final envelope = math.sin(norm * math.pi);
-        final x = startX + (width * norm);
-        final y =
-            center.dy +
-            math.sin((norm * math.pi * 2.5) - phaseShift) *
-                amplitude *
-                envelope;
-        if (step == 0) {
-          path.moveTo(x, y);
-        } else {
-          path.lineTo(x, y);
-        }
-      }
-      final wavePaint = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = waveIndex == 0 ? 2.2 : 1.4
-        ..strokeCap = StrokeCap.round
-        ..shader = LinearGradient(
-          colors: [
-            AppColors.primary.withValues(alpha: 0),
-            AppColors.primary.withValues(alpha: ribbonAlpha),
-            AppColors.lavender.withValues(alpha: ribbonAlpha),
-            AppColors.liked.withValues(alpha: ribbonAlpha),
-            AppColors.liked.withValues(alpha: 0),
-          ],
-          stops: const [0.0, 0.2, 0.5, 0.8, 1.0],
-        ).createShader(Offset.zero & size);
-      canvas.drawPath(path, wavePaint);
-    }
-
-    // Three expanding harmonic wave rings around the logo.
+    // Expanding harmonic wave rings around the logo.
     final ringPhase = cycle > 1.0 ? (cycle % 1.0) : progress;
-    for (var i = 0; i < 3; i++) {
-      final start = i * 0.14;
+    for (var i = 0; i < 2; i++) {
+      final start = i * 0.18;
       final ringT = ((ringPhase - start) / (1.0 - start)).clamp(0.0, 1.0);
       if (ringT <= 0) continue;
       final eased = Curves.easeOutCubic.transform(ringT);
-      final ringAlpha = (1.0 - eased) * 0.46;
+      final ringAlpha = (1.0 - eased) * 0.38;
       if (ringAlpha <= 0.01) continue;
 
-      final rx = (38.0 + (i * 12.0)) + (54.0 * eased);
-      final ry = (22.0 + (i * 7.0)) + (32.0 * eased);
+      final rx = (44.0 + (i * 14.0)) + (48.0 * eased);
+      final ry = (26.0 + (i * 8.0)) + (28.0 * eased);
       final rect = Rect.fromCenter(
         center: center,
         width: rx * 2,
@@ -594,11 +475,11 @@ class _SplashAuraPainter extends CustomPainter {
       );
       final ringPaint = Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.8
+        ..strokeWidth = 1.4
         ..shader = LinearGradient(
           colors: [
             AppColors.primary.withValues(alpha: ringAlpha),
-            AppColors.lavender.withValues(alpha: ringAlpha * 0.9),
+            AppColors.lavender.withValues(alpha: ringAlpha * 0.85),
             AppColors.liked.withValues(alpha: ringAlpha),
           ],
         ).createShader(rect);

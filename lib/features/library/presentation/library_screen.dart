@@ -3,23 +3,27 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../core/widgets/app_motion.dart';
+import '../../../core/widgets/studio_banners.dart';
 
 import '../../auth/presentation/session_controller.dart';
 import '../../catalog/domain/catalog_models.dart';
+import '../../offline/presentation/offline_screen.dart';
 import 'playlist_dialog.dart';
 import '../../catalog/presentation/catalog_widgets.dart';
 import 'library_controller.dart';
 import '../../catalog/data/artist_repository.dart';
 import '../../player/presentation/player_controller.dart';
+import '../../subscriptions/application/premium_controller.dart';
 
 class LibraryScreen extends ConsumerWidget {
   const LibraryScreen({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (ref.watch(
-          sessionControllerProvider.select((s) => s.session?.user.id),
-        ) ==
-        null) {
+    final sessionState = ref.watch(sessionControllerProvider);
+    if (sessionState.session?.user.id == null) {
+      if (sessionState.offlineUserId != null) {
+        return const OfflineScreen();
+      }
       return const GuestPrompt(
         title: 'Thư viện',
         message: 'Đăng nhập để lưu bài hát yêu thích và tạo playlist của bạn.',
@@ -29,6 +33,7 @@ class LibraryScreen extends ConsumerWidget {
     final state = ref.watch(libraryControllerProvider);
     final controller = ref.read(libraryControllerProvider.notifier);
     final albums = ref.watch(favoriteAlbumsProvider);
+    final isPremium = ref.watch(premiumProvider.select((s) => s.isPremium));
     return DefaultTabController(
       length: 4,
       animationDuration: AppMotion.duration(context),
@@ -108,6 +113,79 @@ class LibraryScreen extends ConsumerWidget {
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.only(top: 16, bottom: 24),
                   children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                      child: StudioHeroBanner(
+                        imageAsset: MoodifyWebAssets.tunedMomentBanner,
+                        eyebrow: 'THƯ VIỆN CÁ NHÂN',
+                        eyebrowIcon: Icons.library_music_rounded,
+                        title: 'Bộ sưu tập giai điệu của bạn',
+                        subtitle:
+                            'Sắp xếp các playlist cá nhân, lưu bài hát yêu thích và quản lý nhạc tải về trên thiết bị.',
+                        footer: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            FilledButton.icon(
+                              onPressed: state.busy || state.loading
+                                  ? null
+                                  : () => showCreatePlaylist(context),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                foregroundColor: AppColors.background,
+                                minimumSize: const Size(44, 40),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 8,
+                                ),
+                                shape: const StadiumBorder(),
+                              ),
+                              icon: const Icon(Icons.add_rounded, size: 18),
+                              label: const Text('Playlist mới'),
+                            ),
+                            OutlinedButton.icon(
+                              onPressed: () => context.push('/offline'),
+                              style: OutlinedButton.styleFrom(
+                                backgroundColor: const Color(0x33141720),
+                                foregroundColor: Colors.white,
+                                minimumSize: const Size(44, 40),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 8,
+                                ),
+                                side: const BorderSide(
+                                  color: Color(0x38FFFFFF),
+                                ),
+                                shape: const StadiumBorder(),
+                              ),
+                              icon: const Icon(
+                                Icons.download_for_offline_outlined,
+                                size: 18,
+                              ),
+                              label: const Text('Nhạc đã tải'),
+                            ),
+                            OutlinedButton.icon(
+                              onPressed: () => context.push('/history'),
+                              style: OutlinedButton.styleFrom(
+                                backgroundColor: const Color(0x33141720),
+                                foregroundColor: Colors.white,
+                                minimumSize: const Size(44, 40),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 8,
+                                ),
+                                side: const BorderSide(
+                                  color: Color(0x38FFFFFF),
+                                ),
+                                shape: const StadiumBorder(),
+                              ),
+                              icon: const Icon(Icons.history_rounded, size: 18),
+                              label: const Text('Lịch sử nghe'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                     if (state.loading) const LinearProgressIndicator(),
                     if (state.failure != null)
                       LoadMessage(
@@ -118,11 +196,11 @@ class LibraryScreen extends ConsumerWidget {
                         state.playlists.isEmpty &&
                         state.failure == null)
                       Padding(
-                        padding: const EdgeInsets.all(20),
+                        padding: const EdgeInsets.fromLTRB(14, 6, 14, 16),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 24,
-                            vertical: 32,
+                            vertical: 28,
                           ),
                           decoration: BoxDecoration(
                             color: AppColors.surfaceRaised,
@@ -145,7 +223,7 @@ class LibraryScreen extends ConsumerWidget {
                                   color: Colors.white,
                                 ),
                               ),
-                              const SizedBox(height: 20),
+                              const SizedBox(height: 18),
                               Text(
                                 'Nhạc của bạn, theo cách của bạn',
                                 textAlign: TextAlign.center,
@@ -157,7 +235,7 @@ class LibraryScreen extends ConsumerWidget {
                                 textAlign: TextAlign.center,
                                 style: TextStyle(color: AppColors.secondary),
                               ),
-                              const SizedBox(height: 24),
+                              const SizedBox(height: 22),
                               FilledButton.icon(
                                 onPressed: () => showCreatePlaylist(context),
                                 style: FilledButton.styleFrom(
@@ -217,6 +295,15 @@ class LibraryScreen extends ConsumerWidget {
                           ),
                         ),
                       ),
+                    if (!isPremium)
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(14, 14, 14, 8),
+                        child: StudioVipAdBanner(
+                          title: 'Tải playlist & bài hát nghe ngoại tuyến',
+                          subtitle:
+                              'Nâng cấp Moodify VIP để tải nhạc chất lượng cao về máy và nghe không cần kết nối mạng.',
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -233,60 +320,71 @@ class LibraryScreen extends ConsumerWidget {
                     if (i == 0) {
                       return Column(
                         children: [
-                          if (state.tracks.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: Wrap(
-                                  spacing: 10,
-                                  runSpacing: 10,
-                                  children: [
-                                    FilledButton.icon(
-                                      onPressed: () => ref
-                                          .read(
-                                            playerControllerProvider.notifier,
-                                          )
-                                          .playCollection(
-                                            state.tracks,
-                                            source: 'LIBRARY',
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                            child: StudioHeroBanner(
+                              imageAsset: MoodifyWebAssets.soundwaveDark,
+                              eyebrow: 'BÀI HÁT ĐÃ THÍCH',
+                              eyebrowIcon: Icons.favorite_rounded,
+                              title: 'Giai điệu bạn yêu thích',
+                              subtitle: state.tracks.isEmpty
+                                  ? 'Những bài hát bạn thả tim sẽ được lưu tại đây để nghe lại nhanh chóng.'
+                                  : 'Đang lưu ${state.tracks.length} bài hát trong danh sách yêu thích của bạn.',
+                              footer: state.tracks.isEmpty
+                                  ? null
+                                  : Wrap(
+                                      spacing: 10,
+                                      runSpacing: 10,
+                                      children: [
+                                        FilledButton.icon(
+                                          onPressed: () => ref
+                                              .read(
+                                                playerControllerProvider
+                                                    .notifier,
+                                              )
+                                              .playCollection(
+                                                state.tracks,
+                                                source: 'LIBRARY',
+                                              ),
+                                          style: FilledButton.styleFrom(
+                                            backgroundColor: Colors.white,
+                                            foregroundColor:
+                                                AppColors.background,
+                                            minimumSize: const Size(48, 44),
+                                            shape: const StadiumBorder(),
                                           ),
-                                      style: FilledButton.styleFrom(
-                                        backgroundColor: Colors.white,
-                                        foregroundColor: AppColors.background,
-                                        minimumSize: const Size(48, 44),
-                                        shape: const StadiumBorder(),
-                                      ),
-                                      icon: const Icon(
-                                        Icons.play_arrow_rounded,
-                                      ),
-                                      label: const Text('Phát danh sách'),
-                                    ),
-                                    OutlinedButton.icon(
-                                      onPressed: () => ref
-                                          .read(
-                                            playerControllerProvider.notifier,
-                                          )
-                                          .playCollection(
-                                            state.tracks,
-                                            shuffled: true,
-                                            source: 'LIBRARY',
+                                          icon: const Icon(
+                                            Icons.play_arrow_rounded,
                                           ),
-                                      style: OutlinedButton.styleFrom(
-                                        backgroundColor: AppColors.surfaceGlass,
-                                        minimumSize: const Size(48, 44),
-                                        side: const BorderSide(
-                                          color: AppColors.border,
+                                          label: const Text('Phát danh sách'),
                                         ),
-                                        shape: const StadiumBorder(),
-                                      ),
-                                      icon: const Icon(Icons.shuffle),
-                                      label: const Text('Trộn bài'),
+                                        OutlinedButton.icon(
+                                          onPressed: () => ref
+                                              .read(
+                                                playerControllerProvider
+                                                    .notifier,
+                                              )
+                                              .playCollection(
+                                                state.tracks,
+                                                shuffled: true,
+                                                source: 'LIBRARY',
+                                              ),
+                                          style: OutlinedButton.styleFrom(
+                                            backgroundColor:
+                                                AppColors.surfaceGlass,
+                                            minimumSize: const Size(48, 44),
+                                            side: const BorderSide(
+                                              color: AppColors.border,
+                                            ),
+                                            shape: const StadiumBorder(),
+                                          ),
+                                          icon: const Icon(Icons.shuffle),
+                                          label: const Text('Trộn bài'),
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                ),
-                              ),
                             ),
+                          ),
                           if (state.loading) const LinearProgressIndicator(),
                           if (state.failure != null)
                             LoadMessage(
@@ -297,11 +395,11 @@ class LibraryScreen extends ConsumerWidget {
                               !state.loading &&
                               state.failure == null)
                             Padding(
-                              padding: const EdgeInsets.all(20),
+                              padding: const EdgeInsets.fromLTRB(14, 4, 14, 16),
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 24,
-                                  vertical: 32,
+                                  vertical: 28,
                                 ),
                                 decoration: BoxDecoration(
                                   color: AppColors.surfaceRaised,
@@ -328,7 +426,7 @@ class LibraryScreen extends ConsumerWidget {
                                         color: Colors.white,
                                       ),
                                     ),
-                                    const SizedBox(height: 20),
+                                    const SizedBox(height: 18),
                                     const Text(
                                       'Lưu những bài bạn muốn nghe lại.',
                                       textAlign: TextAlign.center,
@@ -336,7 +434,7 @@ class LibraryScreen extends ConsumerWidget {
                                         color: AppColors.secondary,
                                       ),
                                     ),
-                                    const SizedBox(height: 20),
+                                    const SizedBox(height: 18),
                                     OutlinedButton(
                                       onPressed: () => context.go('/search'),
                                       style: OutlinedButton.styleFrom(
@@ -395,6 +493,17 @@ class LibraryScreen extends ConsumerWidget {
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     children: [
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(14, 0, 14, 14),
+                        child: StudioHeroBanner(
+                          imageAsset: MoodifyWebAssets.adBrandIdent,
+                          eyebrow: 'ĐĨA NHẠC & TUYỂN TẬP',
+                          eyebrowIcon: Icons.album_rounded,
+                          title: 'Album đã lưu của bạn',
+                          subtitle:
+                              'Thưởng thức trọn vẹn mạch cảm xúc từ những album được bạn đánh dấu lưu trữ.',
+                        ),
+                      ),
                       if (items.isEmpty)
                         const LoadMessage(
                           message: 'Album bạn lưu sẽ xuất hiện ở đây.',
@@ -469,59 +578,73 @@ class FollowedArtistsView extends ConsumerWidget {
           message: 'Chưa tải được nghệ sĩ đã theo dõi.',
           retry: () => ref.invalidate(followedArtistsProvider),
         ),
-        data: (items) => items.isEmpty
-            ? LoadMessage(
-                message: 'Nghệ sĩ bạn theo dõi sẽ xuất hiện ở đây.',
-                retry: () => context.go('/search'),
-                retryLabel: 'Tìm nghệ sĩ',
-              )
-            : RefreshIndicator(
-                onRefresh: () async {
-                  ref.invalidate(followedArtistsProvider);
-                  await ref.read(followedArtistsProvider.future);
-                },
-                child: ListView.builder(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  itemCount: items.length,
-                  itemBuilder: (_, i) => Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 4,
+        data: (items) => RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(followedArtistsProvider);
+            await ref.read(followedArtistsProvider.future);
+          },
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(14, 0, 14, 14),
+                child: StudioHeroBanner(
+                  imageAsset: MoodifyWebAssets.audioExperienceBanner,
+                  eyebrow: 'NGHỆ SĨ ĐỒNG HÀNH',
+                  eyebrowIcon: Icons.people_alt_rounded,
+                  title: 'Nghệ sĩ bạn đang theo dõi',
+                  subtitle:
+                      'Truy cập nhanh trang cá nhân, tiểu sử và danh mục ca khúc của các nghệ sĩ yêu thích.',
+                ),
+              ),
+              if (items.isEmpty)
+                LoadMessage(
+                  message: 'Nghệ sĩ bạn theo dõi sẽ xuất hiện ở đây.',
+                  retry: () => context.go('/search'),
+                  retryLabel: 'Tìm nghệ sĩ',
+                ),
+              for (final artist in items)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 4,
+                  ),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF12141A),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0x10FFFFFF)),
                     ),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF12141A),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0x10FFFFFF)),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
                       ),
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        leading: MusicArtwork(
-                          image: items[i].image,
-                          size: 52,
-                          round: true,
-                        ),
-                        title: Text(
-                          items[i].name,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        trailing: const Icon(
-                          Icons.chevron_right_rounded,
-                          color: AppColors.secondary,
-                        ),
-                        onTap: () => context.push(
-                          Uri(
-                            path: '/artist/${segment(items[i].id)}',
-                            queryParameters: {'name': items[i].name},
-                          ).toString(),
-                        ),
+                      leading: MusicArtwork(
+                        image: artist.image,
+                        size: 52,
+                        round: true,
+                      ),
+                      title: Text(
+                        artist.name,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      trailing: const Icon(
+                        Icons.chevron_right_rounded,
+                        color: AppColors.secondary,
+                      ),
+                      onTap: () => context.push(
+                        Uri(
+                          path: '/artist/${segment(artist.id)}',
+                          queryParameters: {'name': artist.name},
+                        ).toString(),
                       ),
                     ),
                   ),
                 ),
-              ),
+            ],
+          ),
+        ),
       );
 }

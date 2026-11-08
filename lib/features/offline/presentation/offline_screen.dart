@@ -5,6 +5,7 @@ import '../../../app/theme/app_theme.dart';
 import '../../../core/errors/app_failure.dart';
 import '../../../core/formatters/display_date.dart';
 import '../../../core/widgets/app_motion.dart';
+import '../../../core/widgets/studio_banners.dart';
 import '../../auth/presentation/session_controller.dart';
 import '../../catalog/presentation/catalog_widgets.dart';
 import '../../player/presentation/player_controller.dart';
@@ -295,17 +296,38 @@ class _OfflineScreenState extends ConsumerState<OfflineScreen>
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 16,
                               ),
-                              child: FilledButton.icon(
-                                onPressed: () => ref
-                                    .read(playerControllerProvider.notifier)
-                                    .select(
-                                      ready.map((e) => e.track).toList(),
-                                      0,
-                                      offline: true,
-                                      source: 'LIBRARY',
+                              child: Wrap(
+                                spacing: 10,
+                                runSpacing: 8,
+                                children: [
+                                  FilledButton.icon(
+                                    onPressed: () => ref
+                                        .read(playerControllerProvider.notifier)
+                                        .select(
+                                          ready.map((e) => e.track).toList(),
+                                          0,
+                                          offline: true,
+                                          source: 'LIBRARY',
+                                        ),
+                                    icon: const Icon(Icons.play_arrow_rounded),
+                                    label: const Text('Phát các bài sẵn sàng'),
+                                  ),
+                                  OutlinedButton.icon(
+                                    onPressed: () => ref
+                                        .read(playerControllerProvider.notifier)
+                                        .playCollection(
+                                          ready.map((e) => e.track).toList(),
+                                          shuffled: true,
+                                          offline: true,
+                                          source: 'LIBRARY',
+                                        ),
+                                    icon: const Icon(
+                                      Icons.shuffle_rounded,
+                                      size: 18,
                                     ),
-                                icon: const Icon(Icons.play_arrow_rounded),
-                                label: const Text('Phát các bài sẵn sàng'),
+                                    label: const Text('Trộn bài'),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
@@ -1031,14 +1053,20 @@ class _DownloadRow extends ConsumerWidget {
             ],
           ),
           // onRemove null khi đang bận — nút xóa mờ đi, không tác động.
-          trailing: IconButton(
-            tooltip: 'Xóa bản tải của ${entry.track.displayName}',
-            onPressed: onRemove,
-            icon: const Icon(
-              Icons.delete_outline_rounded,
-              color: AppColors.secondary,
-              size: 21,
-            ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TrackOptionsButton(track: entry.track, offline: true),
+              IconButton(
+                tooltip: 'Xóa bản tải của ${entry.track.displayName}',
+                onPressed: onRemove,
+                icon: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: AppColors.secondary,
+                  size: 21,
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -1051,53 +1079,109 @@ class _EmptyDownloads extends StatelessWidget {
   final bool? allowed;
   final bool online;
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 32),
-    child: Column(
-      children: [
-        Container(
-          width: 64,
-          height: 64,
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadii.lg),
+        child: DecoratedBox(
           decoration: BoxDecoration(
-            color: AppColors.surfaceGlass,
-            borderRadius: BorderRadius.circular(AppRadii.md),
+            color: AppColors.surfaceRaised,
+            borderRadius: BorderRadius.circular(AppRadii.lg),
             border: Border.all(color: AppColors.borderSoft),
           ),
-          child: const Icon(
-            Icons.library_music_outlined,
-            size: 28,
-            color: AppColors.secondary,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: Image.asset(
+                  MoodifyWebAssets.soundwaveDark,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                ),
+              ),
+              const Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Color(0xD6090A0D),
+                        Color(0xEB0D0F16),
+                        Color(0xF811131A),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 28,
+                  horizontal: 24,
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceGlass,
+                        borderRadius: BorderRadius.circular(AppRadii.md),
+                        border: Border.all(color: AppColors.borderSoft),
+                      ),
+                      child: const Icon(
+                        Icons.library_music_outlined,
+                        size: 26,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Chưa có bản tải trên máy',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      !online
+                          ? 'Các bài đã tải hợp lệ sẽ xuất hiện ở đây để nghe khi mất mạng.'
+                          : allowed == null
+                          ? 'Mở menu của bài hát để tải sau khi app kiểm tra được quyền offline. Các bản tải hợp lệ sẽ xuất hiện ở đây.'
+                          : allowed!
+                          ? 'Mở menu của bài hát và chọn Tải để nghe offline. Bài tải xong sẽ xuất hiện tại đây.'
+                          : 'Bạn vẫn có thể nghe nhạc trực tuyến. Để lưu nhạc trên thiết bị, cần gói có quyền offline.',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: AppColors.secondary,
+                        fontSize: 13,
+                        height: 1.55,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextButton.icon(
+                      onPressed: () => context.go('/search'),
+                      icon: const Icon(Icons.search_rounded, size: 17),
+                      label: Text(
+                        allowed == true ? 'Tìm bài để tải' : 'Tìm nhạc để nghe',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 18),
-        Text(
-          'Chưa có bản tải trên máy',
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        const SizedBox(height: 8),
-        Text(
-          !online
-              ? 'Các bài đã tải hợp lệ sẽ xuất hiện ở đây để nghe khi mất mạng.'
-              : allowed == null
-              ? 'Mở menu của bài hát để tải sau khi app kiểm tra được quyền offline. Các bản tải hợp lệ sẽ xuất hiện ở đây.'
-              : allowed!
-              ? 'Mở menu của bài hát và chọn Tải để nghe offline. Bài tải xong sẽ xuất hiện tại đây.'
-              : 'Bạn vẫn có thể nghe nhạc trực tuyến. Để lưu nhạc trên thiết bị, cần gói có quyền offline.',
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: AppColors.secondary,
-            fontSize: 13,
-            height: 1.55,
-          ),
-        ),
-        const SizedBox(height: 14),
-        TextButton.icon(
-          onPressed: () => context.go('/search'),
-          icon: const Icon(Icons.search_rounded, size: 17),
-          label: Text(allowed == true ? 'Tìm bài để tải' : 'Tìm nhạc để nghe'),
+      ),
+      if (allowed == false) ...[
+        const SizedBox(height: 16),
+        StudioVipAdBanner(
+          title: 'Mở khóa tải nhạc Offline không giới hạn',
+          subtitle:
+              'Lưu bài hát yêu thích về máy để thưởng thức mọi lúc ngay cả khi không có kết nối mạng.',
+          ctaLabel: 'Nâng cấp VIP',
+          onTap: () => context.push('/subscriptions'),
         ),
       ],
-    ),
+    ],
   );
 }

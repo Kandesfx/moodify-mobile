@@ -174,57 +174,6 @@
                     </aapt:attr>
                 </path>
 
-                <!-- 5 animated equalizer bars below the M -->
-                <group
-                    android:name="eq_bar_1"
-                    android:pivotX="46"
-                    android:pivotY="67">
-                    <path
-                        android:pathData="M46,65.5 L46,68.5"
-                        android:strokeColor="#A78BFA"
-                        android:strokeLineCap="round"
-                        android:strokeWidth="1.9" />
-                </group>
-                <group
-                    android:name="eq_bar_2"
-                    android:pivotX="50"
-                    android:pivotY="67">
-                    <path
-                        android:pathData="M50,64.2 L50,69.8"
-                        android:strokeColor="#C4B5FD"
-                        android:strokeLineCap="round"
-                        android:strokeWidth="1.9" />
-                </group>
-                <group
-                    android:name="eq_bar_3"
-                    android:pivotX="54"
-                    android:pivotY="67">
-                    <path
-                        android:pathData="M54,63.0 L54,71.0"
-                        android:strokeColor="#DDD6FE"
-                        android:strokeLineCap="round"
-                        android:strokeWidth="1.9" />
-                </group>
-                <group
-                    android:name="eq_bar_4"
-                    android:pivotX="58"
-                    android:pivotY="67">
-                    <path
-                        android:pathData="M58,64.2 L58,69.8"
-                        android:strokeColor="#F472B6"
-                        android:strokeLineCap="round"
-                        android:strokeWidth="1.9" />
-                </group>
-                <group
-                    android:name="eq_bar_5"
-                    android:pivotX="62"
-                    android:pivotY="67">
-                    <path
-                        android:pathData="M62,65.5 L62,68.5"
-                        android:strokeColor="#EC4899"
-                        android:strokeLineCap="round"
-                        android:strokeWidth="1.9" />
-                </group>
             </group>
         </vector>
     </aapt:attr>
@@ -297,51 +246,6 @@
                     android:valueTo="1.18"
                     android:valueType="floatType" />
             </set>
-        </aapt:attr>
-    </target>
-
-    <!-- Equalizer bars bounce -->
-    <target android:name="eq_bar_2">
-        <aapt:attr name="android:animation">
-            <objectAnimator
-                android:duration="300"
-                android:interpolator="@android:interpolator/accelerate_decelerate"
-                android:propertyName="scaleY"
-                android:repeatCount="2"
-                android:repeatMode="reverse"
-                android:valueFrom="0.55"
-                android:valueTo="1.35"
-                android:valueType="floatType" />
-        </aapt:attr>
-    </target>
-
-    <target android:name="eq_bar_3">
-        <aapt:attr name="android:animation">
-            <objectAnimator
-                android:duration="260"
-                android:interpolator="@android:interpolator/accelerate_decelerate"
-                android:propertyName="scaleY"
-                android:repeatCount="3"
-                android:repeatMode="reverse"
-                android:startOffset="60"
-                android:valueFrom="0.5"
-                android:valueTo="1.4"
-                android:valueType="floatType" />
-        </aapt:attr>
-    </target>
-
-    <target android:name="eq_bar_4">
-        <aapt:attr name="android:animation">
-            <objectAnimator
-                android:duration="320"
-                android:interpolator="@android:interpolator/accelerate_decelerate"
-                android:propertyName="scaleY"
-                android:repeatCount="2"
-                android:repeatMode="reverse"
-                android:startOffset="110"
-                android:valueFrom="0.55"
-                android:valueTo="1.35"
-                android:valueType="floatType" />
         </aapt:attr>
     </target>
 </animated-vector>

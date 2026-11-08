@@ -624,16 +624,21 @@ class PlayerController extends StateNotifier<PlayerState> {
   Future<void> playCollection(
     List<Track> tracks, {
     bool shuffled = false,
+    bool offline = false,
     String source = 'OTHER',
   }) async {
     if (tracks.isEmpty) return;
     final index = shuffled ? Random().nextInt(tracks.length) : 0;
     if (state.shuffle != shuffled) toggleShuffle();
-    await select(tracks, index, source: source);
+    await select(tracks, index, offline: offline, source: source);
   }
 
-  Future<bool> enqueue(Track track, {bool next = false}) async {
-    if (state.offline ||
+  Future<bool> enqueue(
+    Track track, {
+    bool next = false,
+    bool offline = false,
+  }) async {
+    if ((state.offline && !offline) ||
         state.source == 'KARAOKE' ||
         state.isAd ||
         state.loading ||
@@ -642,7 +647,12 @@ class PlayerController extends StateNotifier<PlayerState> {
     }
     if (state.queue.any((item) => item.id == track.id)) return false;
     if (state.track == null) {
-      await select([track], 0);
+      await select(
+        [track],
+        0,
+        offline: offline,
+        source: offline ? 'OFFLINE' : 'OTHER',
+      );
       return state.failure == null;
     }
     final queue = [...state.queue];

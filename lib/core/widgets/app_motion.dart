@@ -54,27 +54,40 @@ class _PressableState extends State<Pressable> {
 }
 
 /// Runs once per mounted section; playback ticks do not restart the entrance.
-class SectionEntrance extends StatelessWidget {
+class SectionEntrance extends StatefulWidget {
   const SectionEntrance({super.key, required this.child, this.order = 0});
   final Widget child;
   final int order;
 
   @override
+  State<SectionEntrance> createState() => _SectionEntranceState();
+}
+
+class _SectionEntranceState extends State<SectionEntrance> {
+  bool _done = false;
+
+  @override
   Widget build(BuildContext context) {
-    if (MediaQuery.disableAnimationsOf(context)) return child;
-    final delay = order.clamp(0, 4) * 35;
+    if (_done || MediaQuery.disableAnimationsOf(context)) return widget.child;
+    final delay = widget.order.clamp(0, 4) * 35;
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
-      duration: Duration(milliseconds: 280 + delay),
-      curve: Interval(delay / (280 + delay), 1, curve: Curves.easeOutCubic),
-      child: child,
-      builder: (_, value, child) => Opacity(
-        opacity: value,
-        child: Transform.translate(
-          offset: Offset(0, 12 * (1 - value)),
-          child: child,
-        ),
-      ),
+      duration: Duration(milliseconds: 240 + delay),
+      curve: Interval(delay / (240 + delay), 1, curve: Curves.easeOutCubic),
+      onEnd: () {
+        if (mounted && !_done) setState(() => _done = true);
+      },
+      child: widget.child,
+      builder: (_, value, child) {
+        if (value >= 0.999) return child!;
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, 10 * (1 - value)),
+            child: child,
+          ),
+        );
+      },
     );
   }
 }

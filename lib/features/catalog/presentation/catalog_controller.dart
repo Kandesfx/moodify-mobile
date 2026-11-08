@@ -45,26 +45,31 @@ class CatalogController extends StateNotifier<CatalogState> {
     final generation = ++_generation;
     _cancel?.cancel();
     final cancel = _cancel = CancelToken();
-    final previous = reset ? const CatalogState() : state;
+    final existingTracks = state.tracks;
+    final targetPage = reset ? 0 : state.nextPage;
+    final targetHasMore = reset ? true : state.hasMore;
+    // Giữ lại danh sách bài hát hiện có trong lúc làm mới (reset == true)
+    // để màn hình Trang chủ không bị xóa trắng và nhảy vị trí cuộn.
     state = CatalogState(
-      tracks: previous.tracks,
+      tracks: existingTracks,
       loading: true,
-      nextPage: previous.nextPage,
-      hasMore: previous.hasMore,
+      nextPage: targetPage,
+      hasMore: targetHasMore,
     );
     try {
       final page = await repository.tracks(
-        page: previous.nextPage,
+        page: targetPage,
         query: query.query,
         genre: query.genre,
         artistId: query.artistId,
         cancel: cancel,
       );
       if (!mounted || generation != _generation) return;
-      final unique = {for (final t in previous.tracks) t.id: t};
-      for (final track in page.tracks) {
-        unique[track.id] = track;
-      }
+      final unique = <String, Track>{
+        if (!reset)
+          for (final t in existingTracks) t.id: t,
+        for (final track in page.tracks) track.id: track,
+      };
       state = CatalogState(
         tracks: List.unmodifiable(unique.values),
         nextPage: page.page + 1,
@@ -73,9 +78,9 @@ class CatalogController extends StateNotifier<CatalogState> {
     } catch (error) {
       if (!mounted || generation != _generation) return;
       state = CatalogState(
-        tracks: previous.tracks,
-        nextPage: previous.nextPage,
-        hasMore: previous.hasMore,
+        tracks: existingTracks,
+        nextPage: reset ? state.nextPage : targetPage,
+        hasMore: reset ? state.hasMore : targetHasMore,
         failure: AppFailure.from(error),
       );
     }

@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/widgets/brand_splash.dart';
 import '../../core/widgets/app_motion.dart';
 import '../../core/widgets/feedback_panel.dart';
+import '../../core/widgets/studio_banners.dart';
+import '../theme/app_theme.dart';
 import '../../features/auth/domain/session_state.dart';
 import '../../features/auth/presentation/account_screen.dart';
 import '../../features/auth/presentation/profile_screen.dart';
@@ -37,10 +39,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final path = route.uri.path;
       if (session.phase == SessionPhase.restoring ||
           session.phase == SessionPhase.restoreFailed) {
+        const offlineShellPaths = {
+          '/home',
+          '/search',
+          '/karaoke',
+          '/library',
+          '/offline',
+          '/player',
+          '/lyrics',
+        };
         if (session.phase == SessionPhase.restoreFailed &&
-            session.offlineUserId != null &&
-            (path == '/offline' || path == '/player' || path == '/lyrics')) {
-          return null;
+            session.offlineUserId != null) {
+          if (offlineShellPaths.contains(path)) {
+            return null;
+          }
+          final destination = _destination(route.uri);
+          if (path == '/restoring' && offlineShellPaths.contains(destination)) {
+            return destination;
+          }
         }
         return path == '/restoring'
             ? null
@@ -362,24 +378,119 @@ class _RestoringScreen extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const BrandSplashHero(),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
                   if (state.phase == SessionPhase.restoreFailed) ...[
-                    FeedbackPanel(message: state.failure!.message),
-                    const SizedBox(height: 24),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceRaised,
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(color: AppColors.borderSoft),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            height: 108,
+                            width: double.infinity,
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                Image.asset(
+                                  MoodifyWebAssets.soundwaveDark,
+                                  fit: BoxFit.cover,
+                                  excludeFromSemantics: true,
+                                  errorBuilder: (_, _, _) =>
+                                      const SizedBox.shrink(),
+                                ),
+                                const DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [
+                                        Color(0x5508090C),
+                                        Color(0xF0151821),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.all(14),
+                                  child: Align(
+                                    alignment: Alignment.bottomLeft,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xCC0D1017),
+                                        borderRadius: BorderRadius.circular(
+                                          999,
+                                        ),
+                                        border: Border.all(
+                                          color: const Color(0x38FFFFFF),
+                                        ),
+                                      ),
+                                      child: const Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.wifi_off_rounded,
+                                            size: 13,
+                                            color: Color(0xFFFFB800),
+                                          ),
+                                          SizedBox(width: 6),
+                                          Text(
+                                            'CHẾ ĐỘ OFFLINE STUDIO',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w800,
+                                              letterSpacing: 0.7,
+                                              color: Color(0xFFFFB800),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: FeedbackPanel(
+                              message: state.failure!.message,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
                     FilledButton(
                       onPressed: controller.restore,
                       child: const Text('Thử lại'),
                     ),
-                    TextButton(
-                      onPressed: controller.logout,
-                      child: const Text('Xóa phiên và đăng nhập lại'),
-                    ),
-                    if (state.offlineUserId != null)
+                    const SizedBox(height: 8),
+                    if (state.offlineUserId != null) ...[
+                      OutlinedButton.icon(
+                        onPressed: () => context.go('/home'),
+                        icon: const Icon(Icons.home_rounded),
+                        label: const Text('Vào màn hình chính Offline'),
+                      ),
+                      const SizedBox(height: 8),
                       OutlinedButton.icon(
                         onPressed: () => context.push('/offline'),
                         icon: const Icon(Icons.download_for_offline_outlined),
                         label: const Text('Nghe nhạc đã tải'),
                       ),
+                    ],
+                    TextButton(
+                      onPressed: controller.logout,
+                      child: const Text('Xóa phiên và đăng nhập lại'),
+                    ),
                   ] else
                     const CircularProgressIndicator(
                       semanticsLabel: 'Đang khôi phục phiên',

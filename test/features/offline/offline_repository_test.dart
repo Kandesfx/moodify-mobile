@@ -428,4 +428,25 @@ void main() {
     expect(await repository.entries(), isEmpty);
     controller.dispose();
   });
+
+  test(
+    'download saves local cover artwork for offline display and cleans artwork on remove',
+    () async {
+      final trackWithArt = firstTrack.withImage(
+        'https://media.example.test/cover.jpg',
+      );
+      catalog.onTrack = (_) async => trackWithArt;
+      await repository.download(trackWithArt, (_) {});
+      final entries = await repository.entries();
+      expect(entries, hasLength(1));
+      final entry = entries.single;
+      expect(entry.track.image, isNotNull);
+      expect(entry.track.image, startsWith('file://'));
+      final artFile = File.fromUri(Uri.parse(entry.track.image!));
+      expect(await artFile.exists(), true);
+      expect(await artFile.readAsBytes(), raw);
+      await repository.remove(trackWithArt.id);
+      expect(await artFile.exists(), false);
+    },
+  );
 }

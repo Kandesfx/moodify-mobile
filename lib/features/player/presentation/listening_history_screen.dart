@@ -6,6 +6,7 @@ import '../../../app/theme/app_theme.dart';
 import '../../../core/errors/app_failure.dart';
 import '../../../core/formatters/display_date.dart';
 import '../../../core/widgets/app_motion.dart';
+import '../../../core/widgets/studio_banners.dart';
 import '../../auth/presentation/session_controller.dart';
 import '../../catalog/domain/catalog_models.dart';
 import '../../catalog/presentation/catalog_widgets.dart';
@@ -152,6 +153,17 @@ class _ListeningHistoryScreenState
           return SectionEntrance(
             child: ListView(
               children: [
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(14, 8, 14, 10),
+                  child: StudioHeroBanner(
+                    imageAsset: MoodifyWebAssets.tunedMomentBanner,
+                    eyebrow: 'NHẬT KÝ ÂM NHẠC',
+                    eyebrowIcon: Icons.history_rounded,
+                    title: 'Hành trình lắng nghe của bạn',
+                    subtitle:
+                        'Xem lại các bản thu bạn đã thưởng thức gần đây và phát lại ngay khi muốn.',
+                  ),
+                ),
                 if (busy) const LinearProgressIndicator(),
                 if (failure != null) LoadMessage(message: failure!.message),
                 if (items.isEmpty)

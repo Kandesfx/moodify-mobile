@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../core/formatters/display_date.dart';
 import '../../../core/widgets/app_motion.dart';
+import '../../../core/widgets/studio_banners.dart';
 import '../../auth/presentation/session_controller.dart';
 import '../../catalog/presentation/catalog_widgets.dart';
 import '../../player/presentation/player_screen.dart';
@@ -139,6 +140,15 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen>
                 _CurrentPlanCard(current: state.current),
                 const SizedBox(height: 16),
                 const _BenefitList(),
+                const SizedBox(height: 16),
+                const StudioHeroBanner(
+                  imageAsset: MoodifyWebAssets.adVipPremium,
+                  eyebrow: 'MOODIFY VIP STUDIO',
+                  eyebrowIcon: Icons.auto_awesome_rounded,
+                  title: 'Không gian âm nhạc trọn vẹn mọi khoảnh khắc',
+                  subtitle:
+                      'Loại bỏ quảng cáo, mở khóa tải nhạc offline, tìm kiếm bài hát theo cảm xúc và phòng thu Karaoke nâng cao.',
+                ),
                 const SizedBox(height: 28),
                 Text(
                   'Chọn gói cho bạn',
@@ -249,80 +259,119 @@ class _CurrentPlanCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final premium = current?.premium == true;
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceRaised,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.borderSoft),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.workspace_premium_rounded,
-                color: AppColors.lavender,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Gói hiện tại',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.secondary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: AppColors.surfaceRaised,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: premium
+                ? AppColors.primary.withValues(alpha: .45)
+                : AppColors.borderSoft,
           ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  current?.name ?? 'Tài khoản Miễn phí',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-                ),
+        ),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: Image.asset(
+                premium
+                    ? MoodifyWebAssets.adBrandIdent
+                    : MoodifyWebAssets.audioExperienceBanner,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => const SizedBox.shrink(),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 5,
-                ),
+            ),
+            const Positioned.fill(
+              child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: premium
-                      ? AppColors.primary.withValues(alpha: .16)
-                      : AppColors.surfaceRaised,
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(
-                    color: premium
-                        ? AppColors.primary.withValues(alpha: .5)
-                        : AppColors.border,
-                  ),
-                ),
-                child: Text(
-                  premium ? 'Đang sử dụng' : 'Miễn phí',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: premium ? AppColors.lavender : AppColors.secondary,
-                    fontWeight: FontWeight.w700,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Color(0xD8090A0D),
+                      Color(0xEB0D0F16),
+                      Color(0xF511131A),
+                    ],
                   ),
                 ),
               ),
-            ],
-          ),
-          if (current?.expiresAt != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              'Có hiệu lực đến ${displayDate(current!.expiresAt)}',
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: AppColors.secondary),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.workspace_premium_rounded,
+                        color: AppColors.lavender,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Gói hiện tại',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.secondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          current?.name ?? 'Tài khoản Miễn phí',
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: premium
+                              ? AppColors.primary.withValues(alpha: .16)
+                              : AppColors.surfaceRaised,
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                            color: premium
+                                ? AppColors.primary.withValues(alpha: .5)
+                                : AppColors.border,
+                          ),
+                        ),
+                        child: Text(
+                          premium ? 'Đang sử dụng' : 'Miễn phí',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: premium
+                                    ? AppColors.lavender
+                                    : AppColors.secondary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (current?.expiresAt != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Có hiệu lực đến ${displayDate(current!.expiresAt)}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.secondary,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
           ],
-        ],
+        ),
       ),
     );
   }

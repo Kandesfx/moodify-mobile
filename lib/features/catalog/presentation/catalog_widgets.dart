@@ -1,14 +1,17 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../auth/domain/session_state.dart';
 import '../../offline/presentation/offline_controller.dart';
 
 import '../../../app/theme/app_theme.dart';
 import '../../../core/widgets/feedback_panel.dart';
 import '../../../core/widgets/app_motion.dart';
 import '../../../core/widgets/app_sheets.dart';
+import '../../../core/widgets/studio_banners.dart';
 import '../../auth/presentation/session_controller.dart';
 import '../../library/presentation/library_controller.dart';
 import '../../library/presentation/playlist_dialog.dart';
@@ -63,6 +66,18 @@ class MusicArtwork extends ConsumerWidget {
             dimension: size,
             child: uri == null
                 ? placeholder
+                : uri.scheme == 'file'
+                ? Image.file(
+                    File.fromUri(uri),
+                    fit: BoxFit.cover,
+                    filterQuality: FilterQuality.low,
+                    gaplessPlayback: true,
+                    cacheWidth: (size * MediaQuery.devicePixelRatioOf(context))
+                        .round()
+                        .clamp(64, 720),
+                    excludeFromSemantics: true,
+                    errorBuilder: (_, _, _) => placeholder,
+                  )
                 : Image.network(
                     uri.toString(),
                     fit: BoxFit.cover,
@@ -89,17 +104,20 @@ class TrackTile extends ConsumerWidget {
     required this.index,
     this.remove,
     this.onSelected,
+    this.offline = false,
   });
   final Track track;
   final List<Track> queue;
   final int index;
   final VoidCallback? remove;
   final VoidCallback? onSelected;
+  final bool offline;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final active = ref.watch(
       playerControllerProvider.select((s) => s.track?.id == track.id),
     );
+    final isLocalArt = track.image?.startsWith('file:') == true;
     return RepaintBoundary(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
@@ -155,20 +173,36 @@ class TrackTile extends ConsumerWidget {
             ),
             subtitle: Padding(
               padding: const EdgeInsets.only(top: 2),
-              child: Text(
-                track.artist,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 12.5,
-                  color: AppColors.secondary,
-                ),
+              child: Row(
+                children: [
+                  if (offline || isLocalArt) ...[
+                    const Icon(
+                      Icons.offline_pin_rounded,
+                      size: 13,
+                      color: Color(0xFF4ADE80),
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  Expanded(
+                    child: Text(
+                      track.artist,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: AppColors.secondary,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
             onTap: () {
               onSelected?.call();
               final path = GoRouterState.of(context).uri.path;
-              final source = path.startsWith('/album/')
+              final source = offline
+                  ? 'OFFLINE'
+                  : path.startsWith('/album/')
                   ? 'ALBUM'
                   : path.startsWith('/artist/')
                   ? 'ARTIST'
@@ -183,11 +217,15 @@ class TrackTile extends ConsumerWidget {
                   : 'OTHER';
               ref
                   .read(playerControllerProvider.notifier)
-                  .select(queue, index, source: source);
+                  .select(queue, index, offline: offline, source: source);
             },
             selected: active,
             selectedTileColor: Colors.transparent,
-            trailing: TrackOptionsButton(track: track, remove: remove),
+            trailing: TrackOptionsButton(
+              track: track,
+              remove: remove,
+              offline: offline,
+            ),
           ),
         ),
       ),
@@ -196,15 +234,26 @@ class TrackTile extends ConsumerWidget {
 }
 
 class TrackOptionsButton extends ConsumerWidget {
-  const TrackOptionsButton({super.key, required this.track, this.remove});
+  const TrackOptionsButton({
+    super.key,
+    required this.track,
+    this.remove,
+    this.offline = false,
+  });
   final Track track;
   final VoidCallback? remove;
+  final bool offline;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return IconButton(
       tooltip: 'Tùy chọn cho ${track.displayName}',
-      onPressed: () =>
-          showTrackOptionsSheet(context, ref, track, remove: remove),
+      onPressed: () => showTrackOptionsSheet(
+        context,
+        ref,
+        track,
+        remove: remove,
+        offline: offline,
+      ),
       icon: const Icon(Icons.more_vert_rounded),
     );
   }
@@ -217,6 +266,7 @@ Future<void> showTrackOptionsSheet(
   WidgetRef ref,
   Track track, {
   VoidCallback? remove,
+  bool offline = false,
 }) {
   return showAppModalSheet<void>(
     context: context,
@@ -225,9 +275,11 @@ Future<void> showTrackOptionsSheet(
     builder: (sheetContext) => _TrackOptionsSheet(
       track: track,
       remove: remove,
+      offline: offline,
       // Hành động chạy với context/ref của nút mở sheet: sau khi sheet pop,
       // sheetContext không còn dùng được cho push/snackbar.
-      onAction: (action) => performTrackAction(context, ref, track, action),
+      onAction: (action) =>
+          performTrackAction(context, ref, track, action, offline: offline),
     ),
   );
 }
@@ -237,10 +289,12 @@ class _TrackOptionsSheet extends ConsumerWidget {
     required this.track,
     required this.onAction,
     this.remove,
+    this.offline = false,
   });
   final Track track;
   final Future<void> Function(String action) onAction;
   final VoidCallback? remove;
+  final bool offline;
 
   void _run(BuildContext sheetContext, String action) {
     Navigator.of(sheetContext).pop();
@@ -264,8 +318,12 @@ class _TrackOptionsSheet extends ConsumerWidget {
     // không được khoá menu (like là optimistic, sẽ tự phục hồi khi load lại).
     final libraryReady = library == null || !library.busy;
     final downloads = ref.watch(offlineControllerProvider);
-    final downloaded = downloads.entries.any((e) => e.track.id == track.id);
+    final offlineEntry = downloads.entries
+        .where((e) => e.track.id == track.id)
+        .firstOrNull;
+    final downloaded = offlineEntry != null;
     final downloading = downloads.downloading == track.id;
+    final effectiveTrack = offlineEntry?.track ?? track;
     return SafeArea(
       // Sheet cuộn được khi màn hình thấp hoặc chữ lớn.
       child: SingleChildScrollView(
@@ -296,7 +354,7 @@ class _TrackOptionsSheet extends ConsumerWidget {
                       ],
                     ),
                     child: MusicArtwork(
-                      image: track.image,
+                      image: effectiveTrack.image,
                       size: 56,
                       radius: 14,
                     ),
@@ -306,6 +364,42 @@ class _TrackOptionsSheet extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        if (downloaded) ...[
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0x2422C55E),
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(
+                                color: const Color(0x5522C55E),
+                              ),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.offline_pin_rounded,
+                                  size: 11,
+                                  color: Color(0xFF4ADE80),
+                                ),
+                                SizedBox(width: 4),
+                                Text(
+                                  'ĐÃ TẢI OFFLINE',
+                                  style: TextStyle(
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.5,
+                                    color: Color(0xFF4ADE80),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                         Text(
                           track.displayName,
                           maxLines: 1,
@@ -345,6 +439,22 @@ class _TrackOptionsSheet extends ConsumerWidget {
               clipBehavior: Clip.antiAlias,
               child: Column(
                 children: [
+                  if (downloaded && !offlineEntry.expired) ...[
+                    _OptionTile(
+                      icon: Icons.play_circle_fill_rounded,
+                      iconColor: const Color(0xFF4ADE80),
+                      label: 'Phát bản đã tải (Offline)',
+                      subtitle: 'Phát trực tiếp từ bộ nhớ thiết bị',
+                      onTap: () => _run(context, 'play_offline'),
+                    ),
+                    const Divider(
+                      height: 1,
+                      thickness: 1,
+                      indent: 68,
+                      endIndent: 16,
+                      color: Color(0x10FFFFFF),
+                    ),
+                  ],
                   _OptionTile(
                     icon: liked
                         ? Icons.favorite_rounded
@@ -391,7 +501,7 @@ class _TrackOptionsSheet extends ConsumerWidget {
                         ? 'Xem tiến độ tải'
                         : 'Tải để nghe offline',
                     subtitle: downloaded
-                        ? 'Đã tải về máy'
+                        ? 'Đã tải về máy kèm ảnh bìa'
                         : downloading
                         ? 'Đang tải xuống...'
                         : null,
@@ -431,6 +541,18 @@ class _TrackOptionsSheet extends ConsumerWidget {
                     icon: Icons.playlist_play_rounded,
                     label: 'Phát tiếp theo',
                     onTap: () => _run(context, 'next'),
+                  ),
+                  const Divider(
+                    height: 1,
+                    thickness: 1,
+                    indent: 68,
+                    endIndent: 16,
+                    color: Color(0x10FFFFFF),
+                  ),
+                  _OptionTile(
+                    icon: Icons.lyrics_outlined,
+                    label: 'Xem lời bài hát',
+                    onTap: () => _run(context, 'lyrics'),
                   ),
                   const Divider(
                     height: 1,
@@ -569,12 +691,61 @@ Future<void> performTrackAction(
   BuildContext context,
   WidgetRef ref,
   Track track,
-  String action,
-) async {
+  String action, {
+  bool offline = false,
+}) async {
+  final sessionState = ref.read(sessionControllerProvider);
+  final hasOfflineUser =
+      sessionState.session?.user.id != null ||
+      sessionState.offlineUserId != null;
+  final offlineEntry = hasOfflineUser
+      ? ref
+            .read(offlineControllerProvider)
+            .entries
+            .where((e) => e.track.id == track.id)
+            .firstOrNull
+      : null;
+  final effectiveTrack = offlineEntry?.track ?? track;
+  final useOffline =
+      offline ||
+      (offlineEntry != null &&
+          !offlineEntry.expired &&
+          (ref.read(playerControllerProvider).offline ||
+              sessionState.phase == SessionPhase.restoreFailed));
+
+  if (action == 'play_offline') {
+    await ref
+        .read(playerControllerProvider.notifier)
+        .select([effectiveTrack], 0, offline: true, source: 'OFFLINE');
+    return;
+  }
+  if (action == 'lyrics') {
+    final currentTrack = ref.read(playerControllerProvider).track;
+    if (currentTrack?.id != effectiveTrack.id) {
+      await ref
+          .read(playerControllerProvider.notifier)
+          .select(
+            [effectiveTrack],
+            0,
+            offline:
+                useOffline || (offlineEntry != null && !offlineEntry.expired),
+            source: useOffline ? 'OFFLINE' : 'OTHER',
+          );
+    }
+    if (context.mounted) {
+      context.push('/lyrics');
+    }
+    return;
+  }
   if (action == 'queue' || action == 'next') {
     final success = await ref
         .read(playerControllerProvider.notifier)
-        .enqueue(track, next: action == 'next');
+        .enqueue(
+          effectiveTrack,
+          next: action == 'next',
+          offline:
+              useOffline || (offlineEntry != null && !offlineEntry.expired),
+        );
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -593,7 +764,7 @@ Future<void> performTrackAction(
     return;
   }
   if (action == 'share') {
-    showShareTrackSheet(context, track);
+    showShareTrackSheet(context, effectiveTrack);
     return;
   }
   if (action == 'artist') {
@@ -606,6 +777,18 @@ Future<void> performTrackAction(
     return;
   }
   if (ref.read(sessionControllerProvider).session == null) {
+    if (sessionState.phase == SessionPhase.restoreFailed) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Bạn đang ở chế độ Offline. Kết nối lại mạng để đồng bộ Yêu thích và Playlist.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
     ref.read(pendingTrackActionProvider.notifier).state = PendingTrackAction(
       track,
       action,
@@ -771,60 +954,121 @@ class GuestPrompt extends StatelessWidget {
     appBar: AppBar(title: Text(title)),
     body: Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(28),
+        padding: const EdgeInsets.all(24),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 440),
+          constraints: const BoxConstraints(maxWidth: 460),
           child: SectionEntrance(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceRaised,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: AppColors.borderSoft),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 68,
-                    height: 68,
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceGlass,
-                      borderRadius: BorderRadius.circular(22),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: const Icon(
-                      Icons.person_outline_rounded,
-                      size: 32,
-                      color: AppColors.lavender,
-                    ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceRaised,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: AppColors.borderSoft),
                   ),
-                  const SizedBox(height: 22),
-                  const Text(
-                    'Khách vãng lai',
-                    style: TextStyle(fontSize: 21, fontWeight: FontWeight.w700),
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        height: 128,
+                        width: double.infinity,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            Image.asset(
+                              MoodifyWebAssets.moodBanner,
+                              fit: BoxFit.cover,
+                              filterQuality: FilterQuality.low,
+                              excludeFromSemantics: true,
+                              errorBuilder: (_, _, _) => const ColoredBox(
+                                color: AppColors.surfaceGlass,
+                              ),
+                            ),
+                            const DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Color(0x28090A0D),
+                                    Color(0xF5171A21),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            Align(
+                              alignment: Alignment.bottomCenter,
+                              child: Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Container(
+                                  width: 64,
+                                  height: 64,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.surfaceGlass,
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(color: AppColors.border),
+                                  ),
+                                  child: const Icon(
+                                    Icons.person_outline_rounded,
+                                    size: 30,
+                                    color: AppColors.lavender,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 14, 24, 28),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              'Khách vãng lai',
+                              style: TextStyle(
+                                fontSize: 21,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              message,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: AppColors.secondary,
+                                height: 1.45,
+                              ),
+                            ),
+                            const SizedBox(height: 22),
+                            FilledButton(
+                              onPressed: () => context.push(
+                                Uri(
+                                  path: '/sign-in',
+                                  queryParameters: {'from': returnTo},
+                                ).toString(),
+                              ),
+                              child: const Text('Đăng nhập'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 10),
-                  Text(
-                    message,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: AppColors.secondary,
-                      height: 1.45,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  FilledButton(
-                    onPressed: () => context.push(
-                      Uri(
-                        path: '/sign-in',
-                        queryParameters: {'from': returnTo},
-                      ).toString(),
-                    ),
-                    child: const Text('Đăng nhập'),
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 16),
+                const StudioHeroBanner(
+                  imageAsset: MoodifyWebAssets.audioExperienceBanner,
+                  eyebrow: 'KHÔNG GIAN ÂM NHẠC MOODIFY',
+                  eyebrowIcon: Icons.graphic_eq_rounded,
+                  title: 'Đồng bộ trên mọi thiết bị của bạn',
+                  subtitle:
+                      'Tạo playlist cá nhân, lưu bài hát yêu thích, hát Karaoke chấm điểm và tải nhạc nghe offline mọi lúc.',
+                  tags: ['Thư viện đám mây', 'Karaoke Studio', 'Offline'],
+                ),
+              ],
             ),
           ),
         ),

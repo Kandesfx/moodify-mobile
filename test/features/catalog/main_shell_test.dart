@@ -144,14 +144,11 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.byType(TextField), findsOneWidget);
         expect(tester.takeException(), isNull);
-        // Parity web: tìm kiếm theo cảm xúc là đặc quyền VIP — guest bấm
-        // 'Cảm xúc' chỉ thấy sheet nâng cấp, không được chuyển chế độ.
+        // Tìm kiếm theo cảm xúc chỉ yêu cầu đăng nhập — guest bấm
+        // 'Cảm xúc' thấy sheet yêu cầu đăng nhập, không chuyển chế độ khi chưa đăng nhập.
         await tester.tap(find.text('Cảm xúc'));
         await tester.pumpAndSettle();
-        expect(
-          find.text('Tìm kiếm theo cảm xúc là đặc quyền VIP'),
-          findsOneWidget,
-        );
+        expect(find.text('Đăng nhập để tìm kiếm theo cảm xúc'), findsOneWidget);
         expect(tester.takeException(), isNull);
       },
     );

@@ -5,6 +5,7 @@ import '../../../app/theme/app_theme.dart';
 import '../../../core/errors/app_failure.dart';
 import '../../../core/widgets/feedback_panel.dart';
 import '../../../core/widgets/app_motion.dart';
+import '../../../core/widgets/studio_banners.dart';
 import '../data/profile_repository.dart';
 import 'session_controller.dart';
 
@@ -148,49 +149,83 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceRaised,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 26,
-                            backgroundColor: AppColors.surfaceGlass,
-                            backgroundImage: user.avatarUrl == null
-                                ? null
-                                : NetworkImage(user.avatarUrl!),
-                            child: user.avatarUrl == null
-                                ? const Icon(
-                                    Icons.person_rounded,
-                                    color: Colors.white,
-                                  )
-                                : null,
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  user.fullName,
-                                  style: Theme.of(
-                                    context,
-                                  ).textTheme.titleMedium,
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '@${user.username}',
-                                  style: const TextStyle(
-                                    color: AppColors.secondary,
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceRaised,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: AppColors.borderSoft),
+                        ),
+                        child: Stack(
+                          children: [
+                            Positioned.fill(
+                              child: Image.asset(
+                                MoodifyWebAssets.tunedMomentBanner,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, _, _) =>
+                                    const SizedBox.shrink(),
+                              ),
+                            ),
+                            const Positioned.fill(
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: [
+                                      Color(0xD8090A0D),
+                                      Color(0xED0C0E14),
+                                      Color(0xF611131A),
+                                    ],
                                   ),
                                 ),
-                              ],
+                              ),
                             ),
-                          ),
-                        ],
+                            Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 26,
+                                    backgroundColor: AppColors.surfaceGlass,
+                                    backgroundImage: user.avatarUrl == null
+                                        ? null
+                                        : NetworkImage(user.avatarUrl!),
+                                    child: user.avatarUrl == null
+                                        ? const Icon(
+                                            Icons.person_rounded,
+                                            color: Colors.white,
+                                          )
+                                        : null,
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          user.fullName,
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.titleMedium,
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          '@${user.username}',
+                                          style: const TextStyle(
+                                            color: AppColors.secondary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 28),

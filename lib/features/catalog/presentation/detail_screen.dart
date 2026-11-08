@@ -282,12 +282,25 @@ class CollectionScreen extends ConsumerWidget {
                                       label: const Text('Trộn bài'),
                                     ),
                                   OutlinedButton.icon(
-                                    onPressed: () => SharePlus.instance.share(
-                                      ShareParams(
-                                        text:
-                                            '${item.title} — ${item.author ?? 'Moodify'}',
-                                      ),
-                                    ),
+                                    onPressed: () {
+                                      final isAlbum = album;
+                                      final url = isAlbum
+                                          ? 'https://moodify.click/dashboard/player?album=${item.id}'
+                                          : 'https://moodify.click/dashboard/player?playlist=${item.id}';
+                                      final label = isAlbum
+                                          ? 'album'
+                                          : 'playlist';
+                                      final text =
+                                          'Nghe $label "${item.title}" trên Moodify:\n$url';
+                                      SharePlus.instance.share(
+                                        ShareParams(
+                                          text: text,
+                                          subject: '${item.title} — Moodify',
+                                          title:
+                                              'Chia sẻ $label "${item.title}"',
+                                        ),
+                                      );
+                                    },
                                     style: OutlinedButton.styleFrom(
                                       backgroundColor: AppColors.surfaceRaised,
                                       side: const BorderSide(
@@ -490,9 +503,20 @@ class ArtistScreen extends ConsumerWidget {
                                 ),
                               ),
                               OutlinedButton.icon(
-                                onPressed: () => SharePlus.instance.share(
-                                  ShareParams(text: '${person.name} — Moodify'),
-                                ),
+                                onPressed: () {
+                                  final url =
+                                      'https://moodify.click/dashboard/artists/${person.id}';
+                                  final text =
+                                      'Khám phá âm nhạc của nghệ sĩ ${person.name} trên Moodify:\n$url';
+                                  SharePlus.instance.share(
+                                    ShareParams(
+                                      text: text,
+                                      subject:
+                                          'Nghệ sĩ ${person.name} — Moodify',
+                                      title: 'Chia sẻ nghệ sĩ "${person.name}"',
+                                    ),
+                                  );
+                                },
                                 style: OutlinedButton.styleFrom(
                                   backgroundColor: AppColors.surfaceRaised,
                                   side: const BorderSide(

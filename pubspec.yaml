@@ -40,6 +40,9 @@ flutter:
     - assets/ads/
     - assets/ads/moodify_brand_ident_art.jpg
     - assets/ads/moodify_vip_premium_art.jpg
+    - assets/audio/moodify_notification_chime.mp3
+    - assets/banners/
+    - assets/covers/
     - assets/brand/moodify-mark.png
     - assets/fonts/OFL.txt
   fonts:

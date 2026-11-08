@@ -10,11 +10,12 @@ import '../../catalog/presentation/artwork_backdrop.dart';
 import '../../catalog/presentation/catalog_widgets.dart';
 import '../domain/lyric_line.dart';
 import 'player_controller.dart';
+import 'player_screen.dart' show playbackTime;
 import 'player_sheets.dart';
 
 /// Hiển thị bảng chia sẻ chi tiết theo chuẩn Spotify & Moodify Web:
 /// Hỗ trợ chia sẻ bài hát (thẻ bài hát + liên kết) và trích dẫn lời bài hát (Lyric Card)
-/// với ràng buộc chặt chẽ cho các bài hát không có lời.
+/// với ô sao chép liên kết responsive không bị tràn màn hình.
 void showShareTrackSheet(BuildContext context, Track track) {
   showAppModalSheet<void>(
     context: context,
@@ -37,11 +38,12 @@ class _TrackShareSheetState extends ConsumerState<_TrackShareSheet> {
   int _selectedTabIndex = 0; // 0: Bài hát, 1: Trích dẫn lời
   int _selectedLyricIndex = 0;
   final Set<int> _selectedIndices = {};
+  bool _copiedLink = false;
+  bool _copiedQuote = false;
 
   @override
   void initState() {
     super.initState();
-    // Khởi tạo câu lời mặc định dựa theo thời gian đang phát
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final position = ref.read(playerControllerProvider).position;
@@ -65,7 +67,6 @@ class _TrackShareSheetState extends ConsumerState<_TrackShareSheet> {
           _selectedIndices.remove(index);
         }
       } else {
-        // Cho phép chọn tối đa 3 câu lời liên tiếp
         if (_selectedIndices.length >= 3) {
           _selectedIndices.clear();
         }
@@ -74,28 +75,42 @@ class _TrackShareSheetState extends ConsumerState<_TrackShareSheet> {
     });
   }
 
-  String _buildShareUrl() =>
-      'https://moodify.click/dashboard/player?track=${widget.track.spotifyId}';
+  String _buildShareUrl() {
+    final identifier = widget.track.spotifyId.isNotEmpty
+        ? widget.track.spotifyId
+        : widget.track.id;
+    return 'https://moodify.click/dashboard/player?track=$identifier';
+  }
 
   Future<void> _copyTrackLink() async {
     final url = _buildShareUrl();
     await Clipboard.setData(ClipboardData(text: url));
+    HapticFeedback.lightImpact();
     if (!mounted) return;
+    setState(() => _copiedLink = true);
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Đã sao chép liên kết bài hát vào bộ nhớ tạm.'),
+        behavior: SnackBarBehavior.floating,
+        duration: Duration(seconds: 2),
       ),
     );
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _copiedLink = false);
+    });
   }
 
   Future<void> _shareTrack() async {
     final box = context.findRenderObject() as RenderBox?;
+    final url = _buildShareUrl();
     final text =
-        'Nghe bài hát "${widget.track.displayName}" của ${widget.track.artist} trên Moodify: ${_buildShareUrl()}';
+        'Nghe bài hát "${widget.track.displayName}" của ${widget.track.artist} trên Moodify:\n$url';
     await SharePlus.instance.share(
       ShareParams(
         text: text,
-        title: 'Moodify',
+        subject: '${widget.track.displayName} — ${widget.track.artist}',
+        title: 'Chia sẻ bài hát "${widget.track.displayName}"',
         sharePositionOrigin: box == null
             ? null
             : box.localToGlobal(Offset.zero) & box.size,
@@ -107,12 +122,20 @@ class _TrackShareSheetState extends ConsumerState<_TrackShareSheet> {
     final text =
         '“$quoteText”\n\n— Bài hát: ${widget.track.displayName} · ${widget.track.artist}\nNghe trên Moodify: ${_buildShareUrl()}';
     await Clipboard.setData(ClipboardData(text: text));
+    HapticFeedback.lightImpact();
     if (!mounted) return;
+    setState(() => _copiedQuote = true);
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Đã sao chép đoạn trích lời bài hát vào bộ nhớ tạm.'),
+        behavior: SnackBarBehavior.floating,
+        duration: Duration(seconds: 2),
       ),
     );
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _copiedQuote = false);
+    });
   }
 
   Future<void> _shareLyricQuote(String quoteText) async {
@@ -122,7 +145,9 @@ class _TrackShareSheetState extends ConsumerState<_TrackShareSheet> {
     await SharePlus.instance.share(
       ShareParams(
         text: text,
-        title: 'Moodify - Trích dẫn lời bài hát',
+        subject:
+            'Trích dẫn: ${widget.track.displayName} — ${widget.track.artist}',
+        title: 'Trích dẫn lời bài hát - ${widget.track.displayName}',
         sharePositionOrigin: box == null
             ? null
             : box.localToGlobal(Offset.zero) & box.size,
@@ -136,7 +161,6 @@ class _TrackShareSheetState extends ConsumerState<_TrackShareSheet> {
     final plain = ref.watch(playerPlainLyricsProvider);
     final hasLyrics = lines.isNotEmpty || plain.isNotEmpty;
 
-    // Lấy nội dung câu trích dẫn hiển thị trên Lyric Card
     final quoteList = <String>[];
     if (lines.isNotEmpty) {
       final sorted = _selectedIndices.toList()..sort();
@@ -155,8 +179,9 @@ class _TrackShareSheetState extends ConsumerState<_TrackShareSheet> {
       quoteList.add(plain[idx]);
     }
     final quoteText = quoteList.join('\n');
+    final shareUrl = _buildShareUrl();
 
-    final maxHeight = MediaQuery.sizeOf(context).height * 0.86;
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.88;
 
     return Container(
       constraints: BoxConstraints(maxHeight: maxHeight),
@@ -175,7 +200,7 @@ class _TrackShareSheetState extends ConsumerState<_TrackShareSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Thanh gạt & nút đóng
+            // Thanh gạt & tiêu đề sheet
             Center(
               child: Container(
                 margin: const EdgeInsets.only(top: 10, bottom: 6),
@@ -199,7 +224,7 @@ class _TrackShareSheetState extends ConsumerState<_TrackShareSheet> {
                   const SizedBox(width: 8),
                   const Expanded(
                     child: Text(
-                      'Chia sẻ',
+                      'Chia sẻ âm nhạc',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -220,7 +245,7 @@ class _TrackShareSheetState extends ConsumerState<_TrackShareSheet> {
               ),
             ),
 
-            // Bộ chuyển đổi Tab (Bài hát / Trích dẫn lời)
+            // Bộ chuyển đổi Tab (Thẻ bài hát / Trích dẫn lời)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Container(
@@ -254,6 +279,7 @@ class _TrackShareSheetState extends ConsumerState<_TrackShareSheet> {
                                 content: Text(
                                   'Bài hát này không có lời (bản hòa tấu hoặc chưa cập nhật lời).',
                                 ),
+                                behavior: SnackBarBehavior.floating,
                               ),
                             );
                             return;
@@ -279,6 +305,8 @@ class _TrackShareSheetState extends ConsumerState<_TrackShareSheet> {
                     ? _TrackShareView(
                         key: const ValueKey('track-share-view'),
                         track: widget.track,
+                        shareUrl: shareUrl,
+                        copied: _copiedLink,
                         onCopyLink: _copyTrackLink,
                         onShare: _shareTrack,
                       )
@@ -290,6 +318,7 @@ class _TrackShareSheetState extends ConsumerState<_TrackShareSheet> {
                         selectedIndices: _selectedIndices,
                         selectedLyricIndex: _selectedLyricIndex,
                         quoteText: quoteText,
+                        copied: _copiedQuote,
                         onSelectLine: _toggleLyricSelection,
                         onCopyQuote: () => _copyLyricQuote(quoteText),
                         onShareQuote: () => _shareLyricQuote(quoteText),
@@ -361,25 +390,30 @@ class _ShareModeTab extends StatelessWidget {
   }
 }
 
-/// Giao diện chia sẻ thẻ bài hát tiêu chuẩn
+/// Giao diện chia sẻ thẻ bài hát tiêu chuẩn Studio Dark
 class _TrackShareView extends StatelessWidget {
   const _TrackShareView({
     super.key,
     required this.track,
+    required this.shareUrl,
+    required this.copied,
     required this.onCopyLink,
     required this.onShare,
   });
   final Track track;
+  final String shareUrl;
+  final bool copied;
   final VoidCallback onCopyLink;
   final VoidCallback onShare;
 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 6, 20, 20),
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Thẻ bài hát Studio Dark xem trước
+          // 1. Thẻ bài hát Studio Dark sang trọng (không nhét URL gây tràn viền)
           ArtworkPaletteBuilder(
             image: track.image,
             builder: (context, palette, _) => Container(
@@ -414,7 +448,7 @@ class _TrackShareView extends StatelessWidget {
                         children: [
                           Icon(
                             Icons.graphic_eq_rounded,
-                            size: 14,
+                            size: 15,
                             color: palette.accent,
                           ),
                           const SizedBox(width: 6),
@@ -438,10 +472,14 @@ class _TrackShareView extends StatelessWidget {
                           color: const Color(0x28FFFFFF),
                           borderRadius: BorderRadius.circular(999),
                         ),
-                        child: const Text(
-                          'BẢN GHI ÂM SỐ',
-                          style: TextStyle(
-                            fontSize: 9.5,
+                        child: Text(
+                          track.durationMs > 0
+                              ? playbackTime(
+                                  Duration(milliseconds: track.durationMs),
+                                )
+                              : 'BẢN GHI ÂM SỐ',
+                          style: const TextStyle(
+                            fontSize: 10,
                             fontWeight: FontWeight.w700,
                             color: Colors.white,
                           ),
@@ -455,7 +493,7 @@ class _TrackShareView extends StatelessWidget {
                       borderRadius: BorderRadius.circular(18),
                       boxShadow: const [
                         BoxShadow(
-                          color: Color(0x50000000),
+                          color: Color(0x55000000),
                           blurRadius: 24,
                           offset: Offset(0, 10),
                         ),
@@ -463,11 +501,11 @@ class _TrackShareView extends StatelessWidget {
                     ),
                     child: MusicArtwork(
                       image: track.image,
-                      size: 150,
+                      size: 140,
                       radius: 18,
                     ),
                   ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 16),
                   Text(
                     track.displayName,
                     textAlign: TextAlign.center,
@@ -492,63 +530,195 @@ class _TrackShareView extends StatelessWidget {
                       color: Color(0xC2FFFFFF),
                     ),
                   ),
-                  const SizedBox(height: 14),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0x20000000),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0x1AFFFFFF)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.link_rounded,
-                          size: 13,
-                          color: Color(0xB8FFFFFF),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'moodify.click/dashboard/player?track=${track.spotifyId.length > 12 ? track.spotifyId.substring(0, 12) : track.spotifyId}...',
-                          style: const TextStyle(
-                            fontSize: 10.5,
-                            fontFamily: 'monospace',
-                            color: Color(0xB8FFFFFF),
+                  const SizedBox(height: 16),
+                  // Sóng âm thanh cách điệu đẹp mắt, kích thước chuẩn không bao giờ tràn
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      for (final h in [
+                        6.0,
+                        10.0,
+                        16.0,
+                        8.0,
+                        14.0,
+                        20.0,
+                        12.0,
+                        18.0,
+                        8.0,
+                        14.0,
+                        16.0,
+                        10.0,
+                        6.0,
+                      ])
+                        Container(
+                          width: 3,
+                          height: h,
+                          margin: const EdgeInsets.symmetric(horizontal: 2),
+                          decoration: BoxDecoration(
+                            color: palette.accent.withValues(alpha: 0.8),
+                            borderRadius: BorderRadius.circular(2),
                           ),
                         ),
-                      ],
-                    ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'moodify.click',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
+                          color: Colors.white.withValues(alpha: 0.75),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
           ),
 
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
 
-          // Các nút hành động
+          // 2. Ô liên kết tương tác (Link Box) riêng biệt, responsive 100% không tràn
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onCopyLink,
+              borderRadius: BorderRadius.circular(16),
+              child: AnimatedContainer(
+                duration: AppMotion.duration(context, 200),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: copied
+                      ? const Color(0x2222C55E)
+                      : const Color(0x18FFFFFF),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: copied
+                        ? const Color(0x8022C55E)
+                        : const Color(0x28FFFFFF),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      copied ? Icons.check_circle_rounded : Icons.link_rounded,
+                      size: 20,
+                      color: copied
+                          ? const Color(0xFF4ADE80)
+                          : const Color(0xB8FFFFFF),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            copied
+                                ? 'Đã sao chép liên kết vào bộ nhớ tạm'
+                                : 'Liên kết chia sẻ bài hát',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: copied
+                                  ? const Color(0xFF4ADE80)
+                                  : const Color(0x99FFFFFF),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            shareUrl,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontFamily: 'monospace',
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: copied
+                            ? const Color(0x3322C55E)
+                            : const Color(0x22FFFFFF),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            copied ? Icons.check_rounded : Icons.copy_rounded,
+                            size: 13,
+                            color: copied
+                                ? const Color(0xFF4ADE80)
+                                : Colors.white,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            copied ? 'Đã chép' : 'Sao chép',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
+                              color: copied
+                                  ? const Color(0xFF4ADE80)
+                                  : Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // 3. Các nút hành động chính
           Row(
             children: [
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: onCopyLink,
                   style: OutlinedButton.styleFrom(
-                    backgroundColor: const Color(0x1CFFFFFF),
-                    foregroundColor: Colors.white,
-                    side: const BorderSide(color: Color(0x38FFFFFF)),
-                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    backgroundColor: copied
+                        ? const Color(0x2222C55E)
+                        : const Color(0x1CFFFFFF),
+                    foregroundColor: copied
+                        ? const Color(0xFF4ADE80)
+                        : Colors.white,
+                    side: BorderSide(
+                      color: copied
+                          ? const Color(0x8022C55E)
+                          : const Color(0x38FFFFFF),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
                   ),
-                  icon: const Icon(Icons.copy_rounded, size: 17),
-                  label: const Text(
-                    'Sao chép link',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                  icon: Icon(
+                    copied ? Icons.check_rounded : Icons.copy_rounded,
+                    size: 17,
+                  ),
+                  label: Text(
+                    copied ? 'Đã chép link' : 'Sao chép link',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ),
@@ -559,7 +729,7 @@ class _TrackShareView extends StatelessWidget {
                   style: FilledButton.styleFrom(
                     backgroundColor: Colors.white,
                     foregroundColor: const Color(0xFF090A0D),
-                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
@@ -572,6 +742,17 @@ class _TrackShareView extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+
+          const SizedBox(height: 12),
+          const Text(
+            'Hỗ trợ gửi liên kết qua Zalo, Messenger, Tin nhắn, Telegram hoặc đăng Story.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 11.5,
+              color: Color(0x88FFFFFF),
+              height: 1.4,
+            ),
           ),
         ],
       ),
@@ -589,6 +770,7 @@ class _LyricsShareView extends StatelessWidget {
     required this.selectedIndices,
     required this.selectedLyricIndex,
     required this.quoteText,
+    required this.copied,
     required this.onSelectLine,
     required this.onCopyQuote,
     required this.onShareQuote,
@@ -600,6 +782,7 @@ class _LyricsShareView extends StatelessWidget {
   final Set<int> selectedIndices;
   final int selectedLyricIndex;
   final String quoteText;
+  final bool copied;
   final ValueChanged<int> onSelectLine;
   final VoidCallback onCopyQuote;
   final VoidCallback onShareQuote;
@@ -609,7 +792,7 @@ class _LyricsShareView extends StatelessWidget {
     final lineCount = lines.isNotEmpty ? lines.length : plain.length;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 6, 20, 20),
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -684,13 +867,13 @@ class _LyricsShareView extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 16),
                   Text(
                     quoteText.isEmpty
                         ? 'Chạm câu bên dưới để trích dẫn lời bài hát...'
-                        : quoteText,
+                        : '“$quoteText”',
                     style: const TextStyle(
-                      fontSize: 18,
+                      fontSize: 17,
                       height: 1.45,
                       fontWeight: FontWeight.w800,
                       color: Colors.white,
@@ -700,7 +883,7 @@ class _LyricsShareView extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 18),
                   const Divider(color: Color(0x24FFFFFF), height: 1),
                   const SizedBox(height: 12),
                   Row(
@@ -740,7 +923,7 @@ class _LyricsShareView extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
 
           // Danh sách chọn câu lời
           Row(
@@ -767,7 +950,7 @@ class _LyricsShareView extends StatelessWidget {
           const SizedBox(height: 8),
 
           Container(
-            height: 160,
+            height: 150,
             decoration: BoxDecoration(
               color: const Color(0x14FFFFFF),
               borderRadius: BorderRadius.circular(16),
@@ -836,7 +1019,7 @@ class _LyricsShareView extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
 
           // Các nút hành động
           Row(
@@ -845,18 +1028,32 @@ class _LyricsShareView extends StatelessWidget {
                 child: OutlinedButton.icon(
                   onPressed: onCopyQuote,
                   style: OutlinedButton.styleFrom(
-                    backgroundColor: const Color(0x1CFFFFFF),
-                    foregroundColor: Colors.white,
-                    side: const BorderSide(color: Color(0x38FFFFFF)),
-                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    backgroundColor: copied
+                        ? const Color(0x2222C55E)
+                        : const Color(0x1CFFFFFF),
+                    foregroundColor: copied
+                        ? const Color(0xFF4ADE80)
+                        : Colors.white,
+                    side: BorderSide(
+                      color: copied
+                          ? const Color(0x8022C55E)
+                          : const Color(0x38FFFFFF),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
                   ),
-                  icon: const Icon(Icons.copy_rounded, size: 17),
-                  label: const Text(
-                    'Sao chép lời',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                  icon: Icon(
+                    copied ? Icons.check_rounded : Icons.copy_rounded,
+                    size: 17,
+                  ),
+                  label: Text(
+                    copied ? 'Đã chép lời' : 'Sao chép lời',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ),
@@ -867,7 +1064,7 @@ class _LyricsShareView extends StatelessWidget {
                   style: FilledButton.styleFrom(
                     backgroundColor: Colors.white,
                     foregroundColor: const Color(0xFF090A0D),
-                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../core/errors/app_failure.dart';
 import '../../../core/widgets/app_motion.dart';
+import '../../../core/widgets/studio_banners.dart';
 import '../../catalog/presentation/catalog_widgets.dart';
 import '../../player/presentation/player_screen.dart';
 import '../data/device_repository.dart';
@@ -110,70 +111,107 @@ class _DeviceScreenState extends ConsumerState<DeviceScreen> {
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                child: Container(
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceRaised,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.borderSoft),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: AppColors.surfaceGlass,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppColors.borderSoft),
-                            ),
-                            child: const Icon(
-                              Icons.devices_rounded,
-                              color: Colors.white,
-                              size: 20,
-                            ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceRaised,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: AppColors.borderSoft),
+                    ),
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: Image.asset(
+                            MoodifyWebAssets.soundwaveDark,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => const SizedBox.shrink(),
                           ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '${list.active}/${list.maximum} thiết bị hoạt động',
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                const Text(
-                                  'Quản lý các phiên đang được cấp quyền',
-                                  style: TextStyle(
-                                    fontSize: 12.5,
-                                    color: AppColors.secondary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(99),
-                        child: LinearProgressIndicator(
-                          value: list.maximum > 0
-                              ? (list.active / list.maximum).clamp(0.0, 1.0)
-                              : 0.0,
-                          minHeight: 5,
-                          color: Colors.white,
-                          backgroundColor: const Color(0x22FFFFFF),
                         ),
-                      ),
-                    ],
+                        const Positioned.fill(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Color(0xD8090A0D),
+                                  Color(0xED0C0E14),
+                                  Color(0xF611131A),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(18),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: AppColors.surfaceGlass,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: AppColors.borderSoft,
+                                      ),
+                                    ),
+                                    child: const Icon(
+                                      Icons.devices_rounded,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '${list.active}/${list.maximum} thiết bị hoạt động',
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        const Text(
+                                          'Quản lý các phiên đang được cấp quyền',
+                                          style: TextStyle(
+                                            fontSize: 12.5,
+                                            color: AppColors.secondary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 14),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(99),
+                                child: LinearProgressIndicator(
+                                  value: list.maximum > 0
+                                      ? (list.active / list.maximum).clamp(
+                                          0.0,
+                                          1.0,
+                                        )
+                                      : 0.0,
+                                  minHeight: 5,
+                                  color: Colors.white,
+                                  backgroundColor: const Color(0x22FFFFFF),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

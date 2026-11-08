@@ -8,6 +8,7 @@ import 'package:just_audio/just_audio.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../core/widgets/app_motion.dart';
 import '../../../core/widgets/app_sheets.dart';
+import '../../../core/widgets/studio_banners.dart';
 import '../../auth/domain/session_state.dart';
 import '../../auth/presentation/session_controller.dart';
 import '../../catalog/data/catalog_repository.dart';
@@ -32,38 +33,108 @@ class KaraokeScreen extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
       children: [
         SectionEntrance(
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(24, 26, 24, 24),
+          child: DecoratedBox(
+            position: DecorationPosition.foreground,
             decoration: BoxDecoration(
-              color: AppColors.surfaceRaised,
               borderRadius: BorderRadius.circular(26),
-              border: Border.all(color: AppColors.borderSoft),
+              border: Border.all(color: const Color(0x28FFFFFF)),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(
-                  Icons.graphic_eq_rounded,
-                  color: Colors.white,
-                  size: 30,
-                ),
-                const SizedBox(height: 22),
-                Text(
-                  'Đến lượt bạn\ncất giọng',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.headlineMedium?.copyWith(height: 1.25),
-                ),
-                const SizedBox(height: 10),
-                const Text(
-                  'Chọn cách bạn muốn tận hưởng âm nhạc.',
-                  style: TextStyle(color: AppColors.secondary, height: 1.5),
-                ),
-              ],
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(26),
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: Opacity(
+                      opacity: 0.56,
+                      child: Image.asset(
+                        MoodifyWebAssets.creatorStudio,
+                        fit: BoxFit.cover,
+                        filterQuality: FilterQuality.low,
+                        excludeFromSemantics: true,
+                        errorBuilder: (_, _, _) =>
+                            const ColoredBox(color: AppColors.surfaceRaised),
+                      ),
+                    ),
+                  ),
+                  const Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Color(0xEE090A0D),
+                            Color(0xC811131B),
+                            Color(0x99171A24),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.graphic_eq_rounded,
+                              color: Colors.white,
+                              size: 28,
+                            ),
+                            const SizedBox(width: 10),
+                            Flexible(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0x28FFFFFF),
+                                  borderRadius: BorderRadius.circular(999),
+                                  border: Border.all(
+                                    color: const Color(0x2EFFFFFF),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'MOODIFY STUDIO',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white,
+                                    letterSpacing: 0.6,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 18),
+                        Text(
+                          'Đến lượt bạn\ncất giọng',
+                          style: Theme.of(
+                            context,
+                          ).textTheme.headlineMedium?.copyWith(height: 1.25),
+                        ),
+                        const SizedBox(height: 10),
+                        const Text(
+                          'Chọn cách bạn muốn tận hưởng âm nhạc.',
+                          style: TextStyle(
+                            color: Color(0xFFD0D4E0),
+                            height: 1.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
-        const SizedBox(height: 28),
+        const SizedBox(height: 24),
         SectionEntrance(
           order: 1,
           child: Column(
@@ -78,6 +149,7 @@ class KaraokeScreen extends StatelessWidget {
                 icon: Icons.mic_rounded,
                 title: 'Hát một mình',
                 subtitle: 'Chọn bài yêu thích và cất giọng',
+                imageAsset: MoodifyWebAssets.adBrandIdent,
                 onTap: () => context.push('/karaoke/solo'),
               ),
               const SizedBox(height: 12),
@@ -85,9 +157,37 @@ class KaraokeScreen extends StatelessWidget {
                 icon: Icons.people_alt_rounded,
                 title: 'Hát cùng nhau',
                 subtitle: 'Tạo phòng hoặc tham gia cùng bạn bè',
+                imageAsset: MoodifyWebAssets.moodBanner,
                 onTap: () => context.push('/karaoke/rooms'),
               ),
             ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        const SectionEntrance(
+          order: 2,
+          child: StudioHeroBanner(
+            imageAsset: MoodifyWebAssets.soundwaveDark,
+            eyebrow: 'CÔNG NGHỆ PHÒNG THU',
+            eyebrowIcon: Icons.auto_awesome_rounded,
+            title: 'Chấm điểm giọng hát & Hòa âm trực tuyến',
+            subtitle:
+                'Hệ thống phân tích cao độ (Pitch), nhịp điệu (Rhythm) và hỗ trợ phòng hát trực tuyến đa thành viên với lời bài hát đồng bộ.',
+            tags: [
+              'Đo cao độ chuẩn xác',
+              'Lời bài hát đồng bộ LRC',
+              'Phòng hát Voice Live',
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+        const SectionEntrance(
+          order: 3,
+          child: StudioVipAdBanner(
+            badge: 'MOODIFY VIP · STUDIO',
+            title: 'Trải nghiệm âm nhạc & phòng thu trọn vẹn',
+            subtitle:
+                'Loại bỏ hoàn toàn quảng cáo xen giữa các bài hát, mở khóa tải nhạc offline và tìm nhạc theo cảm xúc.',
           ),
         ),
       ],
@@ -101,64 +201,103 @@ class _ModeCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onTap,
+    this.imageAsset,
   });
   final IconData icon;
   final String title, subtitle;
   final VoidCallback onTap;
+  final String? imageAsset;
 
   @override
-  Widget build(BuildContext context) => Material(
-    color: AppColors.surface,
+  Widget build(BuildContext context) => ClipRRect(
     borderRadius: BorderRadius.circular(20),
-    child: InkWell(
+    child: Material(
+      color: AppColors.surface,
       borderRadius: BorderRadius.circular(20),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppColors.borderSoft),
-        ),
-        child: Row(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Stack(
           children: [
+            if (imageAsset != null) ...[
+              Positioned.fill(
+                child: Opacity(
+                  opacity: 0.34,
+                  child: Image.asset(
+                    imageAsset!,
+                    fit: BoxFit.cover,
+                    alignment: Alignment.centerRight,
+                    filterQuality: FilterQuality.low,
+                    excludeFromSemantics: true,
+                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                  ),
+                ),
+              ),
+              const Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                      colors: [
+                        Color(0xF0111318),
+                        Color(0xD8111318),
+                        Color(0x99111318),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
             Container(
-              width: 52,
-              height: 52,
+              padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: AppColors.surfaceGlass,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: AppColors.borderSoft),
               ),
-              child: Icon(icon, color: Colors.white),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Text(
-                    title,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.titleMedium?.copyWith(fontSize: 16),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      color: AppColors.secondary,
-                      fontSize: 12,
-                      height: 1.5,
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceGlass,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.borderSoft),
                     ),
+                    child: Icon(icon, color: Colors.white),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: Theme.of(
+                            context,
+                          ).textTheme.titleMedium?.copyWith(fontSize: 16),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle,
+                          style: const TextStyle(
+                            color: Color(0xFFC5C8D4),
+                            fontSize: 12,
+                            height: 1.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(
+                    Icons.arrow_forward_rounded,
+                    color: Color(0xFFBEB5CF),
+                    size: 20,
                   ),
                 ],
               ),
-            ),
-            const SizedBox(width: 8),
-            const Icon(
-              Icons.arrow_forward_rounded,
-              color: Color(0xFFBEB5CF),
-              size: 20,
             ),
           ],
         ),
@@ -3579,21 +3718,73 @@ class _SignInPrompt extends StatelessWidget {
   final VoidCallback onTap;
   @override
   Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(28),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(
-            Icons.lock_outline_rounded,
-            size: 42,
-            color: AppColors.secondary,
+    child: SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 440),
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.surfaceRaised,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: AppColors.borderSoft),
           ),
-          const SizedBox(height: 16),
-          const Text('Đăng nhập để dùng Karaoke và lưu phiên hát.'),
-          const SizedBox(height: 16),
-          FilledButton(onPressed: onTap, child: const Text('Đăng nhập')),
-        ],
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                height: 118,
+                width: double.infinity,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.asset(
+                      MoodifyWebAssets.creatorStudio,
+                      fit: BoxFit.cover,
+                      filterQuality: FilterQuality.low,
+                      excludeFromSemantics: true,
+                      errorBuilder: (_, _, _) =>
+                          const ColoredBox(color: AppColors.surfaceGlass),
+                    ),
+                    const DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Color(0x33090A0D), Color(0xF2171A21)],
+                        ),
+                      ),
+                    ),
+                    const Center(
+                      child: Icon(
+                        Icons.mic_external_on_rounded,
+                        size: 38,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 26),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Đăng nhập để dùng Karaoke và lưu phiên hát.',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 18),
+                    FilledButton(
+                      onPressed: onTap,
+                      child: const Text('Đăng nhập'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     ),
   );

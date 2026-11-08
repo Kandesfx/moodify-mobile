@@ -11,6 +11,7 @@ import 'package:go_router/go_router.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../core/widgets/brand_lockup.dart';
 import '../../../core/widgets/feedback_panel.dart';
+import '../../../core/widgets/studio_banners.dart';
 import '../domain/registration.dart';
 import '../domain/session_state.dart';
 import 'session_controller.dart';
@@ -186,38 +187,92 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const Align(
-                          alignment: Alignment.centerLeft,
-                          child: BrandLockup(),
-                        ),
-                        SizedBox(height: bounds.maxHeight > 720 ? 48 : 32),
-                        Container(
-                          width: 36,
-                          height: 3,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(3),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(AppRadii.lg),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceRaised,
+                              borderRadius: BorderRadius.circular(AppRadii.lg),
+                              border: Border.all(color: AppColors.borderSoft),
+                            ),
+                            child: Stack(
+                              children: [
+                                Positioned.fill(
+                                  child: Image.asset(
+                                    registering
+                                        ? MoodifyWebAssets.moodBanner
+                                        : MoodifyWebAssets.heroBannerWide,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, _, _) =>
+                                        const SizedBox.shrink(),
+                                  ),
+                                ),
+                                const Positioned.fill(
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: [
+                                          Color(0xD8090A0D),
+                                          Color(0xEB0C0E14),
+                                          Color(0xF80F1117),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.all(20),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const BrandLockup(),
+                                      SizedBox(
+                                        height: bounds.maxHeight > 720
+                                            ? 22
+                                            : 16,
+                                      ),
+                                      Container(
+                                        width: 36,
+                                        height: 3,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(
+                                            3,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 14),
+                                      Text(
+                                        registering
+                                            ? 'Tạo tài khoản'
+                                            : 'Chào mừng trở lại',
+                                        style: textTheme.headlineMedium
+                                            ?.copyWith(
+                                              fontSize: 28,
+                                              letterSpacing: -0.8,
+                                            ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        registering
+                                            ? 'Tạo tài khoản để lưu thư viện và tận hưởng âm nhạc cùng Moodify.'
+                                            : 'Đăng nhập để tiếp tục thưởng thức âm nhạc của bạn.',
+                                        style: textTheme.bodyMedium?.copyWith(
+                                          color: AppColors.secondary,
+                                          height: 1.55,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 20),
-                        Text(
-                          registering ? 'Tạo tài khoản' : 'Chào mừng trở lại',
-                          style: textTheme.headlineMedium?.copyWith(
-                            fontSize: 30,
-                            letterSpacing: -1,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          registering
-                              ? 'Tạo tài khoản để lưu thư viện và tận hưởng âm nhạc cùng Moodify.'
-                              : 'Đăng nhập để tiếp tục thưởng thức âm nhạc của bạn.',
-                          style: textTheme.bodyMedium?.copyWith(
-                            color: AppColors.secondary,
-                            height: 1.6,
-                          ),
-                        ),
-                        const SizedBox(height: 28),
+                        const SizedBox(height: 24),
                         if (session.notice != null) ...[
                           FeedbackPanel(
                             message: session.notice!,

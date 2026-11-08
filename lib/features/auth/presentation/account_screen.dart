@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../core/widgets/app_motion.dart';
 import '../../../core/widgets/feedback_panel.dart';
+import '../../../core/widgets/studio_banners.dart';
 import 'session_controller.dart';
 import '../../catalog/presentation/catalog_widgets.dart';
 import '../../subscriptions/application/premium_controller.dart';
@@ -43,70 +44,132 @@ class AccountScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(20),
+                      DecoratedBox(
+                        position: DecorationPosition.foreground,
                         decoration: BoxDecoration(
-                          color: isPremium ? null : AppColors.surfaceRaised,
-                          gradient: isPremium
-                              ? const LinearGradient(
-                                  colors: [
-                                    AppColors.vipGradientTop,
-                                    AppColors.vipGradientBottom,
-                                  ],
-                                )
-                              : null,
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(22),
                           border: Border.all(
                             color: isPremium
                                 ? AppColors.vipBorder
-                                : AppColors.borderSoft,
+                                : const Color(0x28FFFFFF),
                           ),
                         ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              isPremium
-                                  ? Icons.workspace_premium_rounded
-                                  : Icons.tune_rounded,
-                              color: isPremium
-                                  ? AppColors.vipGold
-                                  : Colors.white,
-                              size: 30,
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(22),
+                          child: Stack(
+                            children: [
+                              Positioned.fill(
+                                child: Opacity(
+                                  opacity: 0.48,
+                                  child: Image.asset(
                                     isPremium
-                                        ? 'Không gian VIP của bạn'
-                                        : 'Không gian của bạn',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w700,
-                                      color: isPremium
-                                          ? AppColors.vipGoldSoft
-                                          : null,
+                                        ? MoodifyWebAssets.audioExperienceBanner
+                                        : MoodifyWebAssets.heroBannerWide,
+                                    fit: BoxFit.cover,
+                                    filterQuality: FilterQuality.low,
+                                    excludeFromSemantics: true,
+                                    errorBuilder: (_, _, _) => const ColoredBox(
+                                      color: AppColors.surfaceRaised,
                                     ),
                                   ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    isPremium
-                                        ? '${premium.packageName ?? 'Gói VIP'}'
-                                              ' • còn ${premium.daysRemaining} ngày'
-                                        : 'Quản lý tài khoản và trải nghiệm nghe',
-                                    style: const TextStyle(
-                                      color: AppColors.secondary,
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ),
-                            ),
-                          ],
+                              Positioned.fill(
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: isPremium
+                                          ? const [
+                                              Color(0xEE241B0D),
+                                              Color(0xD813121A),
+                                            ]
+                                          : const [
+                                              Color(0xEE0C0E14),
+                                              Color(0xCC171A24),
+                                            ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(20),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 52,
+                                      height: 52,
+                                      decoration: BoxDecoration(
+                                        color: isPremium
+                                            ? const Color(0x33F59E0B)
+                                            : AppColors.surfaceGlass,
+                                        borderRadius: BorderRadius.circular(16),
+                                        border: Border.all(
+                                          color: isPremium
+                                              ? AppColors.vipBorder
+                                              : AppColors.border,
+                                        ),
+                                      ),
+                                      child: Icon(
+                                        isPremium
+                                            ? Icons.workspace_premium_rounded
+                                            : Icons.tune_rounded,
+                                        color: isPremium
+                                            ? AppColors.vipGold
+                                            : Colors.white,
+                                        size: 28,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            isPremium
+                                                ? 'Không gian VIP của bạn'
+                                                : 'Không gian của bạn',
+                                            style: TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.w700,
+                                              color: isPremium
+                                                  ? AppColors.vipGoldSoft
+                                                  : Colors.white,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Text(
+                                            isPremium
+                                                ? '${premium.packageName ?? 'Gói VIP'}'
+                                                      ' • còn ${premium.daysRemaining} ngày'
+                                                : 'Quản lý tài khoản và trải nghiệm nghe',
+                                            style: const TextStyle(
+                                              color: Color(0xFFD0D4E0),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 16),
+                      if (!isPremium) ...[
+                        const StudioVipAdBanner(
+                          badge: 'ĐẶC QUYỀN MOODIFY VIP',
+                          title: 'Nâng cấp tài khoản lên chuẩn Studio VIP',
+                          subtitle:
+                              'Nghe nhạc không quảng cáo, tải bài hát nghe offline và tìm kiếm theo cảm xúc.',
+                          ctaLabel: 'Nâng cấp ngay',
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                       Container(
                         decoration: BoxDecoration(
                           color: AppColors.surface,
@@ -302,6 +365,45 @@ class AccountScreen extends ConsumerWidget {
                             ),
                           ],
                         ),
+                      ),
+                      const SizedBox(height: 18),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final scale = MediaQuery.textScalerOf(
+                            context,
+                          ).scale(1);
+                          final twoCols =
+                              constraints.maxWidth >= 300 && scale <= 1.35;
+                          final w = twoCols
+                              ? (constraints.maxWidth - 10) / 2
+                              : constraints.maxWidth;
+                          return Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            children: [
+                              SizedBox(
+                                width: w,
+                                child: StudioCoverTopicCard(
+                                  title: 'Phòng thu Karaoke',
+                                  subtitle: 'Hát solo & phòng hát trực tuyến',
+                                  badge: 'STUDIO LIVE',
+                                  imageAsset: MoodifyWebAssets.creatorStudio,
+                                  onTap: () => context.go('/karaoke'),
+                                ),
+                              ),
+                              SizedBox(
+                                width: w,
+                                child: StudioCoverTopicCard(
+                                  title: 'Khám phá cảm xúc',
+                                  subtitle: 'Tìm bài hát theo tâm trạng',
+                                  badge: 'MOOD AI',
+                                  imageAsset: MoodifyWebAssets.moodBanner,
+                                  onTap: () => context.go('/search'),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
                       ),
                       const SizedBox(height: 20),
                       if (state.failure != null) ...[

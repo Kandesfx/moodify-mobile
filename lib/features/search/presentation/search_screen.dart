@@ -4,8 +4,12 @@ import 'package:go_router/go_router.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../core/widgets/app_motion.dart';
 import '../../../core/widgets/app_sheets.dart';
+import '../../../core/widgets/studio_banners.dart';
 
+import '../../auth/domain/session_state.dart';
 import '../../catalog/presentation/catalog_widgets.dart';
+import '../../offline/data/offline_repository.dart';
+import '../../offline/presentation/offline_controller.dart';
 import '../../subscriptions/application/premium_controller.dart';
 import 'search_controller.dart';
 import 'search_history_controller.dart';
@@ -30,7 +34,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     ref.read(searchControllerProvider.notifier).submit(recordHistory: true);
   }
 
-  void _showMoodUpsell(BuildContext context) {
+  void _quickSearch(String keyword, {bool mood = false}) {
+    final controller = ref.read(searchControllerProvider.notifier);
+    _text.text = keyword;
+    controller.mode(mood);
+    controller.change(keyword);
+    _submit();
+  }
+
+  void _showMoodSignInPrompt(BuildContext context) {
     showAppModalSheet<void>(
       context: context,
       showDragHandle: true,
@@ -42,40 +54,82 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Icon(
-                Icons.workspace_premium_rounded,
-                color: AppColors.vipGold,
-                size: 34,
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Tìm kiếm theo cảm xúc là đặc quyền VIP',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Mô tả cảm xúc của bạn để Moodify gợi ý bài hát phù hợp '
-                '— chỉ dành riêng cho tài khoản Moodify VIP.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 13,
-                  height: 1.5,
-                  color: AppColors.secondary,
+              ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: Image.asset(
+                        MoodifyWebAssets.moodBanner,
+                        fit: BoxFit.cover,
+                        filterQuality: FilterQuality.low,
+                        excludeFromSemantics: true,
+                        errorBuilder: (_, _, _) =>
+                            const ColoredBox(color: AppColors.surfaceRaised),
+                      ),
+                    ),
+                    const Positioned.fill(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Color(0x55090A0D), Color(0xEB090A0D)],
+                          ),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 20,
+                      ),
+                      child: Column(
+                        children: [
+                          const Icon(
+                            Icons.auto_awesome_rounded,
+                            color: Colors.white,
+                            size: 34,
+                          ),
+                          const SizedBox(height: 10),
+                          const Text(
+                            'Đăng nhập để tìm kiếm theo cảm xúc',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Mô tả tâm trạng của bạn để AI Mood Engine gợi ý những giai điệu đồng điệu nhất — miễn phí cho mọi tài khoản đã đăng nhập.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 13,
+                              height: 1.5,
+                              color: AppColors.secondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 18),
               FilledButton.icon(
                 onPressed: () {
                   Navigator.of(sheetContext).pop();
-                  context.push('/subscriptions');
+                  context.push(
+                    Uri(
+                      path: '/sign-in',
+                      queryParameters: const {'from': '/search'},
+                    ).toString(),
+                  );
                 },
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.vipGold,
-                  foregroundColor: const Color(0xFF1A1710),
-                ),
-                icon: const Icon(Icons.workspace_premium_rounded, size: 20),
-                label: const Text('Nâng cấp VIP'),
+                icon: const Icon(Icons.login_rounded, size: 20),
+                label: const Text('Đăng nhập ngay'),
               ),
             ],
           ),
@@ -88,13 +142,35 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(searchControllerProvider);
     final controller = ref.read(searchControllerProvider.notifier);
-    final signedIn = ref.watch(
-      sessionControllerProvider.select((s) => s.session != null),
-    );
+    final sessionState = ref.watch(sessionControllerProvider);
+    final signedIn = sessionState.session != null;
+    final hasOfflineScope = signedIn || sessionState.offlineUserId != null;
+    final isOfflineSearch =
+        hasOfflineScope &&
+        (sessionState.phase == SessionPhase.restoreFailed ||
+            state.failure != null);
+    final offlineEntries = isOfflineSearch
+        ? ref
+              .watch(offlineControllerProvider)
+              .entries
+              .where((e) => !e.expired)
+              .toList()
+        : const <OfflineEntry>[];
+    final normalizedQuery = state.query.trim().toLowerCase();
+    final offlineMatches = offlineEntries
+        .map((e) => e.track)
+        .where(
+          (track) =>
+              normalizedQuery.isEmpty ||
+              '${track.displayName} ${track.artist}'.toLowerCase().contains(
+                normalizedQuery,
+              ),
+        )
+        .toList(growable: false);
     final isPremium = ref.watch(premiumProvider.select((s) => s.isPremium));
     final history = ref.watch(searchHistoryProvider);
-    // Phòng hờ: đang ở chế độ Cảm xúc mà gói hết hạn → tự về chế độ Bài hát.
-    if (!isPremium && state.mood) {
+    // Phòng hờ: đang ở chế độ Cảm xúc mà đăng xuất → tự về chế độ Bài hát.
+    if (!signedIn && state.mood) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) ref.read(searchControllerProvider.notifier).mode(false);
       });
@@ -142,10 +218,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                     child: Pressable(
                                       borderRadius: BorderRadius.circular(12),
                                       onTap: () {
-                                        // Parity web: tìm kiếm theo cảm xúc
-                                        // chỉ dành cho tài khoản VIP.
-                                        if (mode && !isPremium) {
-                                          _showMoodUpsell(context);
+                                        // Tìm kiếm theo cảm xúc chỉ yêu cầu đăng nhập
+                                        // (đồng bộ với Backend /api/emotions/recommend & Web).
+                                        if (mode && !signedIn) {
+                                          _showMoodSignInPrompt(context);
                                           return;
                                         }
                                         controller.mode(mode);
@@ -163,7 +239,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                             mainAxisAlignment:
                                                 MainAxisAlignment.center,
                                             children: [
-                                              if (mode && !isPremium) ...[
+                                              if (mode && !signedIn) ...[
                                                 const Icon(
                                                   Icons.lock_rounded,
                                                   size: 13,
@@ -344,11 +420,62 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     ? 'Viết một vài câu về tâm trạng và nhấn tìm kiếm.'
                     : 'Tìm nhạc từ tên bài hát hoặc nghệ sĩ bạn yêu thích.',
               ),
+            if (!state.submitted)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
+                child: state.mood
+                    ? _MoodDiscoverySection(
+                        onSelectPrompt: (prompt) =>
+                            _quickSearch(prompt, mood: true),
+                      )
+                    : _TrackDiscoverySection(
+                        signedIn: signedIn,
+                        isPremium: isPremium,
+                        onOpenMood: () {
+                          if (!signedIn) {
+                            _showMoodSignInPrompt(context);
+                            return;
+                          }
+                          controller.mode(true);
+                        },
+                        onSelectGenre: (keyword) => _quickSearch(keyword),
+                      ),
+              ),
             if (state.failure != null)
               LoadMessage(
                 message: state.failure!.message,
                 retry: () => controller.submit(),
               ),
+            if (isOfflineSearch && offlineMatches.isNotEmpty) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.offline_pin_rounded,
+                      size: 18,
+                      color: Color(0xFF4ADE80),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        normalizedQuery.isEmpty
+                            ? 'Nhạc đã tải trên máy (${offlineMatches.length})'
+                            : 'Kết quả trong nhạc đã tải (${offlineMatches.length})',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              for (var i = 0; i < offlineMatches.length; i++)
+                TrackTile(
+                  track: offlineMatches[i],
+                  queue: offlineMatches,
+                  index: i,
+                  offline: true,
+                ),
+            ],
             if (state.submitted &&
                 !state.loading &&
                 state.failure == null &&
@@ -395,6 +522,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   child: const Text('Xem thêm kết quả'),
                 ),
               ),
+            if (state.submitted && state.tracks.isNotEmpty && !isPremium)
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 12, 20, 24),
+                child: StudioVipAdBanner(
+                  title: 'Thưởng thức kết quả tìm kiếm không quảng cáo',
+                  subtitle:
+                      'Nâng cấp Moodify VIP để nghe liền mạch, chuyển bài không giới hạn và tải nhạc Offline.',
+                ),
+              ),
           ],
         ],
       ),
@@ -402,24 +538,263 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 }
 
-/// Nhãn đánh dấu kết quả tìm kiếm theo cảm xúc là đặc quyền VIP
-/// (parity banner "Chế độ: Tìm kiếm theo cảm xúc (VIP)" bên web).
+class _TrackDiscoverySection extends StatelessWidget {
+  const _TrackDiscoverySection({
+    required this.signedIn,
+    required this.isPremium,
+    required this.onOpenMood,
+    required this.onSelectGenre,
+  });
+
+  final bool signedIn;
+  final bool isPremium;
+  final VoidCallback onOpenMood;
+  final ValueChanged<String> onSelectGenre;
+
+  static const _topics = [
+    (
+      title: 'V-Pop Thịnh Hành',
+      subtitle: 'Giai điệu Việt cuốn hút',
+      keyword: 'V-Pop',
+      badge: 'XU HƯỚNG',
+      asset: MoodifyWebAssets.tunedMomentBanner,
+    ),
+    (
+      title: 'Lo-Fi & Tập Trung',
+      subtitle: 'Nhạc nền học tập & làm việc',
+      keyword: 'Lo-Fi',
+      badge: 'FOCUS FLOW',
+      asset: MoodifyWebAssets.coverFocusFlow,
+    ),
+    (
+      title: 'Đêm Mưa Ballad',
+      subtitle: 'Sâu lắng, trữ tình & tự sự',
+      keyword: 'Ballad',
+      badge: 'CHILL NIGHT',
+      asset: MoodifyWebAssets.coverSaigonRain,
+    ),
+    (
+      title: 'Indie & Acoustic',
+      subtitle: 'Mộc mạc, gần gũi & tự do',
+      keyword: 'Indie',
+      badge: 'ACOUSTIC',
+      asset: MoodifyWebAssets.coverEchoesSoul,
+    ),
+    (
+      title: 'Remix & EDM',
+      subtitle: 'Sôi động, bùng nổ năng lượng',
+      keyword: 'EDM',
+      badge: 'NEON PULSE',
+      asset: MoodifyWebAssets.coverNeonPulse,
+    ),
+    (
+      title: 'Hip-Hop & Rap',
+      subtitle: 'Cá tính, nhịp điệu hiện đại',
+      keyword: 'Rap',
+      badge: 'MIRAGE BEAT',
+      asset: MoodifyWebAssets.coverMidnightMirage,
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        StudioBannerShowcase(
+          slides: [
+            StudioBannerSlide(
+              eyebrow: 'MOODIFY ORIGINALS',
+              title: 'Tìm giai điệu theo đúng tâm trạng',
+              subtitle:
+                  'Chia sẻ cảm xúc của bạn để hệ thống chọn lọc những bản nhạc đồng điệu nhất.',
+              ctaLabel: signedIn ? 'Mở tìm theo cảm xúc' : 'Đăng nhập để mở',
+              imageAsset: MoodifyWebAssets.moodBanner,
+              onTap: onOpenMood,
+            ),
+            StudioBannerSlide(
+              eyebrow: 'TRẢI NGHIỆM STUDIO',
+              title: 'Không gian âm nhạc chuẩn phòng thu',
+              subtitle:
+                  'Đắm chìm trong chất âm sắc nét, lời bài hát đồng bộ và bộ sưu tập chọn lọc.',
+              ctaLabel: 'Nghe V-Pop nổi bật',
+              imageAsset: MoodifyWebAssets.audioExperienceBanner,
+              onTap: () => onSelectGenre('V-Pop'),
+            ),
+            StudioBannerSlide(
+              eyebrow: 'KHÁM PHÁ MỖI NGÀY',
+              title: 'Bắt nhịp xu hướng âm nhạc mới',
+              subtitle:
+                  'Từ Ballad sâu lắng, Indie mộc mạc đến những bản Remix tràn đầy năng lượng.',
+              ctaLabel: 'Khám phá Indie',
+              imageAsset: MoodifyWebAssets.tunedMomentBanner,
+              onTap: () => onSelectGenre('Indie'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        Row(
+          children: [
+            Container(
+              width: 3.5,
+              height: 18,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(99),
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Khám phá theo chủ đề',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final scale = MediaQuery.textScalerOf(context).scale(1);
+            final twoColumns = constraints.maxWidth >= 300 && scale <= 1.35;
+            final cardWidth = twoColumns
+                ? (constraints.maxWidth - 10) / 2
+                : constraints.maxWidth;
+            return Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                for (final topic in _topics)
+                  SizedBox(
+                    width: cardWidth,
+                    child: StudioCoverTopicCard(
+                      title: topic.title,
+                      subtitle: topic.subtitle,
+                      badge: topic.badge,
+                      imageAsset: topic.asset,
+                      onTap: () => onSelectGenre(topic.keyword),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+        if (!isPremium) ...[
+          const SizedBox(height: 22),
+          const StudioVipAdBanner(),
+        ],
+      ],
+    );
+  }
+}
+
+class _MoodDiscoverySection extends StatelessWidget {
+  const _MoodDiscoverySection({required this.onSelectPrompt});
+  final ValueChanged<String> onSelectPrompt;
+
+  static const _prompts = [
+    (
+      title: 'Đêm mưa lắng đọng',
+      subtitle: 'Nhẹ nhàng, sâu lắng bên khung cửa sổ',
+      prompt: 'Đêm mưa nhẹ nhàng sâu lắng nhiều tâm sự',
+      asset: MoodifyWebAssets.coverSaigonRain,
+    ),
+    (
+      title: 'Tập trung làm việc',
+      subtitle: 'Giai điệu êm dịu giúp giữ nhịp suy nghĩ',
+      prompt: 'Tập trung học tập và làm việc yên tĩnh',
+      asset: MoodifyWebAssets.coverFocusFlow,
+    ),
+    (
+      title: 'Năng lượng bùng nổ',
+      subtitle: 'Sôi động, hứng khởi cho ngày mới',
+      prompt: 'Tràn đầy năng lượng sôi động và hứng khởi',
+      asset: MoodifyWebAssets.coverNeonPulse,
+    ),
+    (
+      title: 'Chữa lành tâm hồn',
+      subtitle: 'Bình yên, ấm áp sau ngày dài',
+      prompt: 'Thư giãn bình yên ấm áp chữa lành tâm hồn',
+      asset: MoodifyWebAssets.coverEchoesSoul,
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const StudioHeroBanner(
+          imageAsset: MoodifyWebAssets.moodBanner,
+          eyebrow: 'AI MOOD ENGINE',
+          eyebrowIcon: Icons.auto_awesome_rounded,
+          title: 'Giai điệu đồng điệu cảm xúc',
+          subtitle:
+              'Mô tả tâm trạng, khung cảnh hoặc câu chuyện của bạn để Moodify chọn lọc những bản nhạc chạm đúng tâm tư.',
+          tags: [
+            'Phân tích ngữ cảnh',
+            'Độ tương thích cảm xúc',
+            'Gợi ý cá nhân hóa',
+          ],
+        ),
+        const SizedBox(height: 20),
+        Text(
+          'Gợi ý tâm trạng mẫu',
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 12),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final scale = MediaQuery.textScalerOf(context).scale(1);
+            final twoColumns = constraints.maxWidth >= 300 && scale <= 1.35;
+            final cardWidth = twoColumns
+                ? (constraints.maxWidth - 10) / 2
+                : constraints.maxWidth;
+            return Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                for (final item in _prompts)
+                  SizedBox(
+                    width: cardWidth,
+                    child: StudioCoverTopicCard(
+                      title: item.title,
+                      subtitle: item.subtitle,
+                      badge: 'CHẠM ĐỂ TÌM',
+                      imageAsset: item.asset,
+                      onTap: () => onSelectPrompt(item.prompt),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+/// Nhãn đánh dấu kết quả được phân tích bởi AI Mood Engine.
 class _MoodVipTag extends StatelessWidget {
   const _MoodVipTag();
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
     decoration: BoxDecoration(
-      color: AppColors.vipGradientBottom,
+      color: const Color(0xFF1E2433),
       borderRadius: BorderRadius.circular(999),
-      border: Border.all(color: AppColors.vipBorder),
+      border: Border.all(color: const Color(0x38FFFFFF)),
     ),
     child: const Text(
-      'Đặc quyền VIP',
+      'AI Cảm xúc',
       style: TextStyle(
         fontSize: 10,
         fontWeight: FontWeight.w700,
-        color: AppColors.vipGold,
+        color: Colors.white,
       ),
     ),
   );

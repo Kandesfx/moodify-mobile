@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -181,11 +182,10 @@ class _ArtworkPaletteBuilderState extends ConsumerState<ArtworkPaletteBuilder> {
       }
       return;
     }
-    final provider = ResizeImage(
-      NetworkImage(uri.toString()),
-      width: 36,
-      height: 36,
-    );
+    final ImageProvider baseProvider = uri.scheme == 'file'
+        ? FileImage(File.fromUri(uri))
+        : NetworkImage(uri.toString());
+    final provider = ResizeImage(baseProvider, width: 36, height: 36);
     final stream = provider.resolve(ImageConfiguration.empty);
     _stream = stream;
     final listener = ImageStreamListener(
@@ -205,7 +205,7 @@ class _ArtworkPaletteBuilderState extends ConsumerState<ArtworkPaletteBuilder> {
         }
       },
       onError: (_, _) {
-        // Ignore network image errors in offline or widget test environments.
+        // Ignore network/file image errors in offline or widget test environments.
       },
     );
     _listener = listener;
@@ -229,6 +229,11 @@ class _ArtworkPaletteBuilderState extends ConsumerState<ArtworkPaletteBuilder> {
   @override
   Widget build(BuildContext context) {
     final uri = ref.watch(catalogRepositoryProvider).artwork(widget.image);
+    if (uri != _resolvedUri) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _resolve();
+      });
+    }
     return TweenAnimationBuilder<double>(
       key: ValueKey(_palette),
       tween: Tween<double>(begin: 0, end: 1),
@@ -276,36 +281,17 @@ class ArtworkBackdrop extends ConsumerWidget {
                       duration: AppMotion.duration(context, 320),
                       child: SizedBox.expand(
                         key: ValueKey(uri),
-                        child: Opacity(
-                          opacity: hero ? 0.32 : 0.42,
-                          child: hero
-                              // Inline cards inside scroll views avoid GPU blur
-                              // shaders so scrolling stays locked at 60fps.
-                              ? Image.network(
-                                  uri.toString(),
-                                  fit: BoxFit.cover,
-                                  cacheWidth: 180,
-                                  filterQuality: FilterQuality.low,
-                                  gaplessPlayback: true,
-                                  errorBuilder: (_, _, _) =>
-                                      const SizedBox.expand(),
-                                )
-                              : ImageFiltered(
-                                  imageFilter: ui.ImageFilter.blur(
-                                    sigmaX: 28,
-                                    sigmaY: 28,
-                                  ),
-                                  child: Image.network(
-                                    uri.toString(),
-                                    fit: BoxFit.cover,
-                                    cacheWidth: 180,
-                                    filterQuality: FilterQuality.low,
-                                    gaplessPlayback: true,
-                                    errorBuilder: (_, _, _) =>
-                                        const SizedBox.expand(),
-                                  ),
+                        child: hero
+                            // Inline cards inside scroll views avoid GPU blur
+                            // and Opacity saveLayers so scrolling stays locked at 60fps.
+                            ? _buildBackdropImage(uri, opacity: 0.32)
+                            : ImageFiltered(
+                                imageFilter: ui.ImageFilter.blur(
+                                  sigmaX: 28,
+                                  sigmaY: 28,
                                 ),
-                        ),
+                                child: _buildBackdropImage(uri, opacity: 0.42),
+                              ),
                       ),
                     ),
                   AnimatedContainer(
@@ -338,6 +324,32 @@ class ArtworkBackdrop extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildBackdropImage(Uri uri, {required double opacity}) {
+    final modulateColor = Color.fromRGBO(255, 255, 255, opacity);
+    if (uri.scheme == 'file') {
+      return Image.file(
+        File.fromUri(uri),
+        fit: BoxFit.cover,
+        cacheWidth: 180,
+        color: modulateColor,
+        colorBlendMode: BlendMode.modulate,
+        filterQuality: FilterQuality.low,
+        gaplessPlayback: true,
+        errorBuilder: (_, _, _) => const SizedBox.expand(),
+      );
+    }
+    return Image.network(
+      uri.toString(),
+      fit: BoxFit.cover,
+      cacheWidth: 180,
+      color: modulateColor,
+      colorBlendMode: BlendMode.modulate,
+      filterQuality: FilterQuality.low,
+      gaplessPlayback: true,
+      errorBuilder: (_, _, _) => const SizedBox.expand(),
     );
   }
 }

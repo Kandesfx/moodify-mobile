@@ -81,6 +81,7 @@ class CatalogRepository {
     if (value == null) return null;
     final parsed = Uri.tryParse(value);
     if (parsed == null) return null;
+    if (parsed.scheme == 'file') return parsed;
     final uri = config.apiBaseUri.replace(path: '/').resolveUri(parsed);
     if (uri.userInfo.isNotEmpty || !['https', 'http'].contains(uri.scheme)) {
       return null;

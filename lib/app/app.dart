@@ -9,6 +9,7 @@ import '../core/widgets/brand_splash.dart';
 import '../core/widgets/feedback_panel.dart';
 import '../features/auth/domain/session_state.dart';
 import '../features/auth/presentation/session_controller.dart';
+import '../features/notifications/presentation/notification_screen.dart';
 import '../features/offline/presentation/offline_controller.dart';
 import '../features/player/presentation/player_controller.dart';
 import '../features/subscriptions/application/premium_controller.dart';
@@ -41,6 +42,9 @@ class _AppRootState extends ConsumerState<MoodifyApp>
       // gói hết hạn trong lúc thiết bị im lặng.
       unawaited(ref.read(premiumProvider.notifier).refresh());
       unawaited(_verifyOffline());
+      if (!InboxController.isWidgetTest) {
+        unawaited(ref.read(inboxProvider.notifier).load());
+      }
     }
   }
 
@@ -66,6 +70,7 @@ class _AppRootState extends ConsumerState<MoodifyApp>
     // Keep the account-scoped offline service alive so logout also purges files
     // when the download screen has not been opened during this app session.
     ref.watch(offlinePlaybackAccessProvider);
+    final router = ref.watch(appRouterProvider);
     return MaterialApp.router(
       title: 'Moodify',
       debugShowCheckedModeBanner: false,
@@ -73,9 +78,13 @@ class _AppRootState extends ConsumerState<MoodifyApp>
       locale: const Locale('vi'),
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       supportedLocales: const [Locale('vi'), Locale('en')],
-      routerConfig: ref.watch(appRouterProvider),
-      builder: (context, child) =>
-          SplashLaunchGate(child: child ?? const SizedBox.shrink()),
+      routerConfig: router,
+      builder: (context, child) => SplashLaunchGate(
+        child: NotificationToastOverlay(
+          onOpenNotifications: () => router.push('/notifications'),
+          child: child ?? const SizedBox.shrink(),
+        ),
+      ),
     );
   }
 }

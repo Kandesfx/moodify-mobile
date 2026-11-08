@@ -172,6 +172,10 @@ class OfflineRepository implements OfflinePlaybackAccess {
         if (await file.exists()) await file.delete();
         final partial = File('${file.path}.part');
         if (await partial.exists()) await partial.delete();
+        final art = await _artworkFile(id);
+        if (await art.exists()) await art.delete();
+        final artPartial = File('${art.path}.part');
+        if (await artPartial.exists()) await artPartial.delete();
       }
     }
   }();
@@ -195,11 +199,68 @@ class OfflineRepository implements OfflinePlaybackAccess {
 
   Future<File> _file(String id) async =>
       File('${_directory!.path}/${await _hash(id)}.mfy');
-  OfflineEntry _entry(Map<String, dynamic> json) => OfflineEntry(
-    Track.fromJson(objectJson(json['track'])),
-    DateTime.parse(requiredText(json, 'expiresAt')).toUtc(),
-    (json['fileSize'] as num).toInt(),
-  );
+  Future<File> _artworkFile(String id) async =>
+      File('${_directory!.path}/${await _hash(id)}.art');
+
+  Future<String?> _downloadArtwork(Track track) async {
+    final uri = catalog.artwork(track.image);
+    if (uri == null) return null;
+    if (uri.scheme == 'file') return uri.toString();
+    try {
+      var target = uri;
+      Response<List<int>>? response;
+      for (var redirects = 0; redirects < 4; redirects++) {
+        response = await _media.get<List<int>>(
+          target.toString(),
+          options: Options(
+            responseType: ResponseType.bytes,
+            validateStatus: (s) =>
+                s == 200 || s == 301 || s == 302 || s == 307 || s == 308,
+          ),
+          cancelToken: _downloadCancel,
+        );
+        if (response.statusCode == 200) break;
+        final location = response.headers.value('location');
+        if (location == null) break;
+        target = target.resolve(location);
+      }
+      final bytes = response?.data;
+      if (response?.statusCode == 200 &&
+          bytes != null &&
+          bytes.isNotEmpty &&
+          bytes.length <= 10 * 1024 * 1024) {
+        _guard();
+        final artFile = await _artworkFile(track.id);
+        final artPart = File('${artFile.path}.part');
+        await artPart.writeAsBytes(bytes, flush: true);
+        _guard();
+        await artPart.rename(artFile.path);
+        return artFile.uri.toString();
+      }
+    } catch (_) {
+      // Lỗi tải ảnh bìa không làm hỏng bản tải âm thanh đã xác minh.
+    }
+    return null;
+  }
+
+  OfflineEntry _entry(Map<String, dynamic> json) {
+    var track = Track.fromJson(objectJson(json['track']));
+    final artworkUri = optionalText(json['artworkUri']);
+    if (artworkUri != null) {
+      try {
+        final file = File.fromUri(Uri.parse(artworkUri));
+        if (file.existsSync()) {
+          track = track.withImage(file.uri.toString());
+        }
+      } catch (_) {}
+    }
+    return OfflineEntry(
+      track,
+      DateTime.parse(requiredText(json, 'expiresAt')).toUtc(),
+      (json['fileSize'] as num).toInt(),
+    );
+  }
+
   Future<List<OfflineEntry>> entries() => _run(
     () async => _manifest.values.map((e) => _entry(objectJson(e))).toList(),
   );
@@ -390,11 +451,14 @@ class OfflineRepository implements OfflinePlaybackAccess {
         throw const AppFailure('Bản quyền offline đã hết hạn.');
       }
       _guard();
+      final artworkUri = await _downloadArtwork(track);
+      _guard();
       _manifest[track.id] = {
         'track': track.toJson(),
         'expiresAt': expiry.toIso8601String(),
         'key': key,
         'fileSize': encrypted.length,
+        'artworkUri': ?artworkUri,
       };
       _cleanupIds.remove(track.id);
       await _save();
@@ -404,6 +468,10 @@ class OfflineRepository implements OfflinePlaybackAccess {
       _cleanupIds.add(track.id);
       if (await file.exists()) await file.delete();
       if (await partial.exists()) await partial.delete();
+      final art = await _artworkFile(track.id);
+      if (await art.exists()) await art.delete();
+      final artPartial = File('${art.path}.part');
+      if (await artPartial.exists()) await artPartial.delete();
       if (!_closed) await _save();
       if (_closed) throw AppFailure.sessionChanged;
       if (_downloadCancel.cancelError?.error == 'FILE_TOO_LARGE') {
@@ -470,11 +538,28 @@ class OfflineRepository implements OfflinePlaybackAccess {
         _manifest.remove(id);
         final file = await _file(id);
         if (await file.exists()) await file.delete();
-      } else if (newExpiry != null) {
-        objectJson(_manifest[id])['expiresAt'] = _serverExpiry(
-          newExpiry,
-          requiredText(result, 'serverTime'),
-        ).toIso8601String();
+        final art = await _artworkFile(id);
+        if (await art.exists()) await art.delete();
+      } else {
+        final item = objectJson(_manifest[id]);
+        if (newExpiry != null) {
+          item['expiresAt'] = _serverExpiry(
+            newExpiry,
+            requiredText(result, 'serverTime'),
+          ).toIso8601String();
+        }
+        final existingArt = optionalText(item['artworkUri']);
+        final hasLocalArt =
+            existingArt != null &&
+            File.fromUri(Uri.parse(existingArt)).existsSync();
+        if (!hasLocalArt) {
+          final downloadedArt = await _downloadArtwork(
+            Track.fromJson(objectJson(item['track'])),
+          );
+          if (downloadedArt != null) {
+            item['artworkUri'] = downloadedArt;
+          }
+        }
       }
     }
     // A real server response may reset a clock rollback lock.
@@ -549,6 +634,8 @@ class OfflineRepository implements OfflinePlaybackAccess {
     await _save();
     final file = await _file(id);
     if (await file.exists()) await file.delete();
+    final art = await _artworkFile(id);
+    if (await art.exists()) await art.delete();
     _manifest.remove(id);
     await _save();
   });
@@ -585,6 +672,8 @@ class OfflineRepository implements OfflinePlaybackAccess {
       _cleanupIds.remove(id);
       final file = await _file(id);
       if (await file.exists()) await file.delete();
+      final art = await _artworkFile(id);
+      if (await art.exists()) await art.delete();
       await _save();
     }
   }

@@ -1,5 +1,114 @@
 # Trạng thái hiện tại
 
+## Tái thiết kế Màn hình Splash Studio Dark & Loại bỏ các thanh gạch/equalizer đứt gãy — 08/11/2026
+
+- **Loại bỏ triệt để các thanh gạch/equalizer đứt gãy và sửa toàn diện animation màn hình Splash (`lib/core/widgets/brand_splash.dart`, `android/app/src/main/res/drawable/avd_launch_logo.xml`)**:
+  - **Khắc phục hiện tượng đứt gãy khi mới chuyển động**:
+    - **Logo chữ M (`_WaveRevealMark`)**: Loại bỏ cơ chế `ShaderMask LinearGradient` cắt xén ngang thô bạo (vốn chém cụt các đường cong của logo chữ M khi `reveal < 0.999` làm logo bị đứt gãy từng khúc khi mới bắt đầu). Thay bằng chuyển động nổi mềm mượt kết hợp Smooth Scale (từ `0.72` lên `1.0` với đường cong `Curves.easeOutCubic`) và Smooth Opacity Fade (từ `0.0` lên `1.0`). Khi logo đã hiện trọn vẹn, hiệu ứng tráng gương Specular Sheen (`shimmerAlpha`) lướt nhẹ qua bề mặt tạo điểm nhấn sang trọng, cao cấp.
+    - **Loại bỏ các thanh gạch/equalizer (`_SoundwaveEqualizer`)**: Loại bỏ hoàn toàn 9 thanh gạch equalizer nhảy nhấp nhô giật cục ở tần số cao `math.pi * 6.0` bị clamp 4px gây cảm giác vỡ vụn, đứt gãy và rối mắt bên dưới logo. Bố cục màn hình mở đầu trở nên thoáng đãng, tinh tế, chuẩn phong cách tối giản Studio Dark (Anti-Slop taste-skill).
+    - **Làm đẹp vầng hào quang âm thanh (`_SplashAuraPainter`)**: Loại bỏ 2 dải sóng polyline 36 đoạn gãy khúc. Thay thế bằng vầng hào quang âm thanh tỏa tròn đa tầng (Acoustic Ambient Bloom: tím `#8B5CF6` sang hồng `#EC4899` hòa vào nền đen `#090A0D`) có nhịp thở êm dịu (`pulse`) và 2 vòng sóng âm đồng tâm mở rộng (Expanding Acoustic Ripples) với đường nét bo tròn mềm mại, tự nhiên.
+    - **Tinh chỉnh Typography & Tagline**: Cụm chữ `_AnimatedWordmark` và câu khẩu hiệu `'Âm nhạc theo từng cảm xúc'` trôi nhẹ nhàng với curve `Curves.easeOutCubic`, cân đối hoàn hảo trong bố cục.
+  - **Đồng bộ Android Native Launch (`android/app/src/main/res/drawable/avd_launch_logo.xml`)**:
+    - Loại bỏ 5 thanh `eq_bar_1` đến `eq_bar_5` cùng các bộ hoạt họa nhảy giật `objectAnimator` bên dưới chữ M trong medallion khởi động native, giúp trải nghiệm mở app từ lúc hệ điều hành load tới khi vào Flutter UI hoàn toàn liền mạch, không còn bất kỳ chi tiết đứt gãy nào.
+- **Kiểm chứng kỹ thuật**:
+  - `brand_splash_test.dart`: **2/2 tests passed!** (kiểm chứng non-zero viewport, animation progress, session restore wait và unmount).
+  - `dart format lib/core/widgets/brand_splash.dart`: **PASS (chuẩn convention)**.
+  - `flutter analyze`: **0 error/warning liên quan đến splash**.
+
+## Mở Tìm kiếm theo Cảm xúc cho mọi tài khoản đã đăng nhập, Sửa lỗi Trang chủ tự tải lại khi vuốt & Bổ sung Thông báo hệ thống kèm âm báo nhận diện thương hiệu "Moodify" — 08/11/2026
+
+- **Thông báo khi có thông báo mới từ hệ thống kèm tiếng nhận diện thương hiệu `"Moodify"` (đã lọc bỏ phần sau)**:
+  - **Tách và lọc âm thanh nhận diện thương hiệu (`assets/audio/moodify_notification_chime.mp3` & `android/app/src/main/res/raw/moodify_notification_chime.mp3`)**:
+    - Trích xuất chính xác đoạn chord + giọng hát `"Moodify"` và tiếng chuông ngân ở đầu file `Moodify/public/audio/moodify_platform_ident.mp3` (`2.28s` → `5.10s`, dài `~2.82s`, dung lượng `66 KB` với fade-in/fade-out mượt), loại bỏ hoàn toàn câu thoại phía sau `"Âm nhạc theo cách của bạn"`.
+  - **Thông báo hệ thống Android Native (`MainActivity.kt`, `AndroidManifest.xml`)**:
+    - Bổ sung quyền `android.permission.POST_NOTIFICATIONS` trong `AndroidManifest.xml`.
+    - Khởi tạo kênh thông báo `NotificationChannel` (`moodify_brand_alerts_v1`, `IMPORTANCE_HIGH`) gắn âm thanh `R.raw.moodify_notification_chime` và `MethodChannel('dev.moodify.moodify_flutter/notifications')` hỗ trợ xin quyền thông báo Android 13+ (`ensurePermission`) và đẩy thông báo lên thanh trạng thái hệ thống (`showNotification`).
+  - **Tự động đồng bộ, phát hiện thông báo mới, phát chuông `"Moodify"` và hiển thị Banner nổi (`notification_repository.dart`, `notification_screen.dart`, `app.dart`, `home_screen.dart`)**:
+    - `NotificationAlertService`: Kết nối `MethodChannel` đẩy thông báo hệ thống và phát trực tiếp `assets/audio/moodify_notification_chime.mp3` qua `AudioPlayer(handleInterruptions: false, handleAudioSessionActivation: false)` để không làm ngắt nhạc đang phát.
+    - `InboxController`: Tự động đồng bộ định kỳ (mỗi 45 giây khi đang đăng nhập và ngay khi quay lại ứng dụng `AppLifecycleState.resumed`), đối chiếu danh sách ID đã thông báo trong `KeyValueStore` (`notifications.seen.<userId>`) để chỉ phát chuông `"Moodify"` + đẩy thông báo hệ thống + hiện biểu ngữ nổi `NotificationToastOverlay` đúng 1 lần cho mỗi thông báo mới chưa đọc (`SYSTEM`, `BILLING`, `PROMO`, `ANNOUNCEMENT`, `MODERATION`).
+    - Hiển thị badge số lượng thông báo chưa đọc trên nút chuông `Thông báo` ở AppBar `HomeScreen`, đồng thời bổ sung nút **`Nghe thử âm báo Moodify`** trên màn hình `NotificationScreen`.
+- **Chế độ Tìm kiếm theo Cảm xúc (`lib/features/search/presentation/search_screen.dart`, `lib/core/widgets/studio_banners.dart`)**:
+  - Đối chiếu với Backend (`POST /api/emotions/recommend` trong `EmotionApi.java` & `RecommendationCatalog.java`), Web (`MoodSearchBar` — `canUseMood = true`) và Mobile cũ (`explore.tsx`): tính năng Tìm kiếm bằng Cảm xúc **chỉ yêu cầu tài khoản đã đăng nhập (`ACTIVE`)**, không thuộc rào cản bắt buộc của gói VIP/Premium.
+  - Gỡ bỏ kiểm tra `!isPremium` trên tab `Cảm xúc` và banner `Mở tìm theo cảm xúc` trong `SearchScreen`; thay bằng kiểm tra `!signedIn` (`sessionState.session != null`).
+  - Khi người dùng chưa đăng nhập chạm vào tab `Cảm xúc`, hiển thị sheet `_showMoodSignInPrompt` dẫn thẳng tới `/sign-in?from=%2Fsearch`; mọi tài khoản đã đăng nhập (kể cả Free và VIP) đều mở và sử dụng trực tiếp AI Mood Engine.
+  - Cập nhật nhãn hiển thị từ `'Đặc quyền VIP'` / `'AI MOOD ENGINE · VIP'` sang `'AI Cảm xúc'` / `'AI MOOD ENGINE'` và chuẩn hóa mô tả quảng cáo `StudioVipAdBanner`.
+- **Khắc phục triệt để lỗi Trang chủ (`HomeScreen`) bị tải lại / giật trắng trang khi vuốt**:
+  - `CatalogController.load({bool reset = false})` (`lib/features/catalog/presentation/catalog_controller.dart`): Khi làm mới (`reset: true`), giữ nguyên danh sách `state.tracks` hiện có trong lúc `loading: true` và chỉ thay thế bằng dữ liệu mới khi API trả về thành công (hoặc giữ lại danh sách cũ nếu lỗi mạng), chấm dứt hiện tượng toàn bộ `HomeScreen` bị xóa trắng về `[]`, mất vị trí cuộn và chạy lại hiệu ứng `SectionEntrance`.
+  - `RecommendationSectionWidget` (`lib/features/home/presentation/widgets/recommendation_section_widget.dart`): Sử dụng `homeAsync.valueOrNull` thay vì `homeAsync.when(loading: () => SizedBox.shrink())` để giữ nguyên các kệ gợi ý trên màn hình trong lúc làm mới nền, không làm sụt chiều cao sliver gây nhảy vị trí cuộn.
+  - `HomeScreen` (`lib/features/home/presentation/home_screen.dart`): Tăng ngưỡng kéo của `RefreshIndicator` (`displacement: 72`, `edgeOffset: 16`), giới hạn `notificationPredicate: (n) => n.depth == 0`, chặn gọi chồng `if (_isRefreshing) return;` trong `reconnect()`, đồng thời gắn `PageStorageKey` cố định cho các danh sách ngang (`shelf`, `artists`, `albums`, `recommendations`).
+
+## Hoàn thiện Chế độ Offline Toàn diện, Tự động tải Ảnh bìa Bài hát & Tái thiết kế Trang chủ Offline — 08/11/2026
+
+- **Tải và lưu trữ cục bộ ảnh bìa bài hát (`*.art`) cùng lời bài hát khi tải nhạc Offline**:
+  - `Track.toJson()` (`lib/features/catalog/domain/catalog_models.dart`): Lưu thêm `lyricsPlain` và `lyricsSynced` vào manifest để toàn bộ tính năng xem lời đồng bộ LRC và trích dẫn Lyric Card hoạt động đầy đủ khi mất mạng; bổ sung phương thức `Track.withImage()`.
+  - `OfflineRepository` (`lib/features/offline/data/offline_repository.dart`):
+    - Khi tải bài hát trong `_transfer`, tự động tải thêm ảnh bìa bài hát (`_downloadArtwork`, giới hạn an toàn 10 MiB, lưu nguyên tử qua `.art.part` → `.art` trong thư mục offline theo user/device scope) và ghi `artworkUri` vào manifest; tự động bổ sung ảnh bìa còn thiếu trong `verify()`.
+    - Khi đọc `OfflineEntry` (`_entry`), nếu file `.art` tồn tại trên máy thì gắn URI `file://` trực tiếp vào `entry.track.image`.
+    - Dọn dẹp triệt để `.art` và `.art.part` khi hủy tải, xóa bài (`remove`), khởi tạo (`_init`) hoặc thu hồi thiết bị (`close(purge: true)`).
+  - Hiển thị ảnh bìa cục bộ (`file://`) xuyên suốt ứng dụng:
+    - `CatalogRepository.artwork` (`lib/features/catalog/data/catalog_repository.dart`): Chấp nhận và giữ nguyên scheme `file://`.
+    - `MusicArtwork` (`lib/features/catalog/presentation/catalog_widgets.dart`): Tự động dùng `Image.file` khi URI có scheme `file`.
+    - `ArtworkPaletteBuilder` & `ArtworkBackdrop` (`lib/features/catalog/presentation/artwork_backdrop.dart`): Trích xuất bảng màu động (`FileImage`) và hiển thị phông nền mờ từ file ảnh bìa cục bộ khi offline.
+- **Mở thẳng Màn hình chính (`HomeScreen` / `MainShell`) khi khởi động không có mạng**:
+  - `app_router.dart` (`lib/app/router/app_router.dart`): Khi `session.phase == SessionPhase.restoreFailed` và có `offlineUserId`, cho phép truy cập trực tiếp các nhánh chính (`/home`, `/search`, `/karaoke`, `/library`, `/offline`, `/player`, `/lyrics`) và tự động chuyển hướng từ `/restoring?from=%2Fhome` vào thẳng `/home`, đồng thời nâng cấp màn `_RestoringScreen` (khi vào `/account` lúc mất mạng) với thẻ `CHẾ ĐỘ OFFLINE STUDIO` và nút `Vào màn hình chính Offline`.
+- **Tái thiết kế chuyên nghiệp giao diện khi ở chế độ Offline & Thao tác đầy đủ với bài hát đã tải**:
+  - `HomeScreen` (`lib/features/home/presentation/home_screen.dart`):
+    - Hiển thị badge `_OfflineModePill` (`Offline`) trên AppBar và thẻ hero `_OfflineStudioHeroCard` (`CHẾ ĐỘ OFFLINE STUDIO`, thống kê số bài & dung lượng đã tải, nút `Phát nhạc đã tải`, `Trộn bài`, `Kho nhạc Offline`, `Kết nối lại`).
+    - Khi catalog trực tuyến trống do mất mạng, tự động duy trì toàn bộ bố cục Trang chủ bằng danh sách bài hát đã tải hợp lệ (`readyOfflineTracks`): kệ `Nghe nhanh Offline` (`_QuickTrack`), `BẢN TẢI NỔI BẬT` (`_Spotlight`), `Bản thu đã tải kèm ảnh bìa` (`_TrackCard`) và danh sách `Nhạc đã tải trên máy` (`TrackTile(offline: true)`).
+  - Tương tác bài hát đã tải (`catalog_widgets.dart`, `player_controller.dart`, `offline_screen.dart`, `search_screen.dart`, `library_screen.dart`):
+    - `TrackTile` hiển thị biểu tượng `offline_pin_rounded` màu xanh lá cho bài đã tải; `_TrackOptionsSheet` hiển thị nhãn `ĐÃ TẢI OFFLINE`, nút `Phát bản đã tải (Offline)`, `Thêm vào hàng đợi`, `Phát tiếp theo`, `Xem lời bài hát` và `Chia sẻ bài hát`.
+    - `PlayerController.enqueue` & `playCollection` hỗ trợ thêm bài và trộn bài trong chế độ `offline: true`.
+    - `LibraryScreen` tự động mở `OfflineScreen` khi mất mạng (`session == null && offlineUserId != null`); `SearchScreen` cho phép tìm kiếm và phát trực tiếp trong danh sách nhạc đã tải khi không có mạng; `OfflineScreen` bổ sung nút `Trộn bài` và nút menu `TrackOptionsButton` trên từng hàng bản tải.
+- **Kiểm chứng kỹ thuật**:
+  - `dart format lib test`: **121 files (0 changed)**.
+  - `flutter analyze --no-pub`: **No issues found!**
+  - `flutter test --no-pub`: **All 164/164 tests passed!** (bao gồm unit test mới kiểm chứng tải ảnh bìa cục bộ `file://` và dọn dẹp khi xóa bản tải).
+
+## Nâng cấp toàn bộ màn hình ngoài Home với Banner, Quảng cáo VIP & Thẻ chủ đề từ dự án Web — 08/11/2026
+
+- **Đồng bộ tài nguyên hình ảnh từ dự án Web (`D:\Hai\study\DATN\Moodify\Moodify\public`)**:
+  - Sao chép và khai báo trong `pubspec.yaml` + `assets/README.md`:
+    - `assets/banners/`: `mood_banner.jpg`, `audio_experience_banner.jpg`, `tuned_moment_banner.jpg`, `creator_studio.jpg`, `moodify_hero_banner_wide.webp`, `moodify_soundwave_dark.webp`.
+    - `assets/covers/`: `echoes-soul.jpg`, `focus-flow.jpg`, `midnight-mirage.jpg`, `neon-pulse.jpg`, `saigon-rain.jpg`.
+    - Kết hợp bộ ảnh quảng cáo sẵn có tại `assets/ads/`: `moodify_brand_ident_art.jpg`, `moodify_vip_premium_art.jpg`.
+- **Xây dựng bộ component Banner & Quảng cáo chuẩn Studio Dark (`lib/core/widgets/studio_banners.dart`)**:
+  - `StudioHeroBanner`: Banner hero có ảnh nền + lớp phủ gradient sâu, tự co giãn chiều cao theo nội dung (an toàn tuyệt đối ở màn `320x640` với `textScaleFactor = 1.8`).
+  - `StudioVipAdBanner`: Thẻ quảng cáo / nâng cấp Moodify VIP đồng bộ từ thiết kế Web (`ad-interstitial-banner.tsx`), tự ẩn với tài khoản đã có VIP.
+  - `StudioBannerShowcase`: Bộ trình chiếu 3 chiến dịch từ `HeroCarousel` của Web có vuốt ngang và chấm chuyển slide.
+  - `StudioCoverTopicCard`: Thẻ khám phá chủ đề / không gian âm nhạc dùng bộ cover chính thức từ Web.
+- **Tích hợp trên toàn bộ các màn hình ngoài Home**:
+  - **Tìm kiếm (`lib/features/search/presentation/search_screen.dart`)**: Bổ sung `StudioBannerShowcase` (3 chiến dịch Web), lưới 6 `StudioCoverTopicCard` khám phá thể loại (`V-Pop`, `Lo-Fi`, `Ballad`, `Indie`, `EDM`, `Rap` kích hoạt tìm kiếm catalog thật), khu vực khám phá theo cảm xúc `_MoodDiscoverySection` có banner `mood_banner.jpg` + 4 thẻ gợi ý tâm trạng, `StudioVipAdBanner` cho tài khoản miễn phí, và ảnh bìa trên modal upsell VIP.
+  - **Karaoke (`lib/features/karaoke/presentation/karaoke_screen.dart`)**: Nâng cấp thẻ Hero đầu trang với ảnh nền `creator_studio.jpg`, thêm ảnh nền phòng thu cho 2 thẻ chế độ `Hát một mình` & `Hát cùng nhau`, thêm `StudioHeroBanner` (`soundwave_dark`) + `StudioVipAdBanner`, và nâng cấp màn nhắc đăng nhập `_SignInPrompt`.
+  - **Thư viện (`lib/features/library/presentation/library_screen.dart`) & `GuestPrompt` (`lib/features/catalog/presentation/catalog_widgets.dart`)**: Nâng cấp `GuestPrompt` với ảnh bìa `mood_banner.jpg` và banner giới thiệu đồng bộ đa thiết bị; bổ sung `StudioHeroBanner` kèm phím tắt nhanh (`Playlist mới`, `Nhạc đã tải`, `Lịch sử nghe`) và `StudioVipAdBanner` trên tab Playlist, cùng banner chuyên biệt trên các tab Yêu thích, Album và Nghệ sĩ đang theo dõi.
+  - **Tài khoản, Hồ sơ, Đăng nhập/Đăng ký & Thiết bị (`account_screen.dart`, `profile_screen.dart`, `auth_screen.dart`, `device_screen.dart`)**: Nâng cấp thẻ hồ sơ người dùng, khung chào mừng đăng nhập/đăng ký và thẻ hạn mức thiết bị bằng ảnh nền banner từ Web; bổ sung `StudioVipAdBanner` và 2 thẻ khám phá nhanh (`Phòng thu Karaoke`, `Khám phá cảm xúc`) tại màn Tài khoản.
+  - **Gói dịch vụ, Nhạc đã tải, Thông báo & Lịch sử nghe (`subscription_screen.dart`, `offline_screen.dart`, `notification_screen.dart`, `listening_history_screen.dart`)**: Bổ sung ảnh nền cho thẻ gói hiện tại và `StudioHeroBanner` giới thiệu đặc quyền VIP; nâng cấp trạng thái trống trên màn Nhạc đã tải với ảnh nền `soundwave_dark` + `StudioVipAdBanner`; thêm `StudioHeroBanner` ở đầu màn Thông báo và Lịch sử nghe.
+- **Kiểm chứng kỹ thuật**:
+  - `dart format lib test`: **121 files (0 changed)**.
+  - `flutter analyze --no-pub`: **No issues found!**
+  - `flutter test --no-pub`: **All 163/163 tests passed!** (bao gồm toàn bộ widget test ở chế độ `largeText=true` `320x640`).
+
+## Nâng cấp Logo Capsule viền Gradient, tinh chỉnh Player VIP và hoàn thiện Chia sẻ — 08/11/2026
+
+- **Màn hình chính (Home Screen)**:
+  - Thiết kế cụm thương hiệu và thanh Header theo phong cách **"Smoked Liquid Glass Capsule"** (`_HomeBrandLockup`, `_BrandGlassPainter`, `_GlassHeaderIconButton`) lấy cảm hứng từ Apple Music iOS 18 / Linear / Raycast:
+    - **Chất liệu kính mờ bán trong suốt ("hơi mờ")**: Sử dụng `BackdropFilter` (`ImageFilter.blur(sigmaX: 16, sigmaY: 16)`) kết hợp lớp nền tối bán trong suốt (`#151824` → `#0D0F17`, độ mờ ~`62%`) giúp bảng màu động của ảnh bìa phía sau ánh lên dịu nhẹ mà chữ `"Moodify"` và logo `M` luôn sắc nét.
+    - **Bố cục đồng bộ toàn thanh AppBar**: Viên nang thương hiệu căn lề trái `16px` thẳng trục với hàng chip thể loại (`Tất cả`); bên trong có ô kính trầm (`26×26px`) chứa biểu tượng `M`, chữ `"Moodify"` trắng ngọc trai (`#F5F7FA`) và chấm tín hiệu âm thanh (`5px`). Các nút hành động bên phải (`Thông báo`, `Tài khoản`) cũng được bọc trong nút kính mờ đồng bộ (`_GlassHeaderIconButton`).
+    - **Tĩnh lặng khi Idle & Chỉ chạy hiệu ứng mờ dịu khi Loading**: Ở trạng thái bình thường (`loading == false`), bộ điều khiển animation dừng hoàn toàn (`_controller.stop()`), hiển thị viền kính phản xạ tĩnh `0.85px` và chữ trắng ngọc trai không lòe loẹt. Chỉ khi đang tải dữ liệu hoặc kéo làm mới (`loading == true`), tia sáng sương mờ (`Muted Shimmer`, độ mờ `0.55`) mới lướt nhẹ quanh mép kính `1.1px` và qua chữ `"Moodify"`, sau đó hoàn tất vòng quét cuối (`_controller.forward()`) rồi tắt hẳn về `0`.
+  - **Loại bỏ 100% vòng xoay tròn tại Home**: Bao gồm cả việc ẩn hoàn toàn vòng tròn `RefreshProgressIndicator` mặc định khi kéo làm mới (`Pull-to-Refresh`).
+- **Màn hình phát nhạc (Full Player)**:
+  - Loại bỏ chip VIP màu vàng bị nhảy dòng bên dưới tên bài hát / nghệ sĩ (`_PlayerVipBadge`), giữ nguyên chip VIP ngoài màn hình chính theo đúng yêu cầu người dùng.
+- **Màn hình chia sẻ (Track Share Sheet & Detail Screens)**:
+  - Tái thiết kế toàn diện thẻ chia sẻ bài hát `_TrackShareView`: Loại bỏ pill URL thô dài gây tràn viền bên trong thẻ trước đây; thay thế bằng dải sóng âm cách điệu visualizer `moodify.click`.
+  - Bổ sung hộp liên kết tương tác chuyên dụng phía dưới thẻ với text bo tròn, hiệu ứng rút gọn `...`, nút chép nhanh và phản hồi tức thì (viền chuyển xanh `#22C55E`, icon tích xanh, haptic feedback và SnackBar thông báo).
+  - Hoàn thiện luồng trích dẫn lời bài hát (`_LyricsShareView`) với thẻ quote đồng bộ phong cách và liên kết URL bài hát chuẩn.
+  - Làm giàu nội dung chia sẻ qua hệ thống (Zalo, Messenger, SMS...) cho bài hát, Album, Playlist và Nghệ sĩ.
+- **Kiểm chứng kỹ thuật & Nạp thiết bị thực**:
+  - `dart format`: 115 files (0 changed).
+  - `flutter analyze --no-pub`: **No issues found!** (ran in 3.5s).
+  - `flutter test --no-pub`: **All 161/161 tests passed!** (bao gồm accessibility tests dưới `largeText=true`).
+  - Biên dịch thành công APK Profile: `build\app\outputs\flutter-apk\app-profile.apk` (141.8MB).
+  - Cài đặt trực tiếp qua ADB lên Samsung Galaxy A23 (`R58TC0KWATX`) và xác thực hình ảnh thực tế trên máy.
+
 ## Tích hợp Làm đẹp /offline đợt 3 từ Duy_Branch — 08/11/2026
 
 - Tích hợp commit `da7b2be` từ `origin/Duy_Branch`:

@@ -11,7 +11,6 @@ import '../../catalog/data/artist_repository.dart';
 import '../../catalog/presentation/artwork_backdrop.dart';
 import '../../catalog/presentation/catalog_widgets.dart';
 import '../../library/presentation/library_controller.dart';
-import '../../subscriptions/application/premium_controller.dart';
 import 'player_controller.dart';
 import 'player_sheets.dart';
 import 'track_share_sheet.dart';
@@ -39,46 +38,6 @@ class _UpgradeButton extends StatelessWidget {
     ),
     icon: const Icon(Icons.workspace_premium_rounded, size: 18),
     label: Text(isBasic ? 'Lên FULL' : 'Nâng VIP'),
-  );
-}
-
-/// Badge vàng Hoàng Kim trên player khi gói VIP đang hiệu lực
-/// (parity badge "VIP" cạnh volume trên web).
-class _PlayerVipBadge extends StatelessWidget {
-  const _PlayerVipBadge();
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-    decoration: BoxDecoration(
-      gradient: const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [AppColors.vipGradientTop, AppColors.vipGradientBottom],
-      ),
-      borderRadius: BorderRadius.circular(999),
-      border: Border.all(color: AppColors.vipBorder),
-    ),
-    child: const Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          Icons.workspace_premium_rounded,
-          size: 13,
-          color: AppColors.vipGold,
-        ),
-        SizedBox(width: 4),
-        Text(
-          'VIP',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-            letterSpacing: .4,
-            color: AppColors.vipGold,
-          ),
-        ),
-      ],
-    ),
   );
 }
 
@@ -451,7 +410,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       ),
     );
     final controller = ref.read(playerControllerProvider.notifier);
-    final isPremium = ref.watch(premiumProvider.select((s) => s.isPremium));
     final track = slice.track;
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -655,11 +613,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                                                         ),
                                                       ),
                                                     ),
-                                                    if (!slice.isAd &&
-                                                        isPremium) ...[
-                                                      const SizedBox(width: 8),
-                                                      const _PlayerVipBadge(),
-                                                    ],
                                                   ],
                                                 ),
                                               ],
