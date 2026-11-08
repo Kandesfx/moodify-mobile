@@ -75,7 +75,7 @@ class RecommendationRepository {
     }
   }
 
-  Future<List<Track>> fetchMixTracks(
+  Future<PersonalizedMix> fetchPersonalizedMix(
     String mixId, {
     CancelToken? cancel,
   }) async {
@@ -83,11 +83,33 @@ class RecommendationRepository {
       'me/personalized-playlists/${segment(mixId)}',
       cancelToken: cancel,
     );
-    final json = objectJson(res.data);
-    final tracks = json['tracks'];
-    if (tracks is! List) return const [];
-    return List.unmodifiable(
-      tracks.whereType<Map<String, dynamic>>().map(Track.fromJson),
+    return PersonalizedMix.fromJson(objectJson(res.data));
+  }
+
+  Future<PersonalizedMix> refreshPersonalizedMix(String mixId) async {
+    final res = await dio.post<Object?>(
+      'me/personalized-playlists/${segment(mixId)}/refresh',
     );
+    return PersonalizedMix.fromJson(objectJson(res.data));
+  }
+
+  Future<Map<String, dynamic>> copyPersonalizedMix(
+    String mixId, {
+    required String versionId,
+    required String requestId,
+  }) async {
+    final res = await dio.post<Object?>(
+      'me/personalized-playlists/${segment(mixId)}/copies',
+      data: {'versionId': versionId, 'requestId': requestId},
+    );
+    return objectJson(res.data);
+  }
+
+  Future<List<Track>> fetchMixTracks(
+    String mixId, {
+    CancelToken? cancel,
+  }) async {
+    final mix = await fetchPersonalizedMix(mixId, cancel: cancel);
+    return mix.tracks;
   }
 }

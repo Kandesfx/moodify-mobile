@@ -1,5 +1,45 @@
 # Trạng thái hiện tại
 
+## Thiết kế Giao diện Đề xuất Nhạc Dựa Trên Hành Vi (Behavioral Recommendation) với Đầy Đủ Kịch Bản Ràng Buộc — 08/11/2026
+
+- **Triển khai giao diện cho Chức năng Đề xuất Nhạc Dựa Trên Hành Vi mới (`RecommendationSectionWidget`, `PersonalizedMixDetailSheet`, `recommendation_models.dart`, `recommendation_repository.dart`)**:
+  - **Kịch bản 1: Khách chưa đăng nhập (`sessionState.session == null`)**:
+    - Hiển thị Thẻ Khách Studio Dark (`_GuestRecommendationPromptCard`) cao cấp với nền ảnh `MoodifyWebAssets.soundwaveDark`, viền sáng ánh tím lavender, icon AI trong vòng tròn gradient.
+    - Giải thích rõ công nghệ đề xuất thông minh: tự động phân tích hành vi nghe, bài hát yêu thích để tạo các bản phối Daily Mix & Weekly Discovery riêng biệt.
+    - Nút CTA trực quan: `"Đăng nhập để nhận bản phối riêng"` dẫn thẳng tới màn hình đăng nhập.
+  - **Kịch bản 2: Người dùng mới chưa có đủ dữ liệu hành vi (Cold Start - `coldStart == true`)**:
+    - Hiển thị Banner Học Hành Vi (`_ColdStartRecommendationBanner`): Huy hiệu `"Đang cá nhân hóa trải nghiệm âm nhạc"`, icon `Icons.insights_rounded`.
+    - Thông điệp thân thiện: *"Moodify đang học gu âm nhạc của bạn qua từng bài hát bạn nghe và yêu thích. Hãy tiếp tục khám phá để mở khóa các bản phối Daily Mix chuẩn xác!"*
+    - Hiển thị kèm các gợi ý xu hướng thịnh hành bên dưới để người dùng bắt đầu nghe và xây dựng dữ liệu hành vi.
+  - **Kịch bản 3: Lọc theo thể loại nhưng thể loại đó chưa có đề xuất phù hợp (`isFiltered` và `availabilityStatus == 'NO_ELIGIBLE_CATALOG'` hoặc danh sách trống)**:
+    - Hiển thị Thẻ Trạng thái Thể loại Rỗng (`_EmptyGenreRecommendationCard`): Icon đĩa nhạc/bộ lọc tinh tế, thông báo *"Chưa có đề xuất riêng cho thể loại [Tên thể loại]"*.
+    - Nút hành động `"Xem đề xuất của tất cả thể loại"` kích hoạt callback `onClearGenre` đưa bộ lọc về `"ALL"` ngay lập tức, không để người dùng bị kẹt màn hình trống.
+  - **Kịch bản 4: Đã đăng nhập và có đầy đủ dữ liệu hành vi (`sections.isNotEmpty` và `coldStart == false`)**:
+    - **Kệ Bản phối riêng (`personal_mixes`)**:
+      - Card mixtape bo góc 18px, gradient chuyển màu tự động theo tính chất bản phối (Daily Mix: xanh biển/tím than; Chill Mix: lục bảo trầm; Energy Mix: đỏ hổ phách trầm).
+      - Huy hiệu `"BẢN PHỐI"`, ảnh bìa vinyl xoay nổi bật, số bài hát, nút Play nhanh phát toàn bộ bản phối ngay lập tức.
+      - Chạm vào card mở Modal Bottom Sheet Chi Tiết Bản Phối (`PersonalizedMixDetailSheet`).
+    - **Kệ Bài hát đề xuất (`recently_played`, `artist_affinity`, `discovery`, v.v.)**:
+      - Hiển thị rõ lý do AI thông minh (`item.reason`) đi kèm icon `Icons.auto_awesome_rounded` màu tím lavender (ví dụ: *"✦ Dựa trên gu nghe gần đây"*, *"Vì bạn thích Sơn Tùng M-TP"*, *"Khám phá gu mới"*).
+      - Nút Play trực tiếp trên ảnh bìa bài hát.
+  - **Kịch bản 5: Phản hồi tiêu cực (Negative Feedback) kèm Hoàn tác (Undo)**:
+    - Nút 3 chấm trên từng thẻ đề xuất mở Bottom Sheet với 2 lựa chọn:
+      - `"Không quan tâm nội dung này"` (`NOT_INTERESTED`): Ẩn ngay lập tức khỏi UI, gửi feedback lên backend, hiển thị SnackBar thông báo kèm nút **`"Hoàn tác"`** để khôi phục lại ngay nếu bấm nhầm.
+      - `"Ẩn nghệ sĩ [Tên nghệ sĩ]"` (`HIDE`): Ẩn toàn bộ bài của nghệ sĩ khỏi gợi ý, gửi feedback lên backend, hiển thị SnackBar kèm nút **`"Hoàn tác"`**.
+      - Dùng `ProviderScope.containerOf(context)` thay vì `ref` con bị unmount, ngăn ngừa triệt để lỗi *"Cannot use ref after widget was disposed"*.
+  - **Modal Bottom Sheet Chi tiết Bản phối Riêng (`PersonalizedMixDetailSheet`)**:
+    - Hiển thị ảnh bìa lớn 104x104, tiêu đề, mô tả, số bài hát, ngày cập nhật.
+    - Hàng nút hành động: Nút `"Phát bản phối"` (play toàn bộ), Nút `"Làm mới bản phối"` (icon Refresh xoay, gọi `POST /api/me/personalized-playlists/{id}/refresh`, cập nhật danh sách bài hát mới ngay lập tức), Nút `"Lưu bản sao vào thư viện"` (icon Bookmark, gọi `POST /api/me/personalized-playlists/{id}/copies` sao chép thành playlist cá nhân).
+    - Danh sách các bài hát trong bản phối với số thứ tự, ảnh bìa, tên bài hát, nghệ sĩ, thời lượng, chỉ báo bài đang phát (Equalizer sóng âm động), chạm vào bất kỳ bài nào để phát từ bài đó.
+  - **Kịch bản Đang tải & Lỗi mạng**:
+    - Khi đang tải: Skeleton Shimmer 3 card bo góc êm dịu, không giật màn hình (zero layout shift).
+    - Khi lỗi kết nối: Card thông báo nhẹ nhàng với nút `"Thử lại"`, không làm hỏng hay chặn các phần khác của Trang chủ.
+- **Kiểm chứng kỹ thuật**:
+  - `dart format lib test`: **123 files formatted, 0 warning**.
+  - `flutter analyze --no-pub`: **No issues found!**
+  - `recommendation_test.dart`: **7/7 tests passed!** (bao phủ trọn vẹn cả 5 kịch bản UI và các tương tác hành vi: Guest, Cold start, Empty genre clear, Full mixes, Negative feedback with Undo, Mix Detail Sheet refresh & copy).
+  - Toàn bộ test suite: **171/171 tests passed!** Không có bất kỳ regression nào.
+
 ## Đăng nhập social (Google/Facebook) mở cho iOS — 08/11/2026
 
 - Người dùng báo nhấn Google/Facebook trên mobile hiện "Đăng nhập này chưa được cấu hình trên thiết bị này." Thiết bị trong ảnh là iPhone bản iOS native; code cũ (`auth_screen.dart`) chặn mọi nền tảng trừ Android native nên lỗi hiện ngay.

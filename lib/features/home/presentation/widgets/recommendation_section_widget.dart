@@ -1,26 +1,61 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/widgets/app_motion.dart';
+import '../../../../core/widgets/studio_banners.dart';
+import '../../../auth/presentation/session_controller.dart';
 import '../../../catalog/presentation/catalog_widgets.dart';
 import '../../../player/presentation/player_controller.dart';
 import '../../data/recommendation_repository.dart';
 import '../../domain/recommendation_models.dart';
 import '../recommendation_controller.dart';
+import 'personalized_mix_detail_sheet.dart';
 
+/// Hiển thị toàn bộ các mục đề xuất nhạc dựa trên hành vi (Behavioral Recommendation System),
+/// với đầy đủ các kịch bản ràng buộc: Khách chưa đăng nhập, Người dùng mới (Cold Start),
+/// Lọc thể loại không có dữ liệu, Bản phối cá nhân hóa và Feedback tiêu cực có Hoàn tác.
 class RecommendationSectionWidget extends ConsumerWidget {
-  const RecommendationSectionWidget({super.key, this.genre});
+  const RecommendationSectionWidget({super.key, this.genre, this.onClearGenre});
   final String? genre;
+  final VoidCallback? onClearGenre;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final signedIn = ref.watch(
+      sessionControllerProvider.select((s) => s.session != null),
+    );
+
+    // Kịch bản 1: Người dùng chưa đăng nhập (Khách / Guest)
+    if (!signedIn) {
+      return const SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(16, 12, 16, 20),
+          child: _GuestRecommendationPromptCard(),
+        ),
+      );
+    }
+
     final homeAsync = ref.watch(recommendationHomeProvider(genre));
     final hidden = ref.watch(hiddenItemsProvider);
-    // Dùng valueOrNull để giữ nguyên các kệ gợi ý khi đang làm mới nền,
-    // tránh thu chiều cao về 0 gây giật hoặc nhảy vị trí cuộn trên Trang chủ.
     final home = homeAsync.valueOrNull;
-    if (home == null || home.sections.isEmpty) {
+
+    // Kịch bản 2: Đang tải lần đầu chưa có dữ liệu cache
+    if (homeAsync.isLoading && home == null) {
+      return const SliverToBoxAdapter(child: _RecommendationLoadingSkeleton());
+    }
+
+    // Kịch bản 3: Gặp lỗi mạng và chưa có dữ liệu cache
+    if (homeAsync.hasError && home == null) {
+      return SliverToBoxAdapter(
+        child: _RecommendationErrorCard(
+          onRetry: () => ref.refresh(recommendationHomeProvider(genre)),
+        ),
+      );
+    }
+
+    if (home == null) {
       return const SliverToBoxAdapter(child: SizedBox.shrink());
     }
 
@@ -31,19 +66,54 @@ class RecommendationSectionWidget extends ConsumerWidget {
       return items.isNotEmpty;
     }).toList();
 
+    final isFiltered = genre != null && genre!.isNotEmpty && genre != 'ALL';
+    final hasNoEligible =
+        home.availabilityStatus == 'NO_ELIGIBLE_CATALOG' ||
+        visibleSections.isEmpty;
+
+    // Kịch bản 4: Lọc thể loại nhưng chưa có đề xuất phù hợp
+    if (isFiltered && hasNoEligible) {
+      return SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+          child: _EmptyGenreRecommendationCard(
+            genre: genre!,
+            onClearGenre: onClearGenre,
+          ),
+        ),
+      );
+    }
+
+    // Nếu không còn section nào hiển thị
     if (visibleSections.isEmpty) {
+      if (home.coldStart) {
+        return const SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(16, 12, 16, 20),
+            child: _ColdStartRecommendationBanner(),
+          ),
+        );
+      }
       return const SliverToBoxAdapter(child: SizedBox.shrink());
     }
 
     return SliverMainAxisGroup(
       slivers: [
+        // Kịch bản 5: Người dùng mới (Cold Start) - Hiển thị banner giải thích phía trên
+        if (home.coldStart)
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: _ColdStartRecommendationBanner(),
+            ),
+          ),
+
+        // Kịch bản 6: Hiển thị các kệ đề xuất theo hành vi
         for (final section in visibleSections) ...[
           SliverToBoxAdapter(
             child: _RecommendationSectionHeading(
               section.title,
-              action: section.id == 'personal_mixes'
-                  ? 'Dành riêng cho bạn'
-                  : null,
+              action: section.id == 'personal_mixes' ? 'Bản phối riêng' : null,
             ),
           ),
           SliverToBoxAdapter(
@@ -57,7 +127,7 @@ class RecommendationSectionWidget extends ConsumerWidget {
                       )
                       .toList(growable: false);
                   return SizedBox(
-                    height: section.id == 'personal_mixes' ? 240 : 230,
+                    height: section.id == 'personal_mixes' ? 244 : 234,
                     child: ListView.separated(
                       key: PageStorageKey(
                         'rec_${genre ?? "all"}_${section.id}',
@@ -82,6 +152,327 @@ class RecommendationSectionWidget extends ConsumerWidget {
           const SliverToBoxAdapter(child: SizedBox(height: 12)),
         ],
       ],
+    );
+  }
+}
+
+/// Thẻ giới thiệu tính năng Đề xuất Thông minh cho khách chưa đăng nhập.
+class _GuestRecommendationPromptCard extends StatelessWidget {
+  const _GuestRecommendationPromptCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF13151F),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0x339945FF)),
+        image: const DecorationImage(
+          image: AssetImage(MoodifyWebAssets.soundwaveDark),
+          fit: BoxFit.cover,
+          opacity: 0.12,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF9945FF).withValues(alpha: 0.12),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF9945FF), Color(0xFF14F195)],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.auto_awesome_rounded,
+                  size: 20,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'ĐỀ XUẤT THÔNG MINH AI',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.8,
+                        color: AppColors.lavender,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Khám phá âm nhạc theo gu của bạn',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Hệ thống tự động học hỏi từ thói quen nghe nhạc, ca sĩ yêu thích để tạo các bản phối Daily Mix, Weekly Discovery dành riêng cho bạn mỗi ngày.',
+            style: TextStyle(
+              fontSize: 12.5,
+              color: Colors.white70,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: () => context.push('/login'),
+            icon: const Icon(Icons.login_rounded, size: 18),
+            label: const Text('Đăng nhập để nhận bản phối riêng'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(999),
+              ),
+              elevation: 0,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Banner chào mừng và giải thích cơ chế học hành vi cho người dùng mới (Cold Start).
+class _ColdStartRecommendationBanner extends StatelessWidget {
+  const _ColdStartRecommendationBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF151824),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0x289945FF)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0x289945FF),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              Icons.insights_rounded,
+              size: 20,
+              color: AppColors.lavender,
+            ),
+          ),
+          const SizedBox(width: 14),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Đang cá nhân hóa trải nghiệm âm nhạc',
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Moodify đang học gu âm nhạc của bạn qua từng bài hát bạn nghe và yêu thích. Hãy tiếp tục khám phá để mở khóa các bản phối Daily Mix chuẩn xác!',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: Colors.white70,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Trạng thái rỗng khi lọc thể loại nhưng chưa có đề xuất phù hợp.
+class _EmptyGenreRecommendationCard extends StatelessWidget {
+  const _EmptyGenreRecommendationCard({required this.genre, this.onClearGenre});
+  final String genre;
+  final VoidCallback? onClearGenre;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF13151F),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0x1EFFFFFF)),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: const BoxDecoration(
+              color: Color(0x15FFFFFF),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.filter_list_off_rounded,
+              size: 28,
+              color: AppColors.lavender,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Chưa có đề xuất riêng cho thể loại "$genre"',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Hệ thống cần bạn nghe thêm các bài hát thuộc thể loại này để hoàn thiện bản phối gợi ý chuẩn xác hơn.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.secondary,
+              height: 1.35,
+            ),
+          ),
+          if (onClearGenre != null) ...[
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: onClearGenre,
+              icon: const Icon(Icons.apps_rounded, size: 16),
+              label: const Text('Xem đề xuất của tất cả thể loại'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: const BorderSide(color: Color(0x33FFFFFF)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Skeleton Shimmer khi đang tải dữ liệu đề xuất.
+class _RecommendationLoadingSkeleton extends StatelessWidget {
+  const _RecommendationLoadingSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+          child: Container(
+            width: 160,
+            height: 18,
+            decoration: BoxDecoration(
+              color: const Color(0x18FFFFFF),
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+        ),
+        SizedBox(
+          height: 230,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            scrollDirection: Axis.horizontal,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: 3,
+            separatorBuilder: (_, _) => const SizedBox(width: 14),
+            itemBuilder: (_, _) => Container(
+              width: 160,
+              decoration: BoxDecoration(
+                color: const Color(0x12FFFFFF),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: const Color(0x10FFFFFF)),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Thẻ báo lỗi nhẹ nhàng khi tải đề xuất thất bại.
+class _RecommendationErrorCard extends StatelessWidget {
+  const _RecommendationErrorCard({required this.onRetry});
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF161822),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0x1EFFFFFF)),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.cloud_off_rounded,
+            size: 22,
+            color: Color(0xFFFF6B6B),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              'Chưa thể cập nhật gợi ý âm nhạc lúc này.',
+              style: TextStyle(fontSize: 12.5, color: Colors.white70),
+            ),
+          ),
+          TextButton(
+            onPressed: onRetry,
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.lavender,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+            ),
+            child: const Text('Thử lại'),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -117,12 +508,19 @@ class _RecommendationSectionHeading extends StatelessWidget {
           ),
         ),
         if (action != null)
-          Text(
-            action!,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              color: AppColors.lavender,
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: const Color(0x229945FF),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              action!,
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: AppColors.lavender,
+              ),
             ),
           ),
       ],
@@ -152,7 +550,7 @@ class _PersonalMixCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final gradient = _getGradient(item.title);
 
-    Future<void> onPlay() async {
+    Future<void> onPlayDirect() async {
       ref
           .read(recommendationRepositoryProvider)
           .recordEvent(
@@ -181,10 +579,14 @@ class _PersonalMixCard extends ConsumerWidget {
       }
     }
 
+    void onOpenDetail() {
+      showPersonalizedMixDetailSheet(context: context, item: item);
+    }
+
     return SizedBox(
       width: 172,
       child: Pressable(
-        onTap: onPlay,
+        onTap: onOpenDetail,
         borderRadius: BorderRadius.circular(18),
         child: Container(
           padding: const EdgeInsets.all(12),
@@ -255,24 +657,28 @@ class _PersonalMixCard extends ConsumerWidget {
                     MusicArtwork(image: item.imageUrl, size: 120, radius: 14),
                     Padding(
                       padding: const EdgeInsets.all(6),
-                      child: Container(
-                        height: 34,
-                        width: 34,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppColors.primary,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.5),
-                              blurRadius: 8,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.play_arrow_rounded,
-                          color: Colors.white,
-                          size: 20,
+                      child: InkWell(
+                        onTap: onPlayDirect,
+                        borderRadius: BorderRadius.circular(999),
+                        child: Container(
+                          height: 34,
+                          width: 34,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppColors.primary,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.5),
+                                blurRadius: 8,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.play_arrow_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          ),
                         ),
                       ),
                     ),
@@ -438,6 +844,7 @@ void _showItemOptions(
   WidgetRef ref,
   RecommendationItem item,
 ) {
+  final container = ProviderScope.containerOf(context);
   showModalBottomSheet<void>(
     context: context,
     backgroundColor: const Color(0xFF141620),
@@ -472,9 +879,9 @@ void _showItemOptions(
                 onTap: () async {
                   Navigator.pop(context);
                   final key = '${item.entityType}:${item.entityId}';
-                  ref.read(hiddenItemsProvider.notifier).hide(key);
+                  container.read(hiddenItemsProvider.notifier).hide(key);
 
-                  await ref
+                  await container
                       .read(recommendationRepositoryProvider)
                       .sendFeedback(
                         entityType: item.entityType,
@@ -492,8 +899,10 @@ void _showItemOptions(
                           label: 'Hoàn tác',
                           textColor: AppColors.lavender,
                           onPressed: () async {
-                            ref.read(hiddenItemsProvider.notifier).unhide(key);
-                            await ref
+                            container
+                                .read(hiddenItemsProvider.notifier)
+                                .unhide(key);
+                            await container
                                 .read(recommendationRepositoryProvider)
                                 .sendFeedback(
                                   entityType: item.entityType,
@@ -524,9 +933,9 @@ void _showItemOptions(
                   onTap: () async {
                     Navigator.pop(context);
                     final key = '${item.entityType}:${item.entityId}';
-                    ref.read(hiddenItemsProvider.notifier).hide(key);
+                    container.read(hiddenItemsProvider.notifier).hide(key);
 
-                    await ref
+                    await container
                         .read(recommendationRepositoryProvider)
                         .sendFeedback(
                           entityType: 'ARTIST',
@@ -542,6 +951,23 @@ void _showItemOptions(
                             'Đã ẩn nghệ sĩ ${item.track?.artist ?? ""}',
                           ),
                           behavior: SnackBarBehavior.floating,
+                          action: SnackBarAction(
+                            label: 'Hoàn tác',
+                            textColor: AppColors.lavender,
+                            onPressed: () async {
+                              container
+                                  .read(hiddenItemsProvider.notifier)
+                                  .unhide(key);
+                              await container
+                                  .read(recommendationRepositoryProvider)
+                                  .sendFeedback(
+                                    entityType: 'ARTIST',
+                                    entityId: item.track!.artistId!,
+                                    feedbackType: 'HIDE',
+                                    enabled: false,
+                                  );
+                            },
+                          ),
                         ),
                       );
                     }

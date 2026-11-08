@@ -381,6 +381,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         if (!isOfflineMode)
                           RecommendationSectionWidget(
                             genre: _genre?.split(',').first,
+                            onClearGenre: () => setState(() => _genre = null),
                           ),
                         if (shelf.isNotEmpty) ...[
                           SliverToBoxAdapter(

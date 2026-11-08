@@ -108,3 +108,12 @@ Theo yêu cầu người dùng, hiển thị lời có timestamp cho mọi ngư�
   (iOS OAuth Client riêng) và `GIDClientID` + URL scheme đảo ngược trong
   Info.plist. Facebook cấu hình iOS qua Info.plist (AppID/ClientToken/scheme
   `fb<id>`); key hash vẫn chỉ áp dụng Android. Không thêm package mới.
+
+# 08/11/2026 — Giao diện Đề xuất theo Hành vi (Behavioral Recommendation UI)
+
+- D47 (08/11): Thiết kế và bao phủ toàn bộ 5 kịch bản UI cho chức năng Đề xuất nhạc dựa trên hành vi (`RecommendationSectionWidget`, `PersonalizedMixDetailSheet`, `recommendation_models.dart`, `recommendation_repository.dart`):
+  1. Khách chưa đăng nhập: Thẻ Studio Dark giải thích công nghệ AI kèm nút Đăng nhập;
+  2. Người dùng mới (Cold Start): Banner giải thích quá trình AI học gu âm nhạc + khuyến khích tương tác;
+  3. Lọc thể loại không có dữ liệu (`NO_ELIGIBLE_CATALOG` hoặc rỗng): Thẻ rỗng tinh tế kèm nút reset về "Tất cả" (`onClearGenre`);
+  4. Đã đăng nhập & có đề xuất: Kệ Bản phối riêng với gradient động theo mix type, phát nhanh hoặc mở Modal Bottom Sheet chi tiết (`PersonalizedMixDetailSheet`) hỗ trợ phát toàn bộ, làm mới bản phối (`refresh`) và lưu bản sao vào thư viện (`copies`); Kệ bài hát theo hành vi có chip lý do AI (`item.reason`);
+  5. Phản hồi tiêu cực (Negative feedback): Ẩn bài hát (`NOT_INTERESTED`) hoặc Ẩn nghệ sĩ (`HIDE`) với SnackBar Hoàn tác (Undo); dùng `ProviderScope.containerOf(context)` trong SnackBar callback để tránh lỗi disposed widget ref. Toàn bộ 171/171 tests passed.
