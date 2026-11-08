@@ -91,3 +91,13 @@ Theo yêu cầu người dùng, hiển thị lời có timestamp cho mọi ngư�
 - D39 (05–06/11): Màn hình mở đầu dùng `SplashLaunchGate` + `BrandSplashHero` (`lib/core/widgets/brand_splash.dart`) từ mark `assets/brand/moodify-mark.png` sẵn có, kết hợp nền native launch `#0C0C10` trên Android/iOS và `@drawable/launch_mark` căn giữa trên Android. Không thêm package animation ngoài; đợi viewport thực khác 0 (`size.width > 0 && size.height > 0` + `addPostFrameCallback`) trước khi chạy controller hữu hạn (1850 ms vào + 380 ms thoát) để tránh `AudioServiceActivity` tiêu thụ mất animation lúc pre-warm engine `0×0`, rồi tự gỡ khỏi widget tree sau khi hoàn tất cùng `SessionPhase.restoring`. Tôn trọng reduced motion và giữ nguyên điều hướng `/restoring` khi lỗi mạng.
 - D40 (06/11): Chuẩn hóa hệ thống bo góc `AppRadii` và bề mặt thẻ đặc trưng Moodify (`TrackTile` bo 16px, chip viên thuốc, `SectionHeading` có thanh nhấn gradient, `MiniPlayer` nổi bo 18px, gom nhóm thẻ `AccountScreen` bo 22px) đồng thời tối ưu độ mượt: tách widget con lắng nghe `position` (`_MiniPlayerProgress`, `_PlayerSeekSection`), tiết lưu `positionStream` 200 ms và tránh phát lại `playbackState` qua platform channel khi chỉ đổi vị trí, bỏ `ImageFilter.blur` trong thẻ cuộn `hero: true` và dùng `ValueNotifier` cho `Pressable`.
 - D41 (06/11): Giữ nguyên màn hình `BrandSplashHero` sóng nhạc đặc trưng trong Flutter (`_WaveRevealMark`, `_SplashAuraPainter`, `_SoundwaveEqualizer`, `_AnimatedWordmark`) kèm `_loopController` lặp liên tục khi đang khôi phục phiên; ở giai đoạn trước màn splash trên Android dùng `@drawable/avd_launch_logo` (khung tròn tím phát sáng + vẽ 2 nét chữ `M` + 5 cột sóng nhạc) lặp liên tục trong `MainActivity.kt` cho đến `onFlutterUiDisplayed()`; icon ngoài màn hình chính (`mipmap-anydpi-v26`, `mipmap-*/ic_launcher.png`) dùng mẫu khung vuông bo góc nền tím đậm (`#2D224C` → `#0E0C18`), viền tím sáng và chữ `M` ở giữa; đổi `InkSparkle` sang `InkRipple` và bọc `RepaintBoundary` ở `TrackTile`.
+
+# 08/11/2026 — Social login đa nền tảng
+
+- D42 (08/11): Mở Google/Facebook login cho iOS ngoài Android native, dùng lại
+  hợp đồng `POST auth/{provider}` (idToken/accessToken + device) không đổi.
+  Google dùng Web Client ID làm `serverClientId` trên cả hai nền tảng để
+  idToken khớp audience backend; iOS thêm dart-define `GOOGLE_IOS_CLIENT_ID`
+  (iOS OAuth Client riêng) và `GIDClientID` + URL scheme đảo ngược trong
+  Info.plist. Facebook cấu hình iOS qua Info.plist (AppID/ClientToken/scheme
+  `fb<id>`); key hash vẫn chỉ áp dụng Android. Không thêm package mới.
