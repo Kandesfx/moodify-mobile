@@ -8,7 +8,7 @@ import '../domain/recommendation_models.dart';
 
 final recommendationRepositoryProvider = Provider<RecommendationRepository>(
   (ref) => RecommendationRepository(
-    ref.watch(authDioProvider),
+    ref.watch(apiDioProvider),
     ref.watch(appConfigProvider),
   ),
 );

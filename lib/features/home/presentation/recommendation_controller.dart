@@ -8,13 +8,8 @@ final recommendationHomeProvider = FutureProvider.autoDispose
     .family<RecommendationHome?, String?>((ref, genre) async {
       final cancel = CancelToken();
       ref.onDispose(cancel.cancel);
-      try {
-        final repo = ref.watch(recommendationRepositoryProvider);
-        return await repo.fetchHome(genre: genre, cancel: cancel);
-      } catch (e) {
-        // Unauthenticated or service unavailable -> fail gracefully without blocking home
-        return null;
-      }
+      final repo = ref.watch(recommendationRepositoryProvider);
+      return await repo.fetchHome(genre: genre, cancel: cancel);
     });
 
 class HiddenItemsNotifier extends Notifier<Set<String>> {
