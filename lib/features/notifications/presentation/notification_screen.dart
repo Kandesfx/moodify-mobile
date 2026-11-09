@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -16,6 +17,7 @@ import '../../../core/widgets/studio_banners.dart';
 import '../../auth/presentation/session_controller.dart';
 import '../../catalog/presentation/catalog_widgets.dart';
 import '../../player/presentation/player_screen.dart';
+import '../data/fcm_service.dart';
 import '../data/notification_repository.dart';
 
 final latestNotificationAlertProvider = StateProvider<InboxItem?>(
@@ -236,6 +238,11 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
                 ref.read(inboxProvider.notifier).previewBrandAlert(),
             icon: const Icon(Icons.volume_up_rounded),
           ),
+          IconButton(
+            tooltip: 'Mã FCM Token thiết bị',
+            onPressed: () => _showFcmTokenDialog(context),
+            icon: const Icon(Icons.cloud_sync_rounded),
+          ),
           if ((state.valueOrNull ?? []).any((e) => !e.read))
             IconButton(
               tooltip: 'Đọc tất cả',
@@ -424,6 +431,65 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  void _showFcmTokenDialog(BuildContext context) {
+    final token = ref.read(fcmServiceProvider).fcmToken;
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Mã FCM Token thiết bị'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Dùng mã token này trên Firebase Console để gửi thông báo thử nghiệm khi tắt app:',
+              style: TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceRaised,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.borderSoft),
+              ),
+              child: SelectableText(
+                token ??
+                    'Chưa có token (Vui lòng kiểm tra kết nối mạng và thử lại sau vài giây).',
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 11,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          if (token != null)
+            TextButton.icon(
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: token));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Đã sao chép mã FCM Token vào bộ nhớ tạm!'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+                Navigator.of(dialogContext).pop();
+              },
+              icon: const Icon(Icons.copy_rounded, size: 18),
+              label: const Text('Sao chép'),
+            ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Đóng'),
+          ),
+        ],
       ),
     );
   }

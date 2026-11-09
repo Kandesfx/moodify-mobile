@@ -128,7 +128,7 @@ class NotificationAlertService {
     required String id,
     required String title,
     required String message,
-    bool silent = true,
+    bool silent = false,
   }) async {
     try {
       final shown = await _channel.invokeMethod<bool>('showNotification', {
@@ -172,6 +172,7 @@ class NotificationAlertService {
       id: item.id,
       title: item.title,
       message: item.message,
+      silent: false,
     );
     await playBrandChime();
   }

@@ -90,10 +90,17 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   Future<void> _socialSignIn(String provider) async {
     const googleServerClientId = String.fromEnvironment(
       'GOOGLE_SERVER_CLIENT_ID',
+      defaultValue:
+          '711124485487-2qb1s0uqa7e1uja1qio1kjggqgqdka7i.apps.googleusercontent.com',
     );
-    const googleIosClientId = String.fromEnvironment('GOOGLE_IOS_CLIENT_ID');
+    const googleIosClientId = String.fromEnvironment(
+      'GOOGLE_IOS_CLIENT_ID',
+      defaultValue:
+          '711124485487-rlr3utmj7108gdgd09ssk785a0m48be3.apps.googleusercontent.com',
+    );
     const facebookConfigured = bool.fromEnvironment(
       'FACEBOOK_LOGIN_CONFIGURED',
+      defaultValue: true,
     );
     final controller = ref.read(sessionControllerProvider.notifier);
     await controller.socialLogin(provider, () async {

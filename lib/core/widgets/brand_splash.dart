@@ -305,11 +305,13 @@ class BrandSplashHero extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             FittedBox(
               fit: BoxFit.scaleDown,
               child: _AnimatedWordmark(progress: t),
             ),
+            const SizedBox(height: 12),
+            _SoundwaveEqualizer(progress: t, cycle: cycle),
             const SizedBox(height: 10),
             Opacity(
               opacity: taglineProgress,
@@ -323,6 +325,7 @@ class BrandSplashHero extends StatelessWidget {
                     fontWeight: FontWeight.w500,
                     letterSpacing: 0.4,
                     color: AppColors.secondary,
+                    decoration: TextDecoration.none,
                   ),
                 ),
               ),
@@ -377,9 +380,75 @@ class _AnimatedWordmark extends StatelessWidget {
               letterSpacing: -1.0,
               color: color,
               height: 1.05,
+              decoration: TextDecoration.none,
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _SoundwaveEqualizer extends StatelessWidget {
+  const _SoundwaveEqualizer({required this.progress, required this.cycle});
+
+  final double progress;
+  final double cycle;
+  static const _baseHeights = <double>[10, 18, 26, 16, 30, 18, 26, 16, 10];
+
+  @override
+  Widget build(BuildContext context) {
+    final visibility = const Interval(
+      0.32,
+      0.75,
+      curve: Curves.easeOut,
+    ).transform(progress);
+    if (visibility <= 0) return const SizedBox(height: 30);
+
+    return Opacity(
+      opacity: visibility,
+      child: SizedBox(
+        height: 30,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            for (var i = 0; i < _baseHeights.length; i++) ...[
+              if (i > 0) const SizedBox(width: 5),
+              _buildBar(i, visibility),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBar(int index, double visibility) {
+    final activeWave = progress < 0.999 || cycle > 1.0;
+    final wave = activeWave
+        ? 0.45 +
+              0.55 *
+                  (0.5 +
+                      0.5 * math.sin((cycle * math.pi * 6.0) - (index * 0.65)))
+        : 0.55;
+    final h = (_baseHeights[index] * wave * visibility).clamp(4.0, 30.0);
+    final t = index / (_baseHeights.length - 1);
+    final color = t < 0.5
+        ? Color.lerp(AppColors.primary, AppColors.lavender, t * 2)!
+        : Color.lerp(AppColors.lavender, AppColors.liked, (t - 0.5) * 2)!;
+
+    return Container(
+      width: 4,
+      height: h,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(99),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.45 * visibility),
+            blurRadius: 6,
+          ),
+        ],
       ),
     );
   }
@@ -455,6 +524,47 @@ class _SplashAuraPainter extends CustomPainter {
         stops: const [0.0, 0.55, 1.0],
       ).createShader(Rect.fromCircle(center: center, radius: glowRadius));
     canvas.drawCircle(center, glowRadius, glowPaint);
+
+    // Continuous flowing soundwave ribbons behind the M mark.
+    final ribbonAlpha = (math.sin(progress * math.pi) * 0.42).clamp(0.14, 0.42);
+    for (var waveIndex = 0; waveIndex < 2; waveIndex++) {
+      final path = Path();
+      final amplitude = (waveIndex == 0 ? 18.0 : 12.0) * glowCurve;
+      final phaseShift = (cycle * math.pi * 5.0) + (waveIndex * math.pi * 0.85);
+      final width = size.width * 0.92;
+      final startX = (size.width - width) / 2;
+      const steps = 48;
+      for (var step = 0; step <= steps; step++) {
+        final norm = step / steps;
+        final envelope = math.sin(norm * math.pi);
+        final x = startX + (width * norm);
+        final y =
+            center.dy +
+            math.sin((norm * math.pi * 2.5) - phaseShift) *
+                amplitude *
+                envelope;
+        if (step == 0) {
+          path.moveTo(x, y);
+        } else {
+          path.lineTo(x, y);
+        }
+      }
+      final wavePaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = waveIndex == 0 ? 2.2 : 1.4
+        ..strokeCap = StrokeCap.round
+        ..shader = LinearGradient(
+          colors: [
+            AppColors.primary.withValues(alpha: 0),
+            AppColors.primary.withValues(alpha: ribbonAlpha),
+            AppColors.lavender.withValues(alpha: ribbonAlpha),
+            AppColors.liked.withValues(alpha: ribbonAlpha),
+            AppColors.liked.withValues(alpha: 0),
+          ],
+          stops: const [0.0, 0.2, 0.5, 0.8, 1.0],
+        ).createShader(Offset.zero & size);
+      canvas.drawPath(path, wavePaint);
+    }
 
     // Expanding harmonic wave rings around the logo.
     final ringPhase = cycle > 1.0 ? (cycle % 1.0) : progress;

@@ -53,10 +53,11 @@ Future<PlaybackEngine> createNativeEngine() async {
   await session.configure(const AudioSessionConfiguration.music());
   final handler = await AudioService.init<_MoodifyAudioHandler>(
     builder: _MoodifyAudioHandler.new,
-    config: const AudioServiceConfig(
+    config: AudioServiceConfig(
       androidNotificationChannelId: 'dev.moodify.playback',
       androidNotificationChannelName: 'Phát nhạc Moodify',
       androidNotificationIcon: 'drawable/ic_stat_moodify',
+      androidNotificationOngoing: true,
       androidStopForegroundOnPause: false,
       preloadArtwork: true,
       artDownscaleWidth: 512,

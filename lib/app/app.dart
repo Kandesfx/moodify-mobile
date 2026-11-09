@@ -9,6 +9,8 @@ import '../core/widgets/brand_splash.dart';
 import '../core/widgets/feedback_panel.dart';
 import '../features/auth/domain/session_state.dart';
 import '../features/auth/presentation/session_controller.dart';
+import '../features/notifications/data/fcm_service.dart';
+import '../features/notifications/data/notification_repository.dart';
 import '../features/notifications/presentation/notification_screen.dart';
 import '../features/offline/presentation/offline_controller.dart';
 import '../features/player/presentation/player_controller.dart';
@@ -30,6 +32,19 @@ class _AppRootState extends ConsumerState<MoodifyApp>
     WidgetsBinding.instance.addObserver(this);
     Future.microtask(
       () => ref.read(sessionControllerProvider.notifier).restore(),
+    );
+    Future.microtask(
+      () => ref.read(notificationAlertServiceProvider).ensurePermission(),
+    );
+    Future.microtask(
+      () => ref
+          .read(fcmServiceProvider)
+          .initialize(
+            alertService: ref.read(notificationAlertServiceProvider),
+            onNewAlert: (item) {
+              ref.read(latestNotificationAlertProvider.notifier).state = item;
+            },
+          ),
     );
   }
 

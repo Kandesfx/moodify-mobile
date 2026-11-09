@@ -1,5 +1,83 @@
 # Trạng thái hiện tại
 
+## Tích hợp Toàn diện Firebase Cloud Messaging (FCM) Cả Client Flutter & Backend Spring Boot — 09/11/2026
+
+- **Hoàn thành Tích hợp Phía Client Flutter (`Moodify-Flutter`)**:
+  - `firebase_core: ^3.8.1`, `firebase_messaging: ^15.1.6`.
+  - Android native metadata, kênh thông báo ngầm `moodify_brand_alerts_v1`, vector icon `ic_stat_moodify`.
+  - `@pragma('vm:entry-point') firebaseMessagingBackgroundHandler` xử lý thông báo khi app bị tắt hoàn toàn (terminated).
+  - Tự động subscribe topic **`all_users`** trên mọi thiết bị khi khởi động app.
+  - Nút sao chép FCM Token thiết bị (`Icons.cloud_sync_rounded`) trên giao diện AppBar màn hình Thông báo (`/notifications`).
+  - Đã build APK Release (`110.1 MB`) và cài đặt thành công lên thiết bị thật `R58TC0KWATX`.
+- **Hoàn thành Tích hợp Phía Backend (`Moodify-Backend`)**:
+  - Bổ sung `com.google.firebase:firebase-admin:9.4.3` vào `pom.xml`.
+  - Tạo `FirebaseConfig.java` nạp `firebase-service-account.json` an toàn trong `src/main/resources`.
+  - Cập nhật `NotificationService.java`: trong hàm `broadcast(...)`, tự động gọi `sendFcmBroadcast(...)` gửi message bất đồng bộ tới topic `all_users` khi Admin phát thông báo.
+  - Xử lý chính sách tổ chức Google Cloud (`iam.disableServiceAccountKeyCreation`), tạo và đặt khóa bảo mật Service Account vào `src/main/resources/firebase-service-account.json`.
+  - `mvn test-compile`: **BUILD SUCCESS (215 source files compiled)**.
+
+## Nâng cấp Toàn diện Thông báo Android & iOS: Khắc phục Triệt để Không hiện Thông báo khi Thoát Ra Ngoài — 08/11/2026
+
+- **Nguyên nhân cốt lõi khiến Android không thấy thông báo khi thoát ra ngoài màn hình chính**:
+  1. **Cờ `silent: true` đẩy thông báo vào nhóm "Thông báo im lặng"**: Trước đây `showSystemNotification` mặc định đặt `silent = true`. Trên Android (Samsung OneUI, Xiaomi MIUI/HyperOS, Oppo ColorOS, Pixel), thông báo silent bị hệ điều hành xếp vào nhóm ưu tiên thấp, **bị ẩn icon khỏi thanh trạng thái (status bar)** và bị thu gọn xuống cuối ngăn kéo thông báo.
+  2. **Quyền `POST_NOTIFICATIONS` trên Android 13+ (API 33+)**: Ứng dụng chỉ gọi `ensurePermission` khi người dùng đã đăng nhập và mở màn hình thông báo. Khách chưa đăng nhập hoặc vừa cài đặt app chưa từng được hỏi quyền, khiến Android chặn toàn bộ thông báo (kể cả thông báo phát nhạc Media Notification của `AudioService`).
+  3. **Icon nhỏ (smallIcon) dùng sai định dạng**: `showBrandNotification` truyền `R.mipmap.ic_launcher` (ảnh màu đầy đủ) thay vì icon vector đơn sắc chuẩn status bar, khiến một số bản ROM Android từ chối vẽ icon lên thanh trạng thái.
+  4. **Cơ chế khi tắt hẳn ứng dụng (Kill App Process)**: App sử dụng cơ chế Local Notification kết hợp Polling API (`Timer.periodic` mỗi 45s). Khi người dùng nhấn Home / chuyển app (Background), app vẫn chạy ngầm và đẩy thông báo; nhưng nếu người dùng **vuốt tắt app khỏi Đa nhiệm (Kill process)**, Dart VM bị hủy hoàn toàn nên không thể tự fetch thông báo nếu không có server Push Notification (Firebase Cloud Messaging - FCM).
+- **Giải pháp & Khắc phục Kỹ thuật**:
+  - **Android Native (`MainActivity.kt`)**:
+    - Tự động gọi `requestPermissions` nếu `POST_NOTIFICATIONS` chưa được cấp khi đẩy thông báo.
+    - Chuyển `smallIcon` sang `R.drawable.ic_stat_moodify` (icon vector đơn sắc chuẩn Android Status Bar).
+    - Cấu hình âm thanh nhận diện thương hiệu `brandSoundUri()`, rung và đèn LED khi `silent == false`.
+  - **Flutter Core & Trình phát nhạc (`notification_repository.dart`, `app.dart`, `playback_engine.dart`)**:
+    - `showSystemNotification`: Đổi mặc định sang `silent = false` để thông báo luôn có độ ưu tiên cao (`PRIORITY_HIGH`) và hiển thị icon trên thanh trạng thái.
+    - `MoodifyApp.initState`: Proactive gọi `ensurePermission()` ngay khi ứng dụng khởi chạy để hiển thị pop-up xin quyền sớm cho cả Android 13+ và iOS.
+    - `AudioServiceConfig`: Bổ sung `androidNotificationOngoing: true` để giữ thanh điều khiển bài hát luôn được ghim cố định trên thanh thông báo khi người dùng thoát ra ngoài màn hình chính.
+- **Kiểm chứng kỹ thuật**:
+  - `flutter build apk --release --dart-define-from-file=config/production.json`: **BUILD SUCCESSFUL (Exit Code 0)**.
+    - Cấu hình ký mã: Bổ sung `signingConfig = signingConfigs.getByName("debug")` trong `build.gradle.kts` cho `buildTypes.release` để cài đặt trực tiếp trên thiết bị Android vật lý.
+    - File đầu ra: `build/app/outputs/flutter-apk/app-release.apk` (109.8 MB).
+    - Cài đặt & khởi chạy trực tiếp trên thiết bị người dùng `R58TC0KWATX` qua ADB: **Success** (`Starting: Intent { cmp=dev.moodify.moodify_flutter/.MainActivity }`).
+  - `flutter analyze`: **No issues found! (0 error, 0 warning toàn project)**.
+  - `test/features/notifications/notification_alert_test.dart`: **2/2 tests PASSED!**
+  - Toàn bộ test suite: **171/171 tests PASSED!**
+
+## Khôi phục 2 Dây Sóng Nhạc & Equalizer Màn Hình Khởi Động, Triệt Tiêu Gạch Vàng và Kích Hoạt Thông Báo Native trên iPhone (iOS) — 08/11/2026
+
+- **Khôi phục Sóng Nhạc & Equalizer trên Splash Screen, Loại bỏ Gạch Chân Màu Vàng (`lib/core/widgets/brand_splash.dart`)**:
+  - **Khôi phục 2 dây sóng nhạc (`_SplashAuraPainter`)**: Đưa trở lại 2 dải sóng nhạc uốn lượn liên tục (`Continuous Flowing Soundwave Ribbons`) bằng hàm sin với gradient chuyển màu (tím `AppColors.primary` sang hồng `AppColors.liked`) và độ cong mượt mà (48 điểm mẫu) chạy phía sau logo chữ M, giữ nguyên bản sắc thương hiệu âm nhạc của Moodify.
+  - **Khôi phục Live Soundwave Equalizer (`_SoundwaveEqualizer`)**: Phục hồi 9 thanh sóng âm equalizer neon dao động hài hòa bên dưới tên ứng dụng, chuyển động nhịp nhàng theo tiến trình splash.
+  - **Triệt tiêu hoàn toàn gạch chân màu vàng dưới chữ**:
+    - Nguyên nhân: Trong Flutter, khi `Text` được render trên lớp phủ `Overlay` hoặc ngoài cây `Material`, Flutter tự động áp dụng `TextStyle` fallback mặc định có 2 đường gạch chân màu vàng (`TextDecoration.underline`).
+    - Khắc phục triệt để: Đặt `decoration: TextDecoration.none` tường minh trên từng ký tự của `_AnimatedWordmark` ('m', 'o', 'o', 'd', 'i', 'f', 'y') và câu khẩu hiệu tagline `'Âm nhạc theo từng cảm xúc'`, đồng thời bọc lớp `Material(color: AppColors.background)` ở tầng gốc.
+- **Kích hoạt Xử lý Thông báo Native trên iOS (`ios/Runner/AppDelegate.swift`)**:
+  - **Nguyên nhân sự cố trên iPhone**: Trước đây `AppDelegate.swift` hoàn toàn chưa đăng ký `MethodChannel('dev.moodify.moodify_flutter/notifications')` (chỉ có trên Android `MainActivity.kt`), khiến mọi cuộc gọi xin quyền (`ensurePermission`) và hiển thị thông báo (`showNotification`) từ Flutter trên iOS đều ném `MissingPluginException` và trả về `false`.
+  - **Triển khai Native iOS (`UserNotifications` & `UNUserNotificationCenterDelegate`)**:
+    - Cho `AppDelegate` kế thừa và hiện thực `UNUserNotificationCenterDelegate`.
+    - Gắn `UNUserNotificationCenter.current().delegate = self` trong `application(_:didFinishLaunchingWithOptions:)`.
+    - Đăng ký `MethodChannel` `dev.moodify.moodify_flutter/notifications` ở cả 2 điểm vào: `didInitializeImplicitFlutterEngine` (dành cho engine bridge của SceneDelegate) và `application(_:didFinishLaunchingWithOptions:)` (fallback).
+    - Xử lý `ensurePermission`: Kiểm tra `getNotificationSettings`. Nếu đã cấp quyền (`.authorized`, `.provisional`, `.ephemeral`) trả về `true`; nếu chưa hỏi (`.notDetermined`) gọi `requestAuthorization(options: [.alert, .badge, .sound])` kích hoạt hộp thoại xin quyền chuẩn của iOS; nếu từ chối (`.denied`) trả về `false`.
+    - Xử lý `showNotification`: Tạo `UNMutableNotificationContent` (tiêu đề, nội dung, âm thanh mặc định), cấu hình trigger tức thời (`UNTimeIntervalNotificationTrigger(0.1s)`), tạo `UNNotificationRequest` và đưa vào `UNUserNotificationCenter`.
+    - Hiện thực `userNotificationCenter(_:willPresent:withCompletionHandler:)` trả về `[.banner, .badge, .sound, .list]` (iOS 14+) / `[.alert, .badge, .sound]` để thông báo vẫn hiển thị banner và phát chuông ngay cả khi người dùng đang mở app Moodify ở chế độ tiền cảnh (foreground).
+- **Kiểm chứng kỹ thuật**:
+  - `dart format lib/core/widgets/brand_splash.dart`: **Formatted, 0 warning**.
+  - `flutter analyze`: **No issues found! (0 error, 0 warning toàn project)**.
+  - `test/core/brand_splash_test.dart`: **2/2 tests PASSED!**
+  - `test/features/notifications/notification_alert_test.dart`: **2/2 tests PASSED!**
+
+
+## Chẩn đoán và Giải quyết Sự cố Đăng nhập / Đăng ký & Cấu hình OAuth Google / Facebook — 08/11/2026
+
+- **Nguyên nhân cốt lõi khiến Đăng nhập / Đăng ký không hoạt động sau khi merge nhánh Thuan**:
+  1. **Lệch SHA-1 Keystore Google Sign-In trên Android**: Máy Thuận có SHA-1 `73:C1:BB:...` đã đăng ký Google Cloud Console; nhưng máy ASUS hiện tại có SHA-1 `AA:9D:19:B0:0C:87:4D:D5:B4:86:09:3E:9B:55:CF:30:AE:A8:BD:A0` chưa được thêm vào Android Client ID trên Google Cloud Console -> Google Play Services từ chối với mã lỗi `ApiException 10`.
+  2. **Lệch Facebook Key Hash trên Android**: Meta Developers Console chỉ đăng ký key hash của máy Thuận (`c8G7...70Vq`). Debug keystore của máy ASUS có key hash là `qp0ZsAyHTdW0hgk+m1XPMK6ovaA=` chưa được thêm vào Meta App Dashboard -> Facebook SDK báo lỗi `Invalid key hash`.
+  3. **Thiếu biến môi trường khi chạy app không qua run.bat**: `auth_screen.dart` đọc `GOOGLE_SERVER_CLIENT_ID`, `GOOGLE_IOS_CLIENT_ID`, `FACEBOOK_LOGIN_CONFIGURED` qua `String.fromEnvironment`. Khi chạy bằng `flutter run` thông thường mà không có `--dart-define-from-file=config/production.json`, các biến bị rỗng/false -> Ném lỗi *"chưa được cấu hình"*. Đã bổ sung `defaultValue` dự phòng sản xuất vào `auth_screen.dart` và tạo `.vscode/launch.json` để chạy F5 tự động có config.
+  4. **Quy tắc form Đăng ký / Đăng nhập thường & Môi trường API**: Nếu chọn Local API (`10.0.2.2:8088`), điện thoại thật (cáp USB) không thể kết nối tới loopback ảo; nếu chọn Production API, kiểm tra dữ liệu form phải thỏa mãn các ràng buộc backend (email/username chưa tồn tại, số điện thoại 8-20 số, mật khẩu >= 6 ký tự).
+- **Kiểm chứng kỹ thuật**:
+  - Đã trích xuất chính xác SHA-1 và Key Hash của máy hiện tại để người dùng gửi bạn Thuận thêm vào console.
+  - Bổ sung `.vscode/launch.json` với 2 profile `Production` và `Local API`.
+  - Bổ sung `defaultValue` cho OAuth trong `auth_screen.dart`; 4/4 test `auth_screen_test.dart` PASSED.
+
+
 ## Thiết kế Giao diện Đề xuất Nhạc Dựa Trên Hành Vi (Behavioral Recommendation) với Đầy Đủ Kịch Bản Ràng Buộc — 08/11/2026
 
 - **Triển khai giao diện cho Chức năng Đề xuất Nhạc Dựa Trên Hành Vi mới (`RecommendationSectionWidget`, `PersonalizedMixDetailSheet`, `recommendation_models.dart`, `recommendation_repository.dart`)**:

@@ -120,7 +120,14 @@ class MainActivity : AudioServiceActivity() {
                 this,
                 Manifest.permission.POST_NOTIFICATIONS,
             ) == PackageManager.PERMISSION_GRANTED
-            if (!granted) return false
+            if (!granted) {
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                    REQUEST_POST_NOTIFICATIONS,
+                )
+                return false
+            }
         }
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return false
         val launchIntent = Intent(this, MainActivity::class.java).apply {
@@ -132,8 +139,16 @@ class MainActivity : AudioServiceActivity() {
             PendingIntent.FLAG_UPDATE_CURRENT
         }
         val pendingIntent = PendingIntent.getActivity(this, id.hashCode(), launchIntent, pendingFlags)
+
+        val smallIconRes = try {
+            val iconId = resources.getIdentifier("ic_stat_moodify", "drawable", packageName)
+            if (iconId != 0) iconId else R.mipmap.ic_launcher
+        } catch (_: Exception) {
+            R.mipmap.ic_launcher
+        }
+
         val notification = NotificationCompat.Builder(this, BRAND_CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(smallIconRes)
             .setContentTitle(title)
             .setContentText(message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))
@@ -142,7 +157,12 @@ class MainActivity : AudioServiceActivity() {
             .setColor(Color.parseColor("#8B5CF6"))
             .setAutoCancel(true)
             .setSilent(silent)
-            .setSound(brandSoundUri())
+            .apply {
+                if (!silent) {
+                    setSound(brandSoundUri())
+                    setDefaults(NotificationCompat.DEFAULT_VIBRATE or NotificationCompat.DEFAULT_LIGHTS)
+                }
+            }
             .setContentIntent(pendingIntent)
             .build()
         manager.notify(id.hashCode(), notification)

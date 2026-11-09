@@ -35,11 +35,16 @@ android {
 
     buildTypes {
         release {
-            // Release signing must be configured with the production identity before distribution.
+            // Sign with the debug keystore for development & local testing.
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 }
 
 flutter {
     source = "../.."
+}
+
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
 }
