@@ -24,6 +24,10 @@
     - Cập nhật `AppUpdateService.dart` sử dụng `getCurrentVersion()` bất đồng bộ, so sánh trực tiếp `info.latestBuildNumber > current.versionCode`.
     - Cập nhật `AccountScreen.dart` hiển thị đúng phiên bản đang cài đặt (`v0.1.1`) và thông báo "Ứng dụng đang ở phiên bản mới nhất" khi bấm kiểm tra.
     - Đã re-build, nạp trực tiếp vào máy người dùng và cập nhật lại file phát hành trên GitHub Release.
+  - **Cập nhật Tagline Splash Screen theo yêu cầu người dùng — 09/11/2026**:
+    - Thay câu *"Âm nhạc theo từng cảm xúc"* thành *"Âm nhạc theo cách của bạn"*.
+    - Đồng bộ cả trong Flutter UI ([`brand_splash.dart`](file:///d:/Hai/study/DATN/Moodify-Flutter/lib/core/widgets/brand_splash.dart)) và lớp phủ native Android ([`MainActivity.kt`](file:///d:/Hai/study/DATN/Moodify-Flutter/android/app/src/main/kotlin/dev/moodify/moodify_flutter/MainActivity.kt)).
+    - Đã build và nạp trực tiếp vào điện thoại `R58TC0KWATX`.
 
   - Đã cài đặt phiên bản cơ sở `v0.1.0` (Build 1) thành công qua ADB Streamed Install.
   - Cấp quyền `REQUEST_INSTALL_PACKAGES: allow` trên thiết bị.
