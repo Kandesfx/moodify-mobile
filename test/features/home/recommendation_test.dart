@@ -584,4 +584,73 @@ void main() {
       );
     },
   );
+
+  testWidgets(
+    'Scenario 6: playlists_for_you renders _RecommendedPlaylistCard with trackCount, badge and action',
+    (tester) async {
+      final fakeRepo = _FakeRecommendationRepository();
+      final fakeHome = RecommendationHome(
+        requestId: 'pl-home-1',
+        coldStart: false,
+        availabilityStatus: 'READY',
+        sections: [
+          RecommendationSection(
+            id: 'playlists_for_you',
+            title: 'Playlist hợp gu',
+            description: 'Khám phá những tuyển tập công khai phù hợp',
+            items: [
+              RecommendationItem(
+                itemId: 'item-pl-1',
+                entityType: 'PLAYLIST',
+                entityId: 'playlist-abc-123',
+                title: 'Tuyển tập Indie Việt',
+                subtitle: 'Giai điệu nhẹ nhàng',
+                trackCount: 12,
+                reason: 'Nội dung gần với những bài bạn quan tâm',
+                reasonCode: 'PLAYLIST_CONTENT',
+                attributionToken: 'tok-pl-1',
+              ),
+            ],
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWithValue(
+              AppConfig(apiBaseUrl: 'https://api.example.test'),
+            ),
+            recommendationRepositoryProvider.overrideWithValue(fakeRepo),
+            sessionControllerProvider.overrideWith(
+              () => _FakeSessionController(
+                SessionState(
+                  phase: SessionPhase.signedIn,
+                  session: _buildTestSession(),
+                ),
+              ),
+            ),
+            recommendationHomeProvider(null).overrideWith((ref) => fakeHome),
+          ],
+          child: const MaterialApp(
+            home: Scaffold(
+              body: CustomScrollView(slivers: [RecommendationSectionWidget()]),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('Playlist hợp gu'), findsOneWidget);
+      expect(find.text('Tuyển tập'), findsOneWidget);
+      expect(find.text('Tuyển tập Indie Việt'), findsOneWidget);
+      expect(find.text('PLAYLIST'), findsOneWidget);
+      expect(find.text('12 bài hát'), findsOneWidget);
+      expect(
+        find.text('Nội dung gần với những bài bạn quan tâm'),
+        findsOneWidget,
+      );
+    },
+  );
 }

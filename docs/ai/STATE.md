@@ -1,5 +1,33 @@
 # Trạng thái hiện tại
 
+## Khảo sát và Đồng bộ Điều kiện "Playlist hợp gu" (playlists_for_you) Giữa Web & Mobile — 09/11/2026
+
+- **Khảo sát điều kiện trên Web & Backend Spring Boot**:
+  - Endpoint `/recommendations/home` trả về các section: `personal_mixes` (Bản phối cá nhân), `for_you` (Dành cho bạn), `playlists_for_you` (Playlist hợp gu), `trending` (Đang được nghe nhiều hơn), `campaigns` (Tuyển chọn đang diễn ra).
+  - Điều kiện lọc của mục "Playlist hợp gu" (`RecommendationService.java` & `RecommendationCatalog.java`):
+    1. Chỉ lấy playlist công khai (`isPublic == true`).
+    2. Loại bỏ playlist nằm trong danh sách chặn của người dùng (`context.blocked()`).
+    3. Playlist bắt buộc phải chứa các bài hát khả dụng và có điểm phù hợp gu âm nhạc của người dùng (`trackScores.containsKey(t.getId())`). Khi lọc theo thể loại (genre), các bài hát phải thuộc thể loại đang chọn.
+    4. Xếp hạng dựa trên: điểm trung bình bài hát trong playlist $\times$ tỷ lệ sẵn sàng của playlist (số bài khả dụng / tổng bài) $+$ hệ số campaign nếu có.
+    5. Khử trùng lặp đa dạng (Deduplication): Loại bỏ các playlist có độ trùng lặp bài hát (Jaccard overlap) $> 85\%$.
+    6. Giới hạn tối đa 8 playlist trên trang Home.
+  - Trên giao diện Web (`recommendation-sections.tsx`):
+    - Khác với bài hát, playlist hiển thị phụ đề là số lượng bài hát: `"${trackCount} bài hát"`.
+    - Thẻ có huy hiệu nhận diện riêng, nút "Xem playlist" điều hướng đến trang chi tiết playlist (`/playlist/:id`), nút Phát nhanh kích hoạt queue phát toàn bộ playlist.
+    - Menu tùy chọn cho playlist hiển thị "Ẩn playlist này khỏi gợi ý" (`feedbackType: HIDE`), thay vì "Không quan tâm" (`NOT_INTERESTED`) như bài hát.
+- **Khắc phục và hoàn thiện trên Mobile (`Moodify-Flutter`)**:
+  - Trước đây, Flutter dùng chung `_RecommendedTrackCard` cho mọi section khác `personal_mixes`. Khi người dùng bấm vào playlist trong "Playlist hợp gu", do `item.track == null` nên app không phản hồi gì (không phát và không mở được playlist).
+  - Đã xây dựng component chuyên biệt `_RecommendedPlaylistCard` cho `playlists_for_you`:
+    - Hiển thị ảnh bìa playlist, huy hiệu `PLAYLIST` góc trái, nút Play nhanh phát toàn bộ playlist qua `playerControllerProvider`.
+    - Bấm vào thẻ sẽ chuyển hướng đến [`CollectionScreen`](file:///d:/Hai/study/DATN/Moodify-Flutter/lib/features/catalog/presentation/detail_screen.dart) (`/playlist/:id`) để xem danh sách bài hát đầy đủ.
+    - Hiển thị đúng phụ đề `${item.trackCount} bài hát` và lý do gợi ý ("Nội dung gần với những bài bạn quan tâm").
+    - Cập nhật menu `_showItemOptions` phân biệt đúng entity `PLAYLIST` (gửi feedback `HIDE`, thêm tùy chọn xem chi tiết) và `TRACK` (gửi feedback `NOT_INTERESTED`).
+    - Chuẩn hóa thứ tự hiển thị các kệ đề xuất khớp với bản Web: `personal_mixes` $\rightarrow$ `for_you` $\rightarrow$ `playlists_for_you` $\rightarrow$ `trending` $\rightarrow$ `campaigns`.
+- **Kiểm chứng**:
+  - `dart analyze`: **No issues found!**
+  - `flutter test test/features/home/recommendation_test.dart`: **8/8 tests passed** (bổ sung test scenario 6 cho `_RecommendedPlaylistCard`).
+  - `dart format`: Đã format chuẩn toàn bộ file sửa đổi.
+
 ## Triển khai Hệ thống Tự động Cập nhật & Tự cài đặt In-App cho Android (Sideload / Không qua Google Play) — 09/11/2026
 
 - **Mục tiêu**: Người dùng yêu cầu cơ chế tự động kiểm tra và cài đặt phiên bản mới trực tiếp trên Android mà không cần đưa ứng dụng lên Google Play Store (tiết kiệm chi phí phân phối).

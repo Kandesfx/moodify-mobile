@@ -7,6 +7,7 @@ import '../../../../core/widgets/app_motion.dart';
 import '../../../../core/widgets/studio_banners.dart';
 import '../../../auth/presentation/session_controller.dart';
 import '../../../catalog/presentation/catalog_widgets.dart';
+import '../../../library/data/library_repository.dart';
 import '../../../player/presentation/player_controller.dart';
 import '../../data/recommendation_repository.dart';
 import '../../domain/recommendation_models.dart';
@@ -66,6 +67,21 @@ class RecommendationSectionWidget extends ConsumerWidget {
       return items.isNotEmpty;
     }).toList();
 
+    // Đồng bộ thứ tự hiển thị các kệ đề xuất khớp với bản web:
+    // Bản phối riêng -> Dành cho bạn -> Playlist hợp gu -> Đang được nghe nhiều hơn -> Tuyển chọn
+    const sectionOrder = [
+      'personal_mixes',
+      'for_you',
+      'playlists_for_you',
+      'trending',
+      'campaigns',
+    ];
+    visibleSections.sort((a, b) {
+      final ia = sectionOrder.indexOf(a.id);
+      final ib = sectionOrder.indexOf(b.id);
+      return (ia == -1 ? 99 : ia).compareTo(ib == -1 ? 99 : ib);
+    });
+
     final isFiltered = genre != null && genre!.isNotEmpty && genre != 'ALL';
     final hasNoEligible =
         home.availabilityStatus == 'NO_ELIGIBLE_CATALOG' ||
@@ -113,7 +129,11 @@ class RecommendationSectionWidget extends ConsumerWidget {
           SliverToBoxAdapter(
             child: _RecommendationSectionHeading(
               section.title,
-              action: section.id == 'personal_mixes' ? 'Bản phối riêng' : null,
+              action: section.id == 'personal_mixes'
+                  ? 'Bản phối riêng'
+                  : section.id == 'playlists_for_you'
+                  ? 'Tuyển tập'
+                  : null,
             ),
           ),
           SliverToBoxAdapter(
@@ -138,8 +158,13 @@ class RecommendationSectionWidget extends ConsumerWidget {
                       separatorBuilder: (_, _) => const SizedBox(width: 14),
                       itemBuilder: (context, index) {
                         final item = items[index];
-                        if (section.id == 'personal_mixes') {
+                        if (section.id == 'personal_mixes' ||
+                            item.isPersonalizedMix) {
                           return _PersonalMixCard(item: item);
+                        }
+                        if (section.id == 'playlists_for_you' ||
+                            item.isPlaylist) {
+                          return _RecommendedPlaylistCard(item: item);
                         }
                         return _RecommendedTrackCard(item: item);
                       },
@@ -839,12 +864,219 @@ class _RecommendedTrackCard extends ConsumerWidget {
   }
 }
 
+/// Thẻ hiển thị Playlist được đề xuất (Ví dụ: mục "Playlist hợp gu").
+/// Cho phép phát toàn bộ danh sách hoặc nhấn vào để xem chi tiết CollectionScreen (/playlist/:id).
+class _RecommendedPlaylistCard extends ConsumerWidget {
+  const _RecommendedPlaylistCard({required this.item});
+  final RecommendationItem item;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    Future<void> onPlayDirect() async {
+      ref
+          .read(recommendationRepositoryProvider)
+          .recordEvent(
+            eventType: 'OPEN',
+            attributionToken: item.attributionToken,
+          );
+
+      try {
+        final collection = await ref
+            .read(libraryRepositoryProvider)
+            .playlist(item.entityId);
+        if (collection.tracks.isNotEmpty && context.mounted) {
+          await ref
+              .read(playerControllerProvider.notifier)
+              .playCollection(collection.tracks, source: 'PLAYLIST');
+        } else if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Playlist này hiện chưa có bài hát nào khả dụng.'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Chưa thể mở playlist. Vui lòng thử lại sau.'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    }
+
+    void onOpenDetail() {
+      ref
+          .read(recommendationRepositoryProvider)
+          .recordEvent(
+            eventType: 'OPEN',
+            attributionToken: item.attributionToken,
+          );
+      context.push('/playlist/${item.entityId}');
+    }
+
+    final subtitleText = item.trackCount > 0
+        ? '${item.trackCount} bài hát'
+        : (item.subtitle ?? 'Tuyển tập');
+
+    return SizedBox(
+      width: 152,
+      child: Pressable(
+        onTap: onOpenDetail,
+        borderRadius: BorderRadius.circular(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Stack(
+              alignment: Alignment.bottomRight,
+              children: [
+                MusicArtwork(image: item.imageUrl, size: 152, radius: 14),
+                // Huy hiệu nhận diện loại nội dung "PLAYLIST"
+                Positioned(
+                  top: 8,
+                  left: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2.5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.65),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.15),
+                      ),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.queue_music_rounded,
+                          size: 10,
+                          color: AppColors.lavender,
+                        ),
+                        SizedBox(width: 3),
+                        Text(
+                          'PLAYLIST',
+                          style: TextStyle(
+                            fontSize: 8.5,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.4,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                // Nút phát trực tiếp nhanh trên thẻ
+                Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: InkWell(
+                    onTap: onPlayDirect,
+                    borderRadius: BorderRadius.circular(999),
+                    child: Container(
+                      height: 34,
+                      width: 34,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.primary,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.6),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.play_arrow_rounded,
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    item.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                InkWell(
+                  onTap: () => _showItemOptions(context, ref, item),
+                  borderRadius: BorderRadius.circular(999),
+                  child: const Padding(
+                    padding: EdgeInsets.only(left: 4),
+                    child: Icon(
+                      Icons.more_vert_rounded,
+                      size: 14,
+                      color: AppColors.secondary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              subtitleText,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 12, color: AppColors.secondary),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                const Icon(
+                  Icons.auto_awesome_rounded,
+                  size: 11,
+                  color: AppColors.lavender,
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    item.reason,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.lavender,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 void _showItemOptions(
   BuildContext context,
   WidgetRef ref,
   RecommendationItem item,
 ) {
   final container = ProviderScope.containerOf(context);
+  final isPlaylist = item.isPlaylist || item.entityType == 'PLAYLIST';
+  final feedbackType = isPlaylist ? 'HIDE' : 'NOT_INTERESTED';
+
   showModalBottomSheet<void>(
     context: context,
     backgroundColor: const Color(0xFF141620),
@@ -867,14 +1099,31 @@ void _showItemOptions(
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
+              if (isPlaylist)
+                ListTile(
+                  leading: const Icon(
+                    Icons.playlist_play_rounded,
+                    color: Colors.white70,
+                  ),
+                  title: const Text(
+                    'Xem chi tiết playlist',
+                    style: TextStyle(fontSize: 14, color: Colors.white),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    context.push('/playlist/${item.entityId}');
+                  },
+                ),
               ListTile(
                 leading: const Icon(
                   Icons.visibility_off_outlined,
                   color: Colors.white70,
                 ),
-                title: const Text(
-                  'Không quan tâm nội dung này',
-                  style: TextStyle(fontSize: 14, color: Colors.white),
+                title: Text(
+                  isPlaylist
+                      ? 'Ẩn playlist này khỏi gợi ý'
+                      : 'Không quan tâm nội dung này',
+                  style: const TextStyle(fontSize: 14, color: Colors.white),
                 ),
                 onTap: () async {
                   Navigator.pop(context);
@@ -886,7 +1135,7 @@ void _showItemOptions(
                       .sendFeedback(
                         entityType: item.entityType,
                         entityId: item.entityId,
-                        feedbackType: 'NOT_INTERESTED',
+                        feedbackType: feedbackType,
                         enabled: true,
                       );
 
@@ -907,7 +1156,7 @@ void _showItemOptions(
                                 .sendFeedback(
                                   entityType: item.entityType,
                                   entityId: item.entityId,
-                                  feedbackType: 'NOT_INTERESTED',
+                                  feedbackType: feedbackType,
                                   enabled: false,
                                 );
                           },
