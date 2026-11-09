@@ -324,7 +324,7 @@ class MainActivity : AudioServiceActivity() {
         }
 
         val subtitleView = TextView(this).apply {
-            text = "Âm nhạc theo từng cảm xúc"
+            text = "Âm nhạc theo cách của bạn"
             setTextColor(Color.parseColor("#C4B5FD"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f)
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)

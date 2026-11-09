@@ -318,7 +318,7 @@ class BrandSplashHero extends StatelessWidget {
               child: Transform.translate(
                 offset: Offset(0, 6.0 * (1.0 - taglineProgress)),
                 child: const Text(
-                  'Âm nhạc theo từng cảm xúc',
+                  'Âm nhạc theo cách của bạn',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 13,
