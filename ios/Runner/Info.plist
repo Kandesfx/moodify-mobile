@@ -77,23 +77,10 @@
 			<string>Editor</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<!-- Facebook: fb + App ID -->
-				<string>fb2981895912150587</string>
 				<!-- Google Sign-In iOS: URL scheme đảo ngược của iOS Client ID -->
 				<string>com.googleusercontent.apps.711124485487-rlr3utmj7108gdgd09ssk785a0m48be3</string>
 			</array>
 		</dict>
-	</array>
-	<key>FacebookAppID</key>
-	<string>2981895912150587</string>
-	<key>FacebookClientToken</key>
-	<string>d6d5c4f47fa8ef40b5c207ffb130daa4</string>
-	<key>FacebookDisplayName</key>
-	<string>Moodify</string>
-	<key>LSApplicationQueriesSchemes</key>
-	<array>
-		<string>fbapi</string>
-		<string>fb-messenger-share-api</string>
 	</array>
 	<!-- Google Sign-In iOS: iOS Client ID riêng (khác Web Client ID dùng làm serverClientId) -->
 	<key>GIDClientID</key>

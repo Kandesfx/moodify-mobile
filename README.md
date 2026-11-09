@@ -53,10 +53,10 @@ Repo đích được người dùng chỉ định: `Kandesfx/moodify-mobile`. Ch
 
 Điểm vào cho AI ở phiên sau: **“Đọc AGENTS.md, CONTEXT.md và STATE.md; tiếp tục milestone còn dở trong MIGRATION_PLAN, chuyển chức năng cũ trước khi mở rộng.”** Tài liệu chi tiết được tra theo SOURCE_MAP, không cần nạp toàn bộ workspace cũ mỗi phiên.
 
-### Đăng nhập Google và Facebook trên Android
+### Đăng nhập Google trên Android/iOS
 
-Các nút cần cấu hình nhà cung cấp trước khi sử dụng. Google cần OAuth client Android ứng với `dev.moodify.moodify_flutter` và SHA-1 của bản build; truyền web/server client ID được backend tin cậy bằng `--dart-define=GOOGLE_SERVER_CLIENT_ID=...`. Facebook cần đăng ký package, activity và key hash trong Meta Developer; đặt `facebookAppId` và `facebookClientToken` trong Gradle user properties, rồi bật `--dart-define=FACEBOOK_LOGIN_CONFIGURED=true`. Chỉ bật cờ khi cả hai giá trị đã được cấu hình đúng. Các giá trị mặc định không kích hoạt đăng nhập. Không đưa client secret vào ứng dụng.
+Google cần OAuth client Android ứng với `dev.moodify.moodify_flutter` và SHA-1 của bản build; truyền web/server client ID được backend tin cậy bằng `--dart-define=GOOGLE_SERVER_CLIENT_ID=...`. iOS cần thêm `GOOGLE_IOS_CLIENT_ID` và URL scheme đảo ngược tương ứng trong Info.plist. Các client ID có trong `config/production.json` và `config/development.example.json`. Không đưa client secret vào ứng dụng.
 
-Cấu hình iOS và đăng nhập với tài khoản thật chưa được kiểm chứng. Backend Facebook hiện cần được rà soát xác minh token thuộc đúng ứng dụng Meta trước khi triển khai production.
+Đăng nhập Facebook đã được gỡ ngày 09/11/2026 theo yêu cầu người dùng. Ứng dụng hỗ trợ Google và tài khoản/mật khẩu. Đăng nhập Google trên thiết bị thật vẫn cần nghiệm thu riêng.
 
 Nút nâng cấp trong quảng cáo mở `PREMIUM_WEB_URL` bằng trình duyệt. Cấu hình local dành cho emulator trỏ tới `10.0.2.2:3000`, cần frontend web local hoạt động và kết nối đúng backend local; bản production trỏ tới trang Premium production. Trình duyệt có phiên đăng nhập riêng. Mở trang chỉ bỏ qua quảng cáo hiện tại như web, không xác nhận mua gói; app kiểm tra lại quyền qua backend khi chọn bài tiếp theo.

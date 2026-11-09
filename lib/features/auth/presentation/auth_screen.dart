@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_login_facebook/flutter_login_facebook.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../../core/errors/app_failure.dart';
@@ -86,71 +85,41 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     }
   }
 
-  Future<void> _socialSignIn(String provider) async {
+  Future<void> _googleSignIn() async {
     const googleServerClientId = String.fromEnvironment(
       'GOOGLE_SERVER_CLIENT_ID',
     );
     const googleIosClientId = String.fromEnvironment('GOOGLE_IOS_CLIENT_ID');
-    const facebookConfigured = bool.fromEnvironment(
-      'FACEBOOK_LOGIN_CONFIGURED',
-    );
     final controller = ref.read(sessionControllerProvider.notifier);
-    await controller.socialLogin(provider, () async {
+    await controller.googleLogin(() async {
       if (kIsWeb) {
         throw const AppFailure('Đăng nhập này chưa được hỗ trợ trên web.');
       }
-      if (provider == 'google') {
-        if (googleServerClientId.isEmpty) {
-          throw const AppFailure(
-            'Đăng nhập Google chưa được cấu hình cho ứng dụng.',
-          );
-        }
-        // iOS yêu cầu thêm iOS Client ID riêng (khác Web Client ID dùng làm
-        // serverClientId): không có nó thì GIDConfiguration không được tạo và
-        // idToken trả về sai audience so với backend.
-        final isIos = defaultTargetPlatform == TargetPlatform.iOS;
-        if (isIos && googleIosClientId.isEmpty) {
-          throw const AppFailure(
-            'Đăng nhập Google chưa được cấu hình cho iOS.',
-          );
-        }
-        final google = GoogleSignIn.instance;
-        if (!_googleInitialized) {
-          await google.initialize(
-            clientId: isIos ? googleIosClientId : null,
-            serverClientId: googleServerClientId,
-          );
-          _googleInitialized = true;
-        }
-        final account = await google.authenticate();
-        final token = account.authentication.idToken;
-        if (token == null || token.isEmpty) {
-          throw const AppFailure(
-            'Không thể nhận thông tin đăng nhập Google. Vui lòng thử lại.',
-          );
-        }
-        return token;
-      }
-      if (!facebookConfigured) {
+      if (googleServerClientId.isEmpty) {
         throw const AppFailure(
-          'Đăng nhập Facebook chưa được cấu hình cho ứng dụng.',
+          'Đăng nhập Google chưa được cấu hình cho ứng dụng.',
         );
       }
-      final result = await FacebookLogin().logIn(
-        permissions: [
-          FacebookPermission.publicProfile,
-          FacebookPermission.email,
-        ],
-      );
-      if (result.status == FacebookLoginStatus.cancel) {
-        throw const AppFailure('Bạn đã hủy đăng nhập Facebook.');
+      // iOS yêu cầu thêm iOS Client ID riêng (khác Web Client ID dùng làm
+      // serverClientId): không có nó thì GIDConfiguration không được tạo và
+      // idToken trả về sai audience so với backend.
+      final isIos = defaultTargetPlatform == TargetPlatform.iOS;
+      if (isIos && googleIosClientId.isEmpty) {
+        throw const AppFailure('Đăng nhập Google chưa được cấu hình cho iOS.');
       }
-      final token = result.accessToken?.token;
-      if (result.status != FacebookLoginStatus.success ||
-          token == null ||
-          token.isEmpty) {
+      final google = GoogleSignIn.instance;
+      if (!_googleInitialized) {
+        await google.initialize(
+          clientId: isIos ? googleIosClientId : null,
+          serverClientId: googleServerClientId,
+        );
+        _googleInitialized = true;
+      }
+      final account = await google.authenticate();
+      final token = account.authentication.idToken;
+      if (token == null || token.isEmpty) {
         throw const AppFailure(
-          'Không thể đăng nhập Facebook. Vui lòng thử lại.',
+          'Không thể nhận thông tin đăng nhập Google. Vui lòng thử lại.',
         );
       }
       return token;
@@ -379,9 +348,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                         ),
                         const SizedBox(height: 16),
                         OutlinedButton.icon(
-                          onPressed: session.isBusy
-                              ? null
-                              : () => _socialSignIn('google'),
+                          onPressed: session.isBusy ? null : _googleSignIn,
                           icon: const Text(
                             'G',
                             style: TextStyle(
@@ -391,17 +358,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                             ),
                           ),
                           label: const Text('Google'),
-                        ),
-                        const SizedBox(height: 12),
-                        OutlinedButton.icon(
-                          onPressed: session.isBusy
-                              ? null
-                              : () => _socialSignIn('facebook'),
-                          icon: const Icon(
-                            Icons.facebook,
-                            color: Color(0xFF438BFA),
-                          ),
-                          label: const Text('Facebook'),
                         ),
                         const SizedBox(height: 20),
                         Wrap(

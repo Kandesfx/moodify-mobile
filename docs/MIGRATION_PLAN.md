@@ -48,7 +48,7 @@ Các API cụ thể và khác biệt response nằm tại `docs/reference/API_CO
 | --- | --- | --- |
 | Shell, auth-return | `src/app/_layout.tsx`, `src/app/(tabs)/_layout.tsx` | Shell 5 tab sau merge karaoke + detail routes; login trở về nơi yêu cầu, Back đúng, không mất ý định phát |
 | Login/register | `src/app/auth.tsx`, `src/services/api.ts` | Form → auth controller/repository; server validation, token restore, lỗi credentials, không giữ password |
-| Google/Facebook | `src/app/auth.tsx`, `src/constants/config.ts` | Adapter native/OAuth theo backend; đúng client/redirect/signing, hủy login an toàn; xác minh từng platform |
+| Google | `src/app/auth.tsx`, `src/constants/config.ts` | Adapter native/OAuth theo backend; đúng client/redirect/signing, hủy login an toàn; xác minh từng platform. Facebook đã gỡ khỏi web/mobile/backend theo yêu cầu ngày 09/11/2026 |
 | Catalog/home | `src/app/(tabs)/index.tsx` | Data thật, ảnh lazy/cache, phân trang có giới hạn; refresh/error/empty rõ; không gọi dữ liệu random là cá nhân hóa |
 | Album | `src/components/album/AlbumDetailModal.tsx` | Detail/favorite/play qua ID thật; lỗi favorite rollback, empty khác lỗi; queue đúng thứ tự |
 | Artist đang có | `src/components/artist/ArtistDetailModal.tsx` | Hiển thị danh sách bài tìm theo artist và chia sẻ; không giả artist profile hoặc trạng thái follow |

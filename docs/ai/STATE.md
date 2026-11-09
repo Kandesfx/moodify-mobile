@@ -1,5 +1,13 @@
 # Trạng thái hiện tại
 
+## Gỡ đăng nhập Facebook — 09/11/2026
+
+- Theo yêu cầu người dùng, gỡ nút Facebook, SDK `flutter_login_facebook`, cờ cấu hình và metadata/URL scheme Facebook trên Android/iOS. Giữ Google và tài khoản/mật khẩu.
+- Auth screen/controller/repository/remote chỉ dùng `googleLogin` cho OAuth; endpoint và payload cố định `/api/auth/google` + `idToken`, không còn nhánh Facebook.
+- Web (`E:/Moodify/frontend`) gỡ nút ở đăng nhập/đăng ký, SDK, API client và cấu hình build Facebook. Backend (`E:/moodify-backend`) gỡ `/api/auth/facebook`, service, DTO và cấu hình tương ứng. Không đổi DB hoặc xóa tài khoản.
+- Các mục Facebook bên dưới là ghi nhận lịch sử, đã được thay thế bởi quyết định này.
+- Kiểm chứng: Dart format đạt; Flutter analyze không có lỗi; 27/27 test auth Flutter đạt (dùng TEMP/TMP trong `tmp/facebook-auth-check` để tránh lỗi mất thư mục tạm Windows). Web: 30/30 test auth-routing đạt, TypeScript `tsc --noEmit` đạt; ESLint còn 2 lỗi có sẵn, đã đối chiếu Git HEAD (set-state-in-effect, immutability trong hero-carousel). Backend: 15/15 test AuthenticationServiceTest + AuthenticationApiTest đạt, gồm endpoint Facebook trả 404 ở controller và Google vẫn chuyển token/device đúng. JSON/plist/manifest và dependency graph không còn SDK Facebook đã kiểm tra. Chưa build/cài thiết bị hoặc triển khai server.
+
 ## Đăng nhập social (Google/Facebook) mở cho iOS — 08/11/2026
 
 - Người dùng báo nhấn Google/Facebook trên mobile hiện "Đăng nhập này chưa được
