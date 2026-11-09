@@ -1,5 +1,21 @@
 # Trạng thái hiện tại
 
+## Đóng gói và Phát hành Bản iOS Release (Moodify.ipa) cho Phiên bản v0.1.3 — 10/11/2026
+
+- **Sửa lỗi biên dịch Swift và hoàn thiện native iOS (`AppDelegate.swift`, `Podfile`)**:
+  - Gỡ bỏ khai báo thừa `UNUserNotificationCenterDelegate` trên `AppDelegate` (vì lớp cha `FlutterAppDelegate` đã tuân thủ sẵn protocol này).
+  - Thêm từ khóa `override` bắt buộc vào hai phương thức `userNotificationCenter(_:willPresent:withCompletionHandler:)` và `userNotificationCenter(_:didReceive:withCompletionHandler:)`.
+  - Unpack an toàn `engineBridge.pluginRegistry.registrar(forPlugin:)` để tránh crash/lỗi biên dịch type unwrap.
+  - Đồng bộ số hiệu phiên bản fallback trong channel `getAppVersion` lên `0.1.3+4`.
+  - Thiết lập chuẩn deployment target iOS `15.0` trong `Podfile` để khớp hoàn toàn với Flutter Engine.
+- **Biên dịch Release IPA với Cấu hình Production**:
+  - Biên dịch thành công với cờ `--dart-define-from-file=config/production.json` và `--no-codesign`.
+  - Đảm bảo cơ chế Google Sign-In hoạt động chuẩn trên iOS với `GOOGLE_IOS_CLIENT_ID` (`711124485487-rlr3utmj7108gdgd09ssk785a0m48be3.apps.googleusercontent.com`) và URL Scheme đảo ngược trong `Info.plist`.
+  - Đóng gói file: `build/ios/ipa/Moodify.ipa` (dung lượng 29.16 MB).
+- **Phát hành chính thức lên GitHub Release `v0.1.3`**:
+  - Đã tải trực tiếp file `Moodify.ipa` lên tag [v0.1.3](https://github.com/Kandesfx/moodify-mobile/releases/tag/v0.1.3).
+  - Bản phát hành `v0.1.3` hiện đã đầy đủ trọn bộ cho cả 2 hệ điều hành di động: Android (`app-release.apk`, `moodify-release.apk`) và iOS (`Moodify.ipa`).
+
 ## Khắc phục Mất tiếng Khi Xóa Đa Nhiệm & Chặn Hoàn Toàn Nhân Đôi Thông Báo Khi Vào App — 10/11/2026
 
 - **Khắc phục mất tiếng thông báo khi xóa đa nhiệm (Killed / Background Sound)**:

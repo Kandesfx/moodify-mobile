@@ -3,7 +3,7 @@ import UIKit
 import UserNotifications
 
 @main
-@objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate, UNUserNotificationCenterDelegate {
+@objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private var isNotificationChannelRegistered = false
 
   override func application(
@@ -23,9 +23,10 @@ import UserNotifications
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
 
-    let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "dev.moodify.moodify_flutter/channels")
-    registerNotificationChannel(with: registrar.messenger())
-    registerAppUpdateChannel(with: registrar.messenger())
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "dev.moodify.moodify_flutter/channels") {
+      registerNotificationChannel(with: registrar.messenger())
+      registerAppUpdateChannel(with: registrar.messenger())
+    }
   }
 
   private func registerNotificationChannel(with messenger: FlutterBinaryMessenger) {
@@ -50,9 +51,9 @@ import UserNotifications
       switch call.method {
       case "getAppVersion":
         let info = Bundle.main.infoDictionary
-        let versionName = (info?["CFBundleShortVersionString"] as? String) ?? "0.1.2"
-        let versionCodeStr = (info?["CFBundleVersion"] as? String) ?? "3"
-        let versionCode = Int(versionCodeStr) ?? 3
+        let versionName = (info?["CFBundleShortVersionString"] as? String) ?? "0.1.3"
+        let versionCodeStr = (info?["CFBundleVersion"] as? String) ?? "4"
+        let versionCode = Int(versionCodeStr) ?? 4
         result([
           "versionName": versionName,
           "versionCode": versionCode
@@ -140,7 +141,7 @@ import UserNotifications
 
   // MARK: - UNUserNotificationCenterDelegate
 
-  func userNotificationCenter(
+  override func userNotificationCenter(
     _ center: UNUserNotificationCenter,
     willPresent notification: UNNotification,
     withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
@@ -152,7 +153,7 @@ import UserNotifications
     }
   }
 
-  func userNotificationCenter(
+  override func userNotificationCenter(
     _ center: UNUserNotificationCenter,
     didReceive response: UNNotificationResponse,
     withCompletionHandler completionHandler: @escaping () -> Void
