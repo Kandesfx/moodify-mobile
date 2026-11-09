@@ -17,7 +17,14 @@
   - Thiết kế hộp thoại cập nhật [`AppUpdateDialog.dart`](file:///d:/Hai/study/DATN/Moodify-Flutter/lib/features/app_update/presentation/app_update_dialog.dart) chuẩn Studio Dark theme, hiển thị phiên bản mới, release notes, thanh tiến trình % và dung lượng tải MB trực quan.
   - Tự động kiểm tra bản cập nhật khi vào [`HomeScreen`](file:///d:/Hai/study/DATN/Moodify-Flutter/lib/features/home/presentation/home_screen.dart) và bổ sung mục "Kiểm tra bản cập nhật" trong màn hình [`AccountScreen`](file:///d:/Hai/study/DATN/Moodify-Flutter/lib/features/auth/presentation/account_screen.dart).
   - Tự động hóa build bằng workflow GitHub Actions [`.github/workflows/build-apk.yml`](file:///d:/Hai/study/DATN/Moodify-Flutter/.github/workflows/build-apk.yml).
-- **Kiểm chứng thiết bị thật (`Samsung SM-A235F` / `R58TC0KWATX`)**:
+- **Khắc phục lỗi lặp lại thông báo cập nhật sau khi cài đặt thành công — 09/11/2026**:
+  - *Nguyên nhân*: Trước đây trong `AppUpdateService.dart`, `currentBuildNumber` được đặt giá trị hằng số tĩnh (`static const int currentBuildNumber = 1`). Mặc dù hệ điều hành Android đã cài đặt thành công APK mới (`versionCode = 2`), code Dart trong app vẫn đọc giá trị `1`, dẫn đến việc so sánh `2 > 1` luôn đúng và tiếp tục bật dialog cập nhật.
+  - *Khắc phục triệt để*:
+    - Bổ sung method native `getAppVersion` trong `MainActivity.kt`: truy vấn trực tiếp `PackageManager.getPackageInfo()` của hệ điều hành Android để lấy `versionCode` và `versionName` thời gian thực (runtime).
+    - Cập nhật `AppUpdateService.dart` sử dụng `getCurrentVersion()` bất đồng bộ, so sánh trực tiếp `info.latestBuildNumber > current.versionCode`.
+    - Cập nhật `AccountScreen.dart` hiển thị đúng phiên bản đang cài đặt (`v0.1.1`) và thông báo "Ứng dụng đang ở phiên bản mới nhất" khi bấm kiểm tra.
+    - Đã re-build, nạp trực tiếp vào máy người dùng và cập nhật lại file phát hành trên GitHub Release.
+
   - Đã cài đặt phiên bản cơ sở `v0.1.0` (Build 1) thành công qua ADB Streamed Install.
   - Cấp quyền `REQUEST_INSTALL_PACKAGES: allow` trên thiết bị.
   - Đã xác thực endpoint live `https://api.moodify.click/api/app/version` trả về bản build 2.
