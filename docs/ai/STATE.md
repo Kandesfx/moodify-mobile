@@ -17,12 +17,14 @@
     3. *Khử trùng lặp chéo trong `InboxController` (`notification_screen.dart`)*: Phương thức `markSeen()` và `_checkAndNotifyNewItems()` kiểm tra đồng thời cả `item.id` lẫn `${item.title.trim()}|${item.message.trim()}` trước khi kích hoạt alert.
     4. *Tách bạch âm thanh in-app và OS (`notification_repository.dart`)*: Khi app ở tiền cảnh, `playBrandChime()` phát chuông thương hiệu Moodify qua `just_audio`, đồng thời gọi `showSystemNotification(silent: true)` để âm thanh OS không lặp đè lên chuông app.
 
-- **Kiểm chứng thực tế trên thiết bị Samsung Galaxy A23 (SM-A235F, Android 14)**:
+- **Kiểm chứng thực tế & Phát hành GitHub Release v0.1.3**:
   - `dart analyze`: **0 warnings, 0 errors!**
   - Chạy `flutter test test/features/notifications/`: **6/6 tests passed** (bổ sung test case kiểm tra `markSeen` chống duplicate chéo).
+  - Nâng mã phiên bản app lên `0.1.3+4` trong `pubspec.yaml` và `app_update_service.dart`.
   - Biên dịch Release APK (`109.7 MB`) với `config/production.json`.
   - Gỡ cài đặt bản cũ (`adb uninstall`) và nạp bản mới (`adb install`) để xóa toàn bộ cấu hình kênh cũ bị kẹt trong Android OS.
   - `adb shell dumpsys notification`: Kênh `moodify_brand_alerts_v1` đã ở trạng thái chuẩn `mImportance=4`, `mDeleted=false`, `mSound=content://settings/system/notification_sound`, `mVibrationEnabled=true`.
+  - Đã xuất bản chính thức **GitHub Release `v0.1.3`** tại [moodify-mobile/releases/tag/v0.1.3](https://github.com/Kandesfx/moodify-mobile/releases/tag/v0.1.3) kèm cả 2 file asset: `app-release.apk` và `moodify-release.apk`, sẵn sàng để đính kèm tiếp file `.ipa` khi build trên máy Mac.
   - Ứng dụng đã khởi chạy trực tiếp trên màn hình thiết bị (`mCurrentFocus = MainActivity`).
 
 - **Khắc phục mất tiếng thông báo (Silent Issue)**:
