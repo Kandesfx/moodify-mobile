@@ -277,9 +277,15 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      expect(find.text('ĐỀ XUẤT THÔNG MINH AI'), findsOneWidget);
-      expect(find.text('Khám phá âm nhạc theo gu của bạn'), findsOneWidget);
-      expect(find.text('Đăng nhập để nhận bản phối riêng'), findsOneWidget);
+      expect(find.text('GỢI Ý ÂM NHẠC DÀNH CHO BẠN'), findsOneWidget);
+      expect(
+        find.text('Đồng hành cùng gu thưởng thức của bạn'),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Đăng nhập để trải nghiệm danh sách riêng'),
+        findsOneWidget,
+      );
     },
   );
 
@@ -315,9 +321,14 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      expect(find.text('Đang cá nhân hóa trải nghiệm âm nhạc'), findsOneWidget);
       expect(
-        find.textContaining('Moodify đang học gu âm nhạc của bạn'),
+        find.text('Đang tuyển chọn giai điệu theo sở thích của bạn'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining(
+          'đề xuất âm nhạc phù hợp nhất theo xu hướng nghe nhạc',
+        ),
         findsOneWidget,
       );
     },

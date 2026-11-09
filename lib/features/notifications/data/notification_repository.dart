@@ -97,6 +97,10 @@ class NotificationAlertService {
   final Future<void> Function()? _customChimePlayer;
   AudioPlayer? _chimePlayer;
 
+  /// Bộ nhớ tạm lưu vết các thông báo vừa phát trong 45 giây để chống nhân đôi
+  /// (xảy ra khi cả FCM push lẫn polling/REST sync cùng nhận được một thông báo).
+  final Map<String, DateTime> _recentAlertTimestamps = {};
+
   bool get _isWidgetTest {
     try {
       return const bool.fromEnvironment('FLUTTER_TEST') ||
@@ -165,18 +169,43 @@ class NotificationAlertService {
     }
   }
 
-  /// Thông báo khi có thông báo mới từ hệ thống: đẩy lên thanh trạng thái OS
-  /// với âm thanh thông báo mặc định của hệ thống thiết bị (Android/iOS).
+  /// Thông báo khi có thông báo mới: phát chuông Moodify rõ ràng và đẩy thông báo hệ thống,
+  /// tự động khử trùng lặp nếu thông báo cùng nội dung đến từ cả FCM và REST sync.
   Future<void> alertNewNotification(InboxItem item) async {
+    final now = DateTime.now();
+    // Dọn dẹp cache dấu vân tay cũ hơn 45 giây
+    _recentAlertTimestamps.removeWhere(
+      (_, time) => now.difference(time).inSeconds > 45,
+    );
+
+    final idFingerprint = item.id.trim();
+    final contentFingerprint = '${item.title.trim()}|${item.message.trim()}';
+
+    // Nếu thông báo này đã được phát trong 30 giây qua, chặn lại chống nhân đôi
+    if ((idFingerprint.isNotEmpty &&
+            _recentAlertTimestamps.containsKey(idFingerprint)) ||
+        (contentFingerprint.isNotEmpty &&
+            _recentAlertTimestamps.containsKey(contentFingerprint))) {
+      return;
+    }
+
+    if (idFingerprint.isNotEmpty) {
+      _recentAlertTimestamps[idFingerprint] = now;
+    }
+    if (contentFingerprint.isNotEmpty) {
+      _recentAlertTimestamps[contentFingerprint] = now;
+    }
+
+    // 1. Luôn phát chuông thông báo thương hiệu Moodify (hoạt động 100% trên thiết bị)
+    await playBrandChime();
+
+    // 2. Hiển thị thông báo lên hệ thống OS (chế độ silent=true để chuông OS không lặp đè lên chuông thương hiệu)
     await showSystemNotification(
       id: item.id,
       title: item.title,
       message: item.message,
-      silent: false,
+      silent: true,
     );
-    if (_customChimePlayer != null) {
-      await _customChimePlayer();
-    }
   }
 
   Future<void> dispose() async {

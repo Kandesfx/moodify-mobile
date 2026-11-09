@@ -99,6 +99,73 @@ void main() {
     },
   );
 
+  test(
+    'markSeen suppresses re-alerting when FCM opened notification or content fingerprint matches',
+    () async {
+      final channelCalls = <MethodCall>[];
+      const channel = MethodChannel('dev.moodify.moodify_flutter/test_notif2');
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            channelCalls.add(call);
+            return true;
+          });
+      addTearDown(() {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null);
+      });
+
+      var chimeCount = 0;
+      final alertService = NotificationAlertService(
+        channel: channel,
+        customChimePlayer: () async {
+          chimeCount++;
+        },
+      );
+
+      final serverItems = <Map<String, dynamic>>[
+        {
+          'id': 'fcm-opened-id',
+          'title': 'Ưu đãi đặc biệt',
+          'message': 'Giảm 50% gói Premium tháng này.',
+          'type': 'PROMO',
+          'readAt': null,
+          'createdAt': '2026-11-10T01:00:00',
+        },
+      ];
+
+      final dio = Dio(BaseOptions(baseUrl: 'https://api.example.test/api/'));
+      dio.httpClientAdapter = TestAdapter((options) {
+        return jsonResponse({'items': serverItems});
+      });
+      addTearDown(dio.close);
+
+      final store = MemoryStore();
+      final emittedAlerts = <InboxItem>[];
+      final controller = InboxController(
+        NotificationRepository(dio),
+        true,
+        userId: 'user-2',
+        store: store,
+        alertService: alertService,
+        onNewAlert: emittedAlerts.add,
+      );
+      addTearDown(controller.dispose);
+
+      // Người dùng mở app qua FCM push notification -> markSeen được gọi trước khi load()
+      controller.markSeen(
+        id: 'fcm-opened-id',
+        title: 'Ưu đãi đặc biệt',
+        message: 'Giảm 50% gói Premium tháng này.',
+      );
+
+      // Khi load() chạy, thông báo đã được nhận diện là seen -> không re-alert
+      await controller.load();
+      expect(chimeCount, 0);
+      expect(emittedAlerts.isEmpty, isTrue);
+      expect(channelCalls.isEmpty, isTrue);
+    },
+  );
+
   test('trimmed Moodify brand chime asset exists without trailing slogan', () {
     final assetFile = File(moodifyNotificationChimeAsset);
     expect(assetFile.existsSync(), isTrue);

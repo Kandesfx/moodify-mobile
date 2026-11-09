@@ -44,6 +44,11 @@ class _AppRootState extends ConsumerState<MoodifyApp>
             onNewAlert: (item) {
               ref.read(latestNotificationAlertProvider.notifier).state = item;
             },
+            onMarkSeen: ({id, title, message}) {
+              ref
+                  .read(inboxProvider.notifier)
+                  .markSeen(id: id, title: title, message: message);
+            },
           ),
     );
   }

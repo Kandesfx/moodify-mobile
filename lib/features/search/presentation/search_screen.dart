@@ -103,7 +103,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Mô tả tâm trạng của bạn để AI Mood Engine gợi ý những giai điệu đồng điệu nhất — miễn phí cho mọi tài khoản đã đăng nhập.',
+                            'Chia sẻ tâm trạng của bạn để Moodify lắng nghe và đề xuất những giai điệu đồng điệu nhất — sẵn sàng phục vụ mọi tài khoản đã đăng nhập.',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 13,
@@ -728,15 +728,15 @@ class _MoodDiscoverySection extends StatelessWidget {
       children: [
         const StudioHeroBanner(
           imageAsset: MoodifyWebAssets.moodBanner,
-          eyebrow: 'AI MOOD ENGINE',
+          eyebrow: 'TUYỂN CHỌN THEO CẢM XÚC',
           eyebrowIcon: Icons.auto_awesome_rounded,
           title: 'Giai điệu đồng điệu cảm xúc',
           subtitle:
-              'Mô tả tâm trạng, khung cảnh hoặc câu chuyện của bạn để Moodify chọn lọc những bản nhạc chạm đúng tâm tư.',
+              'Chia sẻ tâm trạng, khung cảnh hoặc câu chuyện của bạn để Moodify thấu hiểu và chọn lọc những bản nhạc chạm đúng tâm tư.',
           tags: [
-            'Phân tích ngữ cảnh',
-            'Độ tương thích cảm xúc',
-            'Gợi ý cá nhân hóa',
+            'Lắng nghe nhu cầu',
+            'Đồng điệu cảm xúc',
+            'Tuyển chọn theo gu',
           ],
         ),
         const SizedBox(height: 20),
@@ -778,7 +778,7 @@ class _MoodDiscoverySection extends StatelessWidget {
   }
 }
 
-/// Nhãn đánh dấu kết quả được phân tích bởi AI Mood Engine.
+/// Nhãn đánh dấu kết quả được chọn lọc theo cảm xúc.
 class _MoodVipTag extends StatelessWidget {
   const _MoodVipTag();
   @override
@@ -790,7 +790,7 @@ class _MoodVipTag extends StatelessWidget {
       border: Border.all(color: const Color(0x38FFFFFF)),
     ),
     child: const Text(
-      'AI Cảm xúc',
+      'Gợi ý cảm xúc',
       style: TextStyle(
         fontSize: 10,
         fontWeight: FontWeight.w700,

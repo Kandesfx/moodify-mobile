@@ -468,7 +468,7 @@ class AccountScreen extends ConsumerWidget {
                                 child: StudioCoverTopicCard(
                                   title: 'Khám phá cảm xúc',
                                   subtitle: 'Tìm bài hát theo tâm trạng',
-                                  badge: 'MOOD AI',
+                                  badge: 'CẢM XÚC',
                                   imageAsset: MoodifyWebAssets.moodBanner,
                                   onTap: () => context.go('/search'),
                                 ),

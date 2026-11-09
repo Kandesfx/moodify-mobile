@@ -38,7 +38,7 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : AudioServiceActivity() {
     companion object {
         private const val NOTIFICATION_CHANNEL_NAME = "dev.moodify.moodify_flutter/notifications"
-        private const val SYSTEM_CHANNEL_ID = "moodify_system_notifications_v2"
+        private const val SYSTEM_CHANNEL_ID = "moodify_brand_alerts_v1"
         private const val REQUEST_POST_NOTIFICATIONS = 4102
         private const val APP_UPDATE_CHANNEL_NAME = "dev.moodify.moodify_flutter/app_update"
     }
@@ -49,14 +49,14 @@ class MainActivity : AudioServiceActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        ensureBrandNotificationChannel()
+        ensureSystemNotificationChannel()
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             NOTIFICATION_CHANNEL_NAME,
         ).setMethodCallHandler { call, result ->
             when (call.method) {
                 "ensurePermission" -> {
-                    ensureBrandNotificationChannel()
+                    ensureSystemNotificationChannel()
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                         val granted = ContextCompat.checkSelfPermission(
                             this,
@@ -176,6 +176,12 @@ class MainActivity : AudioServiceActivity() {
     private fun ensureSystemNotificationChannel() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+        try {
+            manager.deleteNotificationChannel("moodify_system_notifications_v2")
+            manager.deleteNotificationChannel("moodify_system_notifications_v3")
+            manager.deleteNotificationChannel("fcm_fallback_notification_channel")
+        } catch (_: Exception) {}
+
         val existing = manager.getNotificationChannel(SYSTEM_CHANNEL_ID)
         if (existing != null) return
         val audioAttributes = AudioAttributes.Builder()
@@ -184,13 +190,16 @@ class MainActivity : AudioServiceActivity() {
             .build()
         val channel = NotificationChannel(
             SYSTEM_CHANNEL_ID,
-            "Thông báo hệ thống Moodify",
+            "Thông báo Moodify",
             NotificationManager.IMPORTANCE_HIGH,
         ).apply {
-            description = "Thông báo hệ thống, gói dịch vụ và cập nhật tài khoản Moodify"
+            description = "Thông báo hệ thống, ưu đãi và hoạt động Moodify"
             enableLights(true)
             lightColor = Color.parseColor("#8B5CF6")
             enableVibration(true)
+            vibrationPattern = longArrayOf(0, 250, 250, 250)
+            setShowBadge(true)
+            lockscreenVisibility = NotificationCompat.VISIBILITY_PUBLIC
             setSound(systemNotificationSoundUri(), audioAttributes)
         }
         manager.createNotificationChannel(channel)
@@ -218,6 +227,30 @@ class MainActivity : AudioServiceActivity() {
             }
         }
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return false
+
+        // Chống nhân đôi thông báo: Bỏ qua nếu thanh trạng thái hệ thống đã hiển thị thông báo cùng nội dung
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val active = manager.activeNotifications
+            val isDuplicate = active.any { sbn ->
+                if (sbn.packageName != packageName) return@any false
+                val extras = sbn.notification.extras
+                val existingTitle = extras.getString(NotificationCompat.EXTRA_TITLE)
+                    ?: extras.getCharSequence(NotificationCompat.EXTRA_TITLE)?.toString() ?: ""
+                val existingText = extras.getString(NotificationCompat.EXTRA_TEXT)
+                    ?: extras.getCharSequence(NotificationCompat.EXTRA_TEXT)?.toString()
+                    ?: extras.getString(NotificationCompat.EXTRA_BIG_TEXT)
+                    ?: extras.getCharSequence(NotificationCompat.EXTRA_BIG_TEXT)?.toString() ?: ""
+                val sameTitle = existingTitle.trim().equals(title.trim(), ignoreCase = true)
+                val sameMessage = existingText.trim().equals(message.trim(), ignoreCase = true) ||
+                    (existingText.isNotBlank() && message.isNotBlank() &&
+                        (existingText.contains(message.trim()) || message.contains(existingText.trim())))
+                val sameId = sbn.id == id.hashCode()
+                (sameTitle && sameMessage) || sameId
+            }
+            if (isDuplicate) {
+                return false
+            }
+        }
         val launchIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
@@ -248,7 +281,7 @@ class MainActivity : AudioServiceActivity() {
             .apply {
                 if (!silent) {
                     setSound(systemNotificationSoundUri())
-                    setDefaults(NotificationCompat.DEFAULT_ALL)
+                    setDefaults(NotificationCompat.DEFAULT_VIBRATE or NotificationCompat.DEFAULT_LIGHTS)
                 }
             }
             .setContentIntent(pendingIntent)
@@ -264,6 +297,7 @@ class MainActivity : AudioServiceActivity() {
             }
         }
         super.onCreate(savedInstanceState)
+        ensureSystemNotificationChannel()
         attachAnimatedPreSplashOverlay()
     }
 

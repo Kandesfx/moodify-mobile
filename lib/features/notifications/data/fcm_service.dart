@@ -44,6 +44,7 @@ class FcmService {
     NotificationAlertService? alertService,
     void Function(InboxItem item)? onNewAlert,
     void Function(String? destination)? onOpenDestination,
+    void Function({String? id, String? title, String? message})? onMarkSeen,
   }) async {
     if (_isWidgetTest || kIsWeb) return;
     if (_initialized) return;
@@ -70,11 +71,13 @@ class FcmService {
         sound: true,
       );
 
-      // Cho phép hiển thị banner khi app đang ở foreground
+      // Khi app đang ở tiền cảnh (Foreground), Flutter xử lý qua NotificationToastOverlay
+      // và NotificationAlertService; tắt alert/sound mặc định của Firebase SDK
+      // để tránh hệ thống đẩy thêm một thông báo nữa gây hiện tượng nhân đôi.
       await messaging.setForegroundNotificationPresentationOptions(
-        alert: true,
+        alert: false,
         badge: true,
-        sound: true,
+        sound: false,
       );
 
       // Tự động đăng ký chủ đề nhận thông báo chung cho toàn bộ thiết bị
@@ -121,21 +124,33 @@ class FcmService {
           link: link,
         );
 
+        onMarkSeen?.call(id: id, title: title, message: body);
         onNewAlert?.call(item);
         alertService?.alertNewNotification(item);
       });
 
       // Lắng nghe khi người dùng bấm vào thông báo từ thanh trạng thái
       FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-        final link = message.data['linkUrl'] ?? message.data['link'];
+        final data = message.data;
+        final notification = message.notification;
+        final id = message.messageId ?? data['id'];
+        final title = notification?.title ?? data['title'];
+        final body = notification?.body ?? data['message'];
+        onMarkSeen?.call(id: id, title: title, message: body);
+        final link = data['linkUrl'] ?? data['link'];
         onOpenDestination?.call(link);
       });
 
       // Kiểm tra xem ứng dụng có được mở từ việc chạm vào thông báo lúc app bị tắt không
       final initialMessage = await messaging.getInitialMessage();
       if (initialMessage != null) {
-        final link =
-            initialMessage.data['linkUrl'] ?? initialMessage.data['link'];
+        final data = initialMessage.data;
+        final notification = initialMessage.notification;
+        final id = initialMessage.messageId ?? data['id'];
+        final title = notification?.title ?? data['title'];
+        final body = notification?.body ?? data['message'];
+        onMarkSeen?.call(id: id, title: title, message: body);
+        final link = data['linkUrl'] ?? data['link'];
         onOpenDestination?.call(link);
       }
 

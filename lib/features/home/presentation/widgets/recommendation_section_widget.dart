@@ -181,7 +181,7 @@ class RecommendationSectionWidget extends ConsumerWidget {
   }
 }
 
-/// Thẻ giới thiệu tính năng Đề xuất Thông minh cho khách chưa đăng nhập.
+/// Thẻ giới thiệu tính năng Tuyển chọn Dành riêng cho bạn cho khách chưa đăng nhập.
 class _GuestRecommendationPromptCard extends StatelessWidget {
   const _GuestRecommendationPromptCard();
 
@@ -231,7 +231,7 @@ class _GuestRecommendationPromptCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'ĐỀ XUẤT THÔNG MINH AI',
+                      'GỢI Ý ÂM NHẠC DÀNH CHO BẠN',
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
@@ -241,7 +241,7 @@ class _GuestRecommendationPromptCard extends StatelessWidget {
                     ),
                     SizedBox(height: 2),
                     Text(
-                      'Khám phá âm nhạc theo gu của bạn',
+                      'Đồng hành cùng gu thưởng thức của bạn',
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
@@ -255,7 +255,7 @@ class _GuestRecommendationPromptCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           const Text(
-            'Hệ thống tự động học hỏi từ thói quen nghe nhạc, ca sĩ yêu thích để tạo các bản phối Daily Mix, Weekly Discovery dành riêng cho bạn mỗi ngày.',
+            'Dựa trên nhu cầu và sở thích của bạn, Moodify luôn sẵn sàng đề xuất âm nhạc phù hợp theo xu hướng nghe nhạc của bạn, mang đến những bản phối Daily Mix và Discovery trọn vẹn mỗi ngày.',
             style: TextStyle(
               fontSize: 12.5,
               color: Colors.white70,
@@ -266,7 +266,7 @@ class _GuestRecommendationPromptCard extends StatelessWidget {
           ElevatedButton.icon(
             onPressed: () => context.push('/login'),
             icon: const Icon(Icons.login_rounded, size: 18),
-            label: const Text('Đăng nhập để nhận bản phối riêng'),
+            label: const Text('Đăng nhập để trải nghiệm danh sách riêng'),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
@@ -283,7 +283,7 @@ class _GuestRecommendationPromptCard extends StatelessWidget {
   }
 }
 
-/// Banner chào mừng và giải thích cơ chế học hành vi cho người dùng mới (Cold Start).
+/// Banner chào mừng và giải thích dịch vụ tuyển chọn cho người dùng mới (Cold Start).
 class _ColdStartRecommendationBanner extends StatelessWidget {
   const _ColdStartRecommendationBanner();
 
@@ -317,7 +317,7 @@ class _ColdStartRecommendationBanner extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Đang cá nhân hóa trải nghiệm âm nhạc',
+                  'Đang tuyển chọn giai điệu theo sở thích của bạn',
                   style: TextStyle(
                     fontSize: 13.5,
                     fontWeight: FontWeight.w700,
@@ -326,7 +326,7 @@ class _ColdStartRecommendationBanner extends StatelessWidget {
                 ),
                 SizedBox(height: 4),
                 Text(
-                  'Moodify đang học gu âm nhạc của bạn qua từng bài hát bạn nghe và yêu thích. Hãy tiếp tục khám phá để mở khóa các bản phối Daily Mix chuẩn xác!',
+                  'Dựa trên từng bài hát bạn lắng nghe và yêu thích, chúng tôi luôn theo sát để đề xuất âm nhạc phù hợp nhất theo xu hướng nghe nhạc của riêng bạn.',
                   style: TextStyle(
                     fontSize: 11.5,
                     color: Colors.white70,

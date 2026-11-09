@@ -146,12 +146,37 @@ class InboxController extends StateNotifier<AsyncValue<List<InboxItem>>> {
     }
   }
 
+  void markSeen({String? id, String? title, String? message}) {
+    if (id != null && id.isNotEmpty) {
+      _seenIds.add(id);
+    }
+    if (title != null && message != null) {
+      final fingerprint = '${title.trim()}|${message.trim()}';
+      if (fingerprint.isNotEmpty) {
+        _seenIds.add(fingerprint);
+      }
+    }
+    unawaited(_persistSeenIds());
+  }
+
   Future<void> _checkAndNotifyNewItems(List<InboxItem> items) async {
     final unreadNew = items
-        .where((item) => !item.read && !_seenIds.contains(item.id))
+        .where((item) {
+          if (item.read) return false;
+          if (_seenIds.contains(item.id)) return false;
+          final fingerprint = '${item.title.trim()}|${item.message.trim()}';
+          if (fingerprint.isNotEmpty && _seenIds.contains(fingerprint)) {
+            return false;
+          }
+          return true;
+        })
         .toList(growable: false);
     for (final item in items) {
       _seenIds.add(item.id);
+      final fingerprint = '${item.title.trim()}|${item.message.trim()}';
+      if (fingerprint.isNotEmpty) {
+        _seenIds.add(fingerprint);
+      }
     }
     if (unreadNew.isNotEmpty) {
       await _persistSeenIds();
@@ -495,8 +520,9 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
   }
 }
 
-/// Lớp phủ hiển thị biểu ngữ thông báo nổi trong ứng dụng khi có thông báo mới
-/// từ hệ thống (đồng thời phát âm báo nhận diện thương hiệu "Moodify").
+/// Lớp phủ hiển thị biểu ngữ thông báo nổi hiện đại trong ứng dụng khi có thông báo mới
+/// từ hệ thống (hỗ trợ chuyển động mượt mà, vuốt lên hoặc vuốt ngang để đóng ngay,
+/// không bị dính cứng mép trên và phân loại màu sắc thẩm mỹ chuẩn Studio Dark).
 class NotificationToastOverlay extends ConsumerStatefulWidget {
   const NotificationToastOverlay({
     super.key,
@@ -513,12 +539,63 @@ class NotificationToastOverlay extends ConsumerStatefulWidget {
 }
 
 class _NotificationToastOverlayState
-    extends ConsumerState<NotificationToastOverlay> {
+    extends ConsumerState<NotificationToastOverlay>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _animController;
+  late final Animation<Offset> _slideAnimation;
+  late final Animation<double> _fadeAnimation;
+  late final Animation<double> _scaleAnimation;
+
   Timer? _dismissTimer;
+  InboxItem? _currentAlert;
+  double _dragOffsetY = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 360),
+      reverseDuration: const Duration(milliseconds: 240),
+    );
+
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, -1.15), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _animController,
+            curve: Curves.easeOutBack,
+            reverseCurve: Curves.easeInCubic,
+          ),
+        );
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animController,
+        curve: Curves.easeOutQuad,
+        reverseCurve: Curves.easeInQuad,
+      ),
+    );
+
+    _scaleAnimation = Tween<double>(begin: 0.94, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animController,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      ),
+    );
+
+    final initial = ref.read(latestNotificationAlertProvider);
+    if (initial != null) {
+      _currentAlert = initial;
+      _animController.value = 1.0;
+      _scheduleAutoDismiss();
+    }
+  }
 
   @override
   void dispose() {
     _dismissTimer?.cancel();
+    _animController.dispose();
     super.dispose();
   }
 
@@ -526,80 +603,193 @@ class _NotificationToastOverlayState
     _dismissTimer?.cancel();
     if (InboxController.isWidgetTest) return;
     _dismissTimer = Timer(const Duration(seconds: 5), () {
-      if (mounted) {
+      _dismiss();
+    });
+  }
+
+  void _dismiss({bool clearProvider = true}) {
+    _dismissTimer?.cancel();
+    if (!mounted) return;
+    if (_animController.isDismissed) {
+      if (_currentAlert != null) {
+        setState(() {
+          _currentAlert = null;
+          _dragOffsetY = 0.0;
+        });
+      }
+      if (clearProvider && ref.read(latestNotificationAlertProvider) != null) {
         ref.read(latestNotificationAlertProvider.notifier).state = null;
+      }
+      return;
+    }
+    _animController.reverse().then((_) {
+      if (mounted) {
+        setState(() {
+          _currentAlert = null;
+          _dragOffsetY = 0.0;
+        });
+        if (clearProvider &&
+            ref.read(latestNotificationAlertProvider) != null) {
+          ref.read(latestNotificationAlertProvider.notifier).state = null;
+        }
       }
     });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    ref.listen<InboxItem?>(latestNotificationAlertProvider, (prev, next) {
-      if (next != null && next.id != prev?.id) {
-        _scheduleAutoDismiss();
-      }
+  void _showAlert(InboxItem alert) {
+    setState(() {
+      _currentAlert = alert;
+      _dragOffsetY = 0.0;
     });
-    final alert = ref.watch(latestNotificationAlertProvider);
-    return Stack(
-      children: [
-        widget.child,
-        if (alert != null)
-          Positioned(
-            top: 0,
-            left: 12,
-            right: 12,
-            child: SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Material(
-                  color: Colors.transparent,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: const Color(0xF5151823),
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(
-                        color: AppColors.primary.withValues(alpha: 0.55),
-                      ),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x66000000),
-                          blurRadius: 24,
-                          offset: Offset(0, 10),
+    _animController.forward(from: 0.0);
+    _scheduleAutoDismiss();
+  }
+
+  (Color, IconData, String) _styleForType(String type, String fallbackLabel) {
+    return switch (type) {
+      'BILLING' => (
+        AppColors.vipGold,
+        Icons.workspace_premium_rounded,
+        'GÓI DỊCH VỤ',
+      ),
+      'PROMO' => (const Color(0xFFF43F5E), Icons.local_offer_rounded, 'ƯU ĐÃI'),
+      'ANNOUNCEMENT' => (
+        const Color(0xFF38BDF8),
+        Icons.campaign_rounded,
+        'THÔNG BÁO',
+      ),
+      'MODERATION' => (
+        const Color(0xFFFB923C),
+        Icons.gavel_rounded,
+        'KIỂM DUYỆT',
+      ),
+      _ => (
+        AppColors.lavender,
+        Icons.notifications_active_rounded,
+        fallbackLabel.isNotEmpty ? fallbackLabel : 'HỆ THỐNG',
+      ),
+    };
+  }
+
+  Widget _buildCard(BuildContext context, InboxItem alert) {
+    final (accentColor, iconData, badgeLabel) = _styleForType(
+      alert.type,
+      alert.typeLabel,
+    );
+
+    return Dismissible(
+      key: ValueKey('toast-${alert.id}-${alert.createdAt}'),
+      direction: DismissDirection.horizontal,
+      onDismissed: (_) => _dismiss(),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onVerticalDragDown: (_) => _dismissTimer?.cancel(),
+        onVerticalDragCancel: _scheduleAutoDismiss,
+        onVerticalDragUpdate: (details) {
+          if (details.delta.dy < 0) {
+            setState(() {
+              _dragOffsetY = (_dragOffsetY + details.delta.dy).clamp(
+                -120.0,
+                0.0,
+              );
+            });
+          } else if (_dragOffsetY < 0) {
+            setState(() {
+              _dragOffsetY = (_dragOffsetY + details.delta.dy).clamp(
+                -120.0,
+                0.0,
+              );
+            });
+          }
+        },
+        onVerticalDragEnd: (details) {
+          final velocity = details.primaryVelocity ?? 0;
+          if (_dragOffsetY < -20 || velocity < -120) {
+            _dismiss();
+          } else {
+            setState(() => _dragOffsetY = 0.0);
+            _scheduleAutoDismiss();
+          }
+        },
+        child: Transform.translate(
+          offset: Offset(0, _dragOffsetY),
+          child: Material(
+            color: Colors.transparent,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xF8181A28), Color(0xF412141F)],
+                ),
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(
+                  color: accentColor.withValues(alpha: 0.4),
+                  width: 1.2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.65),
+                    blurRadius: 30,
+                    spreadRadius: 2,
+                    offset: const Offset(0, 12),
+                  ),
+                  BoxShadow(
+                    color: accentColor.withValues(alpha: 0.16),
+                    blurRadius: 20,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(22),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(22),
+                  onTap: () {
+                    _dismiss();
+                    widget.onOpenNotifications?.call();
+                  },
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Thanh pill nhỏ hiển thị khả năng vuốt lên để đóng
+                      Center(
+                        child: Container(
+                          width: 36,
+                          height: 3.5,
+                          margin: const EdgeInsets.only(top: 8, bottom: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.22),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
                         ),
-                      ],
-                    ),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(18),
-                      onTap: () {
-                        ref
-                                .read(latestNotificationAlertProvider.notifier)
-                                .state =
-                            null;
-                        widget.onOpenNotifications?.call();
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 4, 10, 14),
                         child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             Container(
-                              width: 40,
-                              height: 40,
+                              width: 44,
+                              height: 44,
                               decoration: BoxDecoration(
-                                color: AppColors.primary.withValues(
-                                  alpha: 0.18,
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    accentColor.withValues(alpha: 0.22),
+                                    accentColor.withValues(alpha: 0.08),
+                                  ],
                                 ),
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(14),
                                 border: Border.all(
-                                  color: AppColors.primary.withValues(
-                                    alpha: 0.4,
-                                  ),
+                                  color: accentColor.withValues(alpha: 0.45),
                                 ),
                               ),
-                              child: const Icon(
-                                Icons.notifications_active_rounded,
-                                color: AppColors.lavender,
-                                size: 20,
+                              child: Icon(
+                                iconData,
+                                color: accentColor,
+                                size: 22,
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -608,18 +798,49 @@ class _NotificationToastOverlayState
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Text(
-                                    'MOODIFY · ${alert.typeLabel}',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w800,
-                                      letterSpacing: 0.6,
-                                      color: AppColors.lavender,
-                                    ),
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 7,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: accentColor.withValues(
+                                            alpha: 0.15,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
+                                          border: Border.all(
+                                            color: accentColor.withValues(
+                                              alpha: 0.35,
+                                            ),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          badgeLabel,
+                                          style: TextStyle(
+                                            fontSize: 9.5,
+                                            fontWeight: FontWeight.w800,
+                                            letterSpacing: 0.5,
+                                            color: accentColor,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      const Text(
+                                        '· MOODIFY',
+                                        style: TextStyle(
+                                          fontSize: 9.5,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 0.5,
+                                          color: Color(0xFF8E92A4),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(height: 2),
+                                  const SizedBox(height: 4),
                                   Text(
                                     alert.title,
                                     maxLines: 1,
@@ -628,6 +849,7 @@ class _NotificationToastOverlayState
                                       fontSize: 13.5,
                                       fontWeight: FontWeight.w700,
                                       color: Colors.white,
+                                      height: 1.25,
                                     ),
                                   ),
                                   if (alert.message.isNotEmpty) ...[
@@ -638,31 +860,82 @@ class _NotificationToastOverlayState
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
                                         fontSize: 12,
-                                        color: AppColors.secondary,
+                                        color: Color(0xFFCACDD8),
+                                        height: 1.35,
                                       ),
                                     ),
                                   ],
                                 ],
                               ),
                             ),
+                            const SizedBox(width: 6),
                             IconButton(
                               tooltip: 'Đóng thông báo',
-                              onPressed: () {
-                                ref
-                                        .read(
-                                          latestNotificationAlertProvider
-                                              .notifier,
-                                        )
-                                        .state =
-                                    null;
-                              },
-                              icon: const Icon(
-                                Icons.close_rounded,
-                                size: 18,
-                                color: AppColors.secondary,
+                              onPressed: _dismiss,
+                              icon: Container(
+                                padding: const EdgeInsets.all(5),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.08),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.close_rounded,
+                                  size: 15,
+                                  color: Colors.white70,
+                                ),
                               ),
                             ),
                           ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen<InboxItem?>(latestNotificationAlertProvider, (prev, next) {
+      if (next != null && next.id != prev?.id) {
+        _showAlert(next);
+      } else if (next == null &&
+          _currentAlert != null &&
+          !_animController.isDismissed) {
+        _dismiss(clearProvider: false);
+      }
+    });
+
+    final alert = _currentAlert;
+    final showToast = alert != null;
+
+    return Stack(
+      children: [
+        widget.child,
+        if (showToast)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 480),
+                    child: SlideTransition(
+                      position: _slideAnimation,
+                      child: FadeTransition(
+                        opacity: _fadeAnimation,
+                        child: ScaleTransition(
+                          scale: _scaleAnimation,
+                          child: _buildCard(context, alert),
                         ),
                       ),
                     ),

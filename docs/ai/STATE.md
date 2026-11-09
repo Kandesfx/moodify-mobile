@@ -1,5 +1,84 @@
 # Trạng thái hiện tại
 
+## Khắc phục Mất tiếng Khi Xóa Đa Nhiệm & Chặn Hoàn Toàn Nhân Đôi Thông Báo Khi Vào App — 10/11/2026
+
+- **Khắc phục mất tiếng thông báo khi xóa đa nhiệm (Killed / Background Sound)**:
+  - *Nguyên nhân cốt lõi*: Backend Spring Boot (`NotificationService.java:286`) cấu hình gửi push FCM cố định với `.setChannelId("moodify_brand_alerts_v1")`. Ở phiên trước, `moodify_brand_alerts_v1` đã bị lệnh `deleteNotificationChannel()` trong `MainActivity.kt` xóa bỏ (`mDeleted=true`). Do đó, khi app bị xóa đa nhiệm (killed), Google Play Services nhận FCM push không tìm thấy channel tương ứng và tự giáng cấp sang channel dự phòng `fcm_fallback_notification_channel` với mức ưu tiên thấp (`mImportance=3`, rung bị tắt), dẫn đến mất chuông hoàn toàn ngoài app.
+  - *Xử lý triệt để*:
+    1. Trong `MainActivity.kt`: Tái kích hoạt và chuẩn hóa kênh `moodify_brand_alerts_v1` (đồng bộ 100% với backend và `AndroidManifest.xml`) với `NotificationManager.IMPORTANCE_HIGH`, `AudioAttributes.USAGE_NOTIFICATION`, rung `longArrayOf(0, 250, 250, 250)` và gán âm thanh chuẩn hệ thống `RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)`.
+    2. Khởi tạo `ensureSystemNotificationChannel()` ngay trong `MainActivity.onCreate()` và xóa bỏ các channel rác/cũ (`moodify_system_notifications_v2`, `moodify_system_notifications_v3`, `fcm_fallback_notification_channel`).
+    3. Kết quả: Khi app bị xóa đa nhiệm (killed / background), Android OS tự động phát đúng nhạc chuông thông báo mặc định của thiết bị (chuông Samsung).
+
+- **Khắc phục nhân đôi thông báo khi vào ứng dụng (In-App Double Notification Bug)**:
+  - *Nguyên nhân cốt lõi*: Khi thông báo gửi ngầm thành công 1 lần ở thanh trạng thái (status bar), nếu người dùng chạm mở app (hoặc mở app qua launcher), `InboxController.load()` chạy và tải danh sách từ `/notifications/me`. Do ID thông báo FCM ngầm khác với ID trong RAM/Store, hàm `_checkAndNotifyNewItems()` tưởng đây là thông báo mới phát sinh nên gọi tiếp `alertNewNotification()` $\rightarrow$ gọi `showSystemNotification()`, làm thanh trạng thái hệ thống bị đẩy thêm 1 thông báo y hệt lần thứ hai.
+  - *Xử lý đa tầng*:
+    1. *Khử trùng lặp tại tầng Native (`MainActivity.kt`)*: Trong `showSystemNotification()`, đọc `manager.activeNotifications`. Nếu trên thanh trạng thái đã có sẵn thông báo của Moodify với cùng tiêu đề & nội dung (hoặc cùng ID), hàm lập tức trả về `false` và không gọi `manager.notify()` đè lần 2.
+    2. *Đánh dấu đã xem từ FCM (`fcm_service.dart`)*: Bổ sung callback `onMarkSeen` vào `FirebaseMessaging.onMessageOpenedApp` và `getInitialMessage()`, lưu vết ngay lập tức ID và dấu vân tay `${title}|${message}` vào danh sách đã xem (`_seenIds`).
+    3. *Khử trùng lặp chéo trong `InboxController` (`notification_screen.dart`)*: Phương thức `markSeen()` và `_checkAndNotifyNewItems()` kiểm tra đồng thời cả `item.id` lẫn `${item.title.trim()}|${item.message.trim()}` trước khi kích hoạt alert.
+    4. *Tách bạch âm thanh in-app và OS (`notification_repository.dart`)*: Khi app ở tiền cảnh, `playBrandChime()` phát chuông thương hiệu Moodify qua `just_audio`, đồng thời gọi `showSystemNotification(silent: true)` để âm thanh OS không lặp đè lên chuông app.
+
+- **Kiểm chứng thực tế trên thiết bị Samsung Galaxy A23 (SM-A235F, Android 14)**:
+  - `dart analyze`: **0 warnings, 0 errors!**
+  - Chạy `flutter test test/features/notifications/`: **6/6 tests passed** (bổ sung test case kiểm tra `markSeen` chống duplicate chéo).
+  - Biên dịch Release APK (`109.7 MB`) với `config/production.json`.
+  - Gỡ cài đặt bản cũ (`adb uninstall`) và nạp bản mới (`adb install`) để xóa toàn bộ cấu hình kênh cũ bị kẹt trong Android OS.
+  - `adb shell dumpsys notification`: Kênh `moodify_brand_alerts_v1` đã ở trạng thái chuẩn `mImportance=4`, `mDeleted=false`, `mSound=content://settings/system/notification_sound`, `mVibrationEnabled=true`.
+  - Ứng dụng đã khởi chạy trực tiếp trên màn hình thiết bị (`mCurrentFocus = MainActivity`).
+
+- **Khắc phục mất tiếng thông báo (Silent Issue)**:
+  - *Nguyên nhân*: Lượt commit trước vô tình bỏ lệnh gọi `playBrandChime()` trong `NotificationAlertService.alertNewNotification()`, chỉ dựa vào `showSystemNotification()`. Tuy nhiên trên Android 14 (Samsung OneUI), kênh thông báo `moodify_system_notifications_v2` từng bị tạo với trạng thái `mSound=null` (kênh Android là bất biến, không thể đổi âm sau khi đã tạo nếu không đổi ID kênh).
+  - *Xử lý*:
+    1. Trong `NotificationAlertService` (`notification_repository.dart`): Khôi phục việc luôn phát chuông nhận diện thương hiệu `await playBrandChime()` qua `just_audio` (phát file `assets/audio/moodify_notification_chime.mp3`), đảm bảo 100% người dùng luôn nghe thấy tiếng chuông thông báo rõ ràng khi app ở tiền cảnh.
+    2. Trong `MainActivity.kt`: Nâng cấp kênh thông báo lên `moodify_system_notifications_v3` với `IMPORTANCE_HIGH` và `USAGE_NOTIFICATION_EVENT`. Xóa sạch các kênh cũ bị kẹt (`moodify_brand_alerts_v1`, `moodify_system_notifications_v2`) để dọn sạch các thông báo phantom cũ.
+    3. Thiết lập cờ `setDefaults(NotificationCompat.DEFAULT_VIBRATE or NotificationCompat.DEFAULT_LIGHTS)` thay vì `DEFAULT_ALL` để không ghi đè mất cấu hình âm thanh hệ thống.
+
+- **Khắc phục nhân đôi thông báo (Duplication Issue)**:
+  - *Nguyên nhân*:
+    1. Khi có thông báo mới, cả `fcm_service.dart` (FCM push) và `InboxController` (REST API polling / sync) đều đồng thời kích hoạt `alertNewNotification()` và `onNewAlert` do khác nhau về định dạng ID (`messageId` của FCM khác với UUID của cơ sở dữ liệu backend).
+    2. Cấu hình `setForegroundNotificationPresentationOptions` trong FCM trước đó để `alert: true`, khiến hệ điều hành tự vẽ 1 thông báo hệ thống của Firebase, trong khi mã nguồn Flutter lại vẽ tiếp 1 thông báo cục bộ nữa.
+  - *Xử lý*:
+    1. Tích hợp cơ chế bộ nhớ đệm dấu vân tay nội dung (`_recentAlertTimestamps`) trong `NotificationAlertService`: Nếu một thông báo có cùng nội dung `title` và `message` (hoặc ID) xuất hiện lại trong vòng 45 giây, hệ thống tự động chặn lại, loại bỏ triệt để nhân đôi.
+    2. Chỉnh `setForegroundNotificationPresentationOptions(alert: false, sound: false)` trong `fcm_service.dart` khi app ở tiền cảnh (Foreground), để thông báo in-app toast và chuông được điều phối duy nhất bởi Flutter, không bị OS đè thêm một banner nữa.
+
+- **Kiểm chứng thực tế**:
+  - `dart analyze`: **0 warnings, 0 errors!**
+  - Chạy `flutter test test/features/notifications/`: **5/5 tests passed!**
+  - Đã biên dịch Release APK (`109.7 MB`) và cài đặt thành công lên thiết bị Samsung Galaxy (`SM-A235F`).
+  - Kiểm tra qua `adb shell dumpsys notification`: Các thông báo rác/treo từ các kênh cũ đã biến mất hoàn toàn.
+
+## Chuẩn hóa Ngôn từ Dịch vụ (Bỏ chữ AI, Đóng vai Người tuyển chọn) & Thiết kế lại Toasted In-App Notification — 10/11/2026
+
+- **Chuẩn hóa văn phong sang vai trò Người làm dịch vụ / Người tuyển chọn âm nhạc**:
+  - *Kệ đề xuất cho khách vãng lai (`recommendation_section_widget.dart`)*:
+    - Thay thế toàn bộ nhãn `ĐỀ XUẤT THÔNG MINH AI` bằng `GỢI Ý ÂM NHẠC DÀNH CHO BẠN`.
+    - Thay thế câu từ máy móc thuật toán bằng câu văn dịch vụ chu đáo: *"Dựa trên nhu cầu và sở thích của bạn, Moodify luôn sẵn sàng đề xuất âm nhạc phù hợp theo xu hướng nghe nhạc của bạn, mang đến những bản phối Daily Mix và Discovery trọn vẹn mỗi ngày."*
+    - Nút CTA đổi thành: *"Đăng nhập để trải nghiệm danh sách riêng"*.
+  - *Banner Cold Start (`recommendation_section_widget.dart`)*:
+    - Tiêu đề đổi thành: *"Đang tuyển chọn giai điệu theo sở thích của bạn"*.
+    - Mô tả: *"Dựa trên từng bài hát bạn lắng nghe và yêu thích, chúng tôi luôn theo sát để đề xuất âm nhạc phù hợp nhất theo xu hướng nghe nhạc của riêng bạn."*
+  - *Khám phá theo tâm trạng (`search_screen.dart` & `account_screen.dart`)*:
+    - Bỏ tiền tố `AI MOOD ENGINE` sang `TUYỂN CHỌN THEO CẢM XÚC`, tags: *Lắng nghe nhu cầu · Đồng điệu cảm xúc · Tuyển chọn theo gu*.
+    - Đổi badge `AI Cảm xúc` thành `Gợi ý cảm xúc`.
+    - Đổi badge tài khoản `MOOD AI` thành `CẢM XÚC`.
+
+- **Thiết kế lại và mượt mà hóa Toasted In-App Notification (`notification_screen.dart`)*:
+  - Khắc phục triệt để hiện tượng thông báo "bị dính cứng, đơ và thô":
+    - *Hiệu ứng chuyển động mượt mà*: Tích hợp `AnimationController` với bộ 3 chuyển động `SlideTransition` (từ trên trượt xuống với đường cong `Curves.easeOutBack`), `FadeTransition` và `ScaleTransition` (từ 0.94 lên 1.0). Khi đóng, trượt thu lên trên nhịp nhàng (`Curves.easeInCubic`).
+    - *Cử chỉ tương tác linh hoạt*: Hỗ trợ vuốt lên (`onVerticalDragUpdate` / `onVerticalDragEnd`) theo ngón tay để gạt đóng thông báo tức thì, cùng với vuốt ngang (`Dismissible`).
+    - *Giao diện Studio Dark sang trọng*:
+      - Bo góc tròn mềm mại 22px, đệm mép trên 10px dưới Safe Area giúp thông báo nổi lơ lửng (floating banner) chứ không bị dính sát thanh trạng thái.
+      - Có thanh mini drag handle ở đỉnh báo hiệu khả năng vuốt gạt.
+      - Phân màu và icon theo từng danh mục: `BILLING` (Vàng kim Studio VIP), `PROMO` (Đỏ san hô), `ANNOUNCEMENT` (Xanh cyan), `MODERATION` (Cam), `SYSTEM` (Tím lavender).
+      - Đổ bóng đa tầng (ambient shadow + glowing accent color), nút đóng tròn tinh tế và bấm vào toàn thẻ để mở nhanh trang thông báo.
+  - *Kiểm chứng*:
+    - Viết mới test suite `test/features/notifications/notification_toast_overlay_test.dart` (3/3 test đạt).
+    - Cập nhật `test/features/home/recommendation_test.dart` (8/8 test đạt).
+    - `dart format` và `dart analyze`: **0 warnings, 0 errors!**
+    - Toàn bộ test suite dự án: **175/175 tests passed!**
+    - Sửa điểm tham chiếu đồng bộ trong Kotlin `MainActivity.kt` (`ensureSystemNotificationChannel`).
+    - Biên dịch thành công bản Release APK (`app-release.apk`, 109.7 MB) với cấu hình production `config/production.json`.
+    - Đã nạp thành công qua ADB lên thiết bị Samsung Galaxy (`SM-A235F`, ID `R58TC0KWATX`) và khởi chạy ứng dụng trực tiếp trên màn hình (`mCurrentFocus = MainActivity`).
+
 ## Chuyển đổi Âm thanh Thông báo Hệ thống & Rà soát Nền tảng iOS Sẵn sàng Build IPA — 10/11/2026
 
 - **Chuyển đổi âm thanh thông báo sang chuông mặc định của thiết bị**:
