@@ -1,5 +1,28 @@
 # Trạng thái hiện tại
 
+## Triển khai Hệ thống Tự động Cập nhật & Tự cài đặt In-App cho Android (Sideload / Không qua Google Play) — 09/11/2026
+
+- **Mục tiêu**: Người dùng yêu cầu cơ chế tự động kiểm tra và cài đặt phiên bản mới trực tiếp trên Android mà không cần đưa ứng dụng lên Google Play Store (tiết kiệm chi phí phân phối).
+- **Backend Spring Boot (`Moodify-Backend`)**:
+  - Tạo public endpoint `GET /api/app/version` trong [`AppVersionApi.java`](file:///d:/Hai/study/DATN/Moodify/Moodify-Backend/src/main/java/com/laphuth/moodify/api/AppVersionApi.java) trả về: `latestVersion`, `latestBuildNumber`, `downloadUrl`, `releaseNotes`, `forceUpdate`.
+  - Cập nhật [`SecurityConfig.java`](file:///d:/Hai/study/DATN/Moodify/Moodify-Backend/src/main/java/com/laphuth/moodify/config/SecurityConfig.java) cho phép truy cập công khai không cần token JWT.
+  - Triển khai tự động qua GitHub Actions CI/CD (`42637508246`, `42638251969`), đã deploy và kiểm chứng trực tiếp trên server production `https://api.moodify.click/api/app/version`.
+- **Hạ tầng phân phối APK (Hosting & CDN)**:
+  - Đóng gói bản phát hành APK qua GitHub Releases (kho công khai `Kandesfx/moodify-mobile`), tốc độ CDN cao, hỗ trợ resume/range requests và không gây tải cho máy chủ backend.
+  - Đã xuất bản bản phát hành `v0.1.1`: [Moodify v0.1.1 Release](https://github.com/Kandesfx/moodify-mobile/releases/tag/v0.1.1) với file APK `moodify-release.apk` (70.5 MB).
+- **Mobile Client (`Moodify-Flutter`)**:
+  - Khai báo quyền `REQUEST_INSTALL_PACKAGES` và `FileProvider` trong [`AndroidManifest.xml`](file:///d:/Hai/study/DATN/Moodify-Flutter/android/app/src/main/AndroidManifest.xml) + cấu hình đường dẫn cache [`file_paths.xml`](file:///d:/Hai/study/DATN/Moodify-Flutter/android/app/src/main/res/xml/file_paths.xml).
+  - Viết MethodChannel trong [`MainActivity.kt`](file:///d:/Hai/study/DATN/Moodify-Flutter/android/app/src/main/kotlin/dev/moodify/moodify_flutter/MainActivity.kt): `canInstallPackage`, `openInstallPermissionSettings`, `installApk` (kích hoạt `ACTION_VIEW` intent với `FLAG_GRANT_READ_URI_PERMISSION`).
+  - Xây dựng tầng service [`AppUpdateService.dart`](file:///d:/Hai/study/DATN/Moodify-Flutter/lib/features/app_update/data/app_update_service.dart) với Dio download + CancelToken + onReceiveProgress.
+  - Thiết kế hộp thoại cập nhật [`AppUpdateDialog.dart`](file:///d:/Hai/study/DATN/Moodify-Flutter/lib/features/app_update/presentation/app_update_dialog.dart) chuẩn Studio Dark theme, hiển thị phiên bản mới, release notes, thanh tiến trình % và dung lượng tải MB trực quan.
+  - Tự động kiểm tra bản cập nhật khi vào [`HomeScreen`](file:///d:/Hai/study/DATN/Moodify-Flutter/lib/features/home/presentation/home_screen.dart) và bổ sung mục "Kiểm tra bản cập nhật" trong màn hình [`AccountScreen`](file:///d:/Hai/study/DATN/Moodify-Flutter/lib/features/auth/presentation/account_screen.dart).
+  - Tự động hóa build bằng workflow GitHub Actions [`.github/workflows/build-apk.yml`](file:///d:/Hai/study/DATN/Moodify-Flutter/.github/workflows/build-apk.yml).
+- **Kiểm chứng thiết bị thật (`Samsung SM-A235F` / `R58TC0KWATX`)**:
+  - Đã cài đặt phiên bản cơ sở `v0.1.0` (Build 1) thành công qua ADB Streamed Install.
+  - Cấp quyền `REQUEST_INSTALL_PACKAGES: allow` trên thiết bị.
+  - Đã xác thực endpoint live `https://api.moodify.click/api/app/version` trả về bản build 2.
+  - `dart analyze`: **No issues found!**
+
 ## Gỡ đăng nhập Facebook — 09/11/2026
 
 - Theo yêu cầu người dùng, gỡ nút Facebook, SDK `flutter_login_facebook`, cờ cấu hình và metadata/URL scheme Facebook trên Android/iOS. Giữ Google và tài khoản/mật khẩu.
