@@ -15,30 +15,32 @@ final appUpdateServiceProvider = Provider<AppUpdateService>((ref) {
 
 final appVersionProvider =
     FutureProvider<({String versionName, int versionCode})>((ref) {
-  return ref.watch(appUpdateServiceProvider).getCurrentVersion();
-});
+      return ref.watch(appUpdateServiceProvider).getCurrentVersion();
+    });
 
 class AppUpdateService {
-  static const MethodChannel _channel =
-      MethodChannel('dev.moodify.moodify_flutter/app_update');
+  static const MethodChannel _channel = MethodChannel(
+    'dev.moodify.moodify_flutter/app_update',
+  );
 
   final Dio _dio;
   ({String versionName, int versionCode})? _cachedVersion;
 
   AppUpdateService({Dio? dio}) : _dio = dio ?? Dio();
 
-  /// Lấy thông tin phiên bản thật sự đang cài đặt trên thiết bị từ Android PackageManager
+  /// Lấy thông tin phiên bản thật sự đang cài đặt trên thiết bị từ Android PackageManager hoặc iOS Bundle
   Future<({String versionName, int versionCode})> getCurrentVersion() async {
     if (_cachedVersion != null) return _cachedVersion!;
-    if (kIsWeb || !Platform.isAndroid) {
-      return (versionName: '0.1.0', versionCode: 1);
+    if (kIsWeb) {
+      return (versionName: '0.1.2', versionCode: 3);
     }
     try {
-      final res =
-          await _channel.invokeMapMethod<String, dynamic>('getAppVersion');
+      final res = await _channel.invokeMapMethod<String, dynamic>(
+        'getAppVersion',
+      );
       if (res != null) {
-        final versionName = res['versionName'] as String? ?? '0.1.0';
-        final versionCode = (res['versionCode'] as num?)?.toInt() ?? 1;
+        final versionName = res['versionName'] as String? ?? '0.1.2';
+        final versionCode = (res['versionCode'] as num?)?.toInt() ?? 3;
         _cachedVersion = (versionName: versionName, versionCode: versionCode);
         return _cachedVersion!;
       }
@@ -47,7 +49,7 @@ class AppUpdateService {
         debugPrint('Lỗi lấy phiên bản app từ PackageManager: $e');
       }
     }
-    return (versionName: '0.1.0', versionCode: 1);
+    return (versionName: '0.1.2', versionCode: 3);
   }
 
   /// Kiểm tra có bản cập nhật mới hay không
@@ -69,8 +71,9 @@ class AppUpdateService {
       );
 
       if (response.statusCode == 200 && response.data is Map<String, dynamic>) {
-        final info =
-            AppVersionInfo.fromJson(response.data as Map<String, dynamic>);
+        final info = AppVersionInfo.fromJson(
+          response.data as Map<String, dynamic>,
+        );
         if (info.latestBuildNumber > current.versionCode &&
             info.downloadUrl.isNotEmpty) {
           return info;
@@ -137,10 +140,9 @@ class AppUpdateService {
   Future<bool> installApk(String filePath) async {
     if (kIsWeb || !Platform.isAndroid) return false;
     try {
-      final result = await _channel.invokeMethod<bool>(
-        'installApk',
-        {'filePath': filePath},
-      );
+      final result = await _channel.invokeMethod<bool>('installApk', {
+        'filePath': filePath,
+      });
       return result ?? false;
     } catch (e) {
       if (kDebugMode) {

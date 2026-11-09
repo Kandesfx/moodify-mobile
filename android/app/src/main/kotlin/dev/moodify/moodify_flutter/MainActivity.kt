@@ -14,6 +14,7 @@ import android.graphics.drawable.Animatable2
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.media.AudioAttributes
+import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -37,7 +38,7 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : AudioServiceActivity() {
     companion object {
         private const val NOTIFICATION_CHANNEL_NAME = "dev.moodify.moodify_flutter/notifications"
-        private const val BRAND_CHANNEL_ID = "moodify_brand_alerts_v1"
+        private const val SYSTEM_CHANNEL_ID = "moodify_system_notifications_v2"
         private const val REQUEST_POST_NOTIFICATIONS = 4102
         private const val APP_UPDATE_CHANNEL_NAME = "dev.moodify.moodify_flutter/app_update"
     }
@@ -78,7 +79,7 @@ class MainActivity : AudioServiceActivity() {
                     val title = call.argument<String>("title") ?: "Moodify"
                     val message = call.argument<String>("message") ?: ""
                     val silent = call.argument<Boolean>("silent") ?: false
-                    val shown = showBrandNotification(id, title, message, silent)
+                    val shown = showSystemNotification(id, title, message, silent)
                     result.success(shown)
                 }
                 else -> result.notImplemented()
@@ -169,20 +170,20 @@ class MainActivity : AudioServiceActivity() {
         }
     }
 
-    private fun brandSoundUri(): Uri =
-        Uri.parse("android.resource://$packageName/${R.raw.moodify_notification_chime}")
+    private fun systemNotificationSoundUri(): Uri =
+        RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
 
-    private fun ensureBrandNotificationChannel() {
+    private fun ensureSystemNotificationChannel() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
-        val existing = manager.getNotificationChannel(BRAND_CHANNEL_ID)
+        val existing = manager.getNotificationChannel(SYSTEM_CHANNEL_ID)
         if (existing != null) return
         val audioAttributes = AudioAttributes.Builder()
             .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
             .setUsage(AudioAttributes.USAGE_NOTIFICATION)
             .build()
         val channel = NotificationChannel(
-            BRAND_CHANNEL_ID,
+            SYSTEM_CHANNEL_ID,
             "Thông báo hệ thống Moodify",
             NotificationManager.IMPORTANCE_HIGH,
         ).apply {
@@ -190,18 +191,18 @@ class MainActivity : AudioServiceActivity() {
             enableLights(true)
             lightColor = Color.parseColor("#8B5CF6")
             enableVibration(true)
-            setSound(brandSoundUri(), audioAttributes)
+            setSound(systemNotificationSoundUri(), audioAttributes)
         }
         manager.createNotificationChannel(channel)
     }
 
-    private fun showBrandNotification(
+    private fun showSystemNotification(
         id: String,
         title: String,
         message: String,
         silent: Boolean,
     ): Boolean {
-        ensureBrandNotificationChannel()
+        ensureSystemNotificationChannel()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val granted = ContextCompat.checkSelfPermission(
                 this,
@@ -234,7 +235,7 @@ class MainActivity : AudioServiceActivity() {
             R.mipmap.ic_launcher
         }
 
-        val notification = NotificationCompat.Builder(this, BRAND_CHANNEL_ID)
+        val notification = NotificationCompat.Builder(this, SYSTEM_CHANNEL_ID)
             .setSmallIcon(smallIconRes)
             .setContentTitle(title)
             .setContentText(message)
@@ -246,8 +247,8 @@ class MainActivity : AudioServiceActivity() {
             .setSilent(silent)
             .apply {
                 if (!silent) {
-                    setSound(brandSoundUri())
-                    setDefaults(NotificationCompat.DEFAULT_VIBRATE or NotificationCompat.DEFAULT_LIGHTS)
+                    setSound(systemNotificationSoundUri())
+                    setDefaults(NotificationCompat.DEFAULT_ALL)
                 }
             }
             .setContentIntent(pendingIntent)

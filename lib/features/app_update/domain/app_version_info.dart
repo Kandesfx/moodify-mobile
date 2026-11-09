@@ -24,10 +24,10 @@ class AppVersionInfo {
   }
 
   Map<String, dynamic> toJson() => {
-        'latestVersion': latestVersion,
-        'latestBuildNumber': latestBuildNumber,
-        'downloadUrl': downloadUrl,
-        'releaseNotes': releaseNotes,
-        'forceUpdate': forceUpdate,
-      };
+    'latestVersion': latestVersion,
+    'latestBuildNumber': latestBuildNumber,
+    'downloadUrl': downloadUrl,
+    'releaseNotes': releaseNotes,
+    'forceUpdate': forceUpdate,
+  };
 }

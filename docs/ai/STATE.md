@@ -1,5 +1,19 @@
 # Trạng thái hiện tại
 
+## Chuyển đổi Âm thanh Thông báo Hệ thống & Rà soát Nền tảng iOS Sẵn sàng Build IPA — 10/11/2026
+
+- **Chuyển đổi âm thanh thông báo sang chuông mặc định của thiết bị**:
+  - *Android (`MainActivity.kt`)*: Tạo `NotificationChannel` mới với ID `moodify_system_notifications_v2` (`IMPORTANCE_HIGH`), gán âm thanh bằng `RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)`. Thiết lập `NotificationCompat.Builder` với `sound = systemNotificationSoundUri()` và `defaults = NotificationCompat.DEFAULT_ALL`, đảm bảo khi thông báo tới sẽ rung và phát đúng điệu chuông thông báo mặc định của thiết bị (Samsung, Xiaomi, Pixel...).
+  - *iOS (`AppDelegate.swift`)*: Củng cố cấu hình sử dụng `UNNotificationSound.default` (chuông thông báo chuẩn của iOS).
+  - *Flutter (`notification_repository.dart`)*: Trong `alertNewNotification()`, bỏ việc phát đè file âm thanh riêng nội bộ khi có thông báo hệ thống, giúp âm thanh phát ra duy nhất là chuông thông báo chuẩn của OS cả khi trong nền và ngoài ứng dụng.
+
+- **Rà soát toàn diện nền tảng iOS sẵn sàng build IPA trên Mac**:
+  - *CocoaPods (`ios/Podfile`)*: Nâng `platform :ios` lên `'14.0'` và thêm cấu hình `post_install` ép các pod dependencies có deployment target thấp lên tối thiểu `14.0`, tránh lỗi biên dịch trên Xcode 15/16.
+  - *Quyền & Bảo mật (`ios/Runner/Info.plist`)*: Bổ sung `NSAppTransportSecurity` (`NSAllowsArbitraryLoads: true`), bổ sung `UIBackgroundModes` (`audio`, `fetch`, `remote-notification`), và giữ `NSMicrophoneUsageDescription` cho Karaoke.
+  - *Ký mã (`ios/Runner/Runner.entitlements`)*: Dọn dẹp `keychain-access-groups` rỗng để tránh lỗi provisioning profile mismatch khi Archive/Export IPA.
+  - *Kênh giao tiếp hệ thống (`ios/Runner/AppDelegate.swift` & `app_update_service.dart`)*: Đăng ký channel `dev.moodify.moodify_flutter/app_update` trên iOS để trả về phiên bản động từ `Bundle.main.infoDictionary` (`0.1.2+3`), đồng thời xử lý an toàn các tác vụ Android-only.
+  - *Kiểm chứng*: `dart analyze` không lỗi, 172/172 tests chạy đạt 100%.
+
 ## Khảo sát và Đồng bộ Điều kiện "Playlist hợp gu" (playlists_for_you) Giữa Web & Mobile — 09/11/2026
 
 - **Khảo sát điều kiện trên Web & Backend Spring Boot**:

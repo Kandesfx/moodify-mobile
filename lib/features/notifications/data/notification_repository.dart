@@ -166,7 +166,7 @@ class NotificationAlertService {
   }
 
   /// Thông báo khi có thông báo mới từ hệ thống: đẩy lên thanh trạng thái OS
-  /// kèm tiếng "Moodify" nhận diện thương hiệu.
+  /// với âm thanh thông báo mặc định của hệ thống thiết bị (Android/iOS).
   Future<void> alertNewNotification(InboxItem item) async {
     await showSystemNotification(
       id: item.id,
@@ -174,7 +174,9 @@ class NotificationAlertService {
       message: item.message,
       silent: false,
     );
-    await playBrandChime();
+    if (_customChimePlayer != null) {
+      await _customChimePlayer();
+    }
   }
 
   Future<void> dispose() async {

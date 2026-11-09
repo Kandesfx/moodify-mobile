@@ -14,6 +14,7 @@ import UserNotifications
 
     if let controller = window?.rootViewController as? FlutterViewController {
       registerNotificationChannel(with: controller.binaryMessenger)
+      registerAppUpdateChannel(with: controller.binaryMessenger)
     }
 
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
@@ -22,8 +23,9 @@ import UserNotifications
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
 
-    let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "dev.moodify.moodify_flutter/notifications")
+    let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "dev.moodify.moodify_flutter/channels")
     registerNotificationChannel(with: registrar.messenger())
+    registerAppUpdateChannel(with: registrar.messenger())
   }
 
   private func registerNotificationChannel(with messenger: FlutterBinaryMessenger) {
@@ -36,6 +38,34 @@ import UserNotifications
     )
     channel.setMethodCallHandler { [weak self] (call: FlutterMethodCall, result: @escaping FlutterResult) in
       self?.handleNotificationMethodCall(call: call, result: result)
+    }
+  }
+
+  private func registerAppUpdateChannel(with messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(
+      name: "dev.moodify.moodify_flutter/app_update",
+      binaryMessenger: messenger
+    )
+    channel.setMethodCallHandler { (call: FlutterMethodCall, result: @escaping FlutterResult) in
+      switch call.method {
+      case "getAppVersion":
+        let info = Bundle.main.infoDictionary
+        let versionName = (info?["CFBundleShortVersionString"] as? String) ?? "0.1.2"
+        let versionCodeStr = (info?["CFBundleVersion"] as? String) ?? "3"
+        let versionCode = Int(versionCodeStr) ?? 3
+        result([
+          "versionName": versionName,
+          "versionCode": versionCode
+        ])
+      case "canInstallPackage":
+        result(false)
+      case "openInstallPermissionSettings":
+        result(true)
+      case "installApk":
+        result(FlutterError(code: "NOT_SUPPORTED", message: "In-app APK installation is not supported on iOS", details: nil))
+      default:
+        result(FlutterMethodNotImplemented)
+      }
     }
   }
 

@@ -11,11 +11,7 @@ class AppUpdateDialog extends StatefulWidget {
   final AppVersionInfo info;
   final AppUpdateService service;
 
-  const AppUpdateDialog({
-    super.key,
-    required this.info,
-    required this.service,
-  });
+  const AppUpdateDialog({super.key, required this.info, required this.service});
 
   static Future<void> show(
     BuildContext context,
@@ -25,10 +21,8 @@ class AppUpdateDialog extends StatefulWidget {
     return showDialog<void>(
       context: context,
       barrierDismissible: !info.forceUpdate,
-      builder: (ctx) => AppUpdateDialog(
-        info: info,
-        service: service ?? AppUpdateService(),
-      ),
+      builder: (ctx) =>
+          AppUpdateDialog(info: info, service: service ?? AppUpdateService()),
     );
   }
 
@@ -107,7 +101,10 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
         context: context,
         builder: (ctx) => AlertDialog(
           backgroundColor: AppColors.surfaceRaised,
-          title: const Text('Cấp quyền cài đặt', style: TextStyle(color: AppColors.text)),
+          title: const Text(
+            'Cấp quyền cài đặt',
+            style: TextStyle(color: AppColors.text),
+          ),
           content: const Text(
             'Hệ điều hành Android yêu cầu bạn cho phép Moodify cài đặt ứng dụng. Hãy bật "Cho phép từ nguồn này" trong màn hình cài đặt tiếp theo.',
             style: TextStyle(color: AppColors.secondary, fontSize: 14),
@@ -115,12 +112,20 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Hủy', style: TextStyle(color: AppColors.secondary)),
+              child: const Text(
+                'Hủy',
+                style: TextStyle(color: AppColors.secondary),
+              ),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+              ),
               onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text('Mở Cài đặt', style: TextStyle(color: Colors.white)),
+              child: const Text(
+                'Mở Cài đặt',
+                style: TextStyle(color: Colors.white),
+              ),
             ),
           ],
         ),
@@ -250,7 +255,9 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
                     value: _progress > 0 ? _progress : null,
                     minHeight: 8,
                     backgroundColor: AppColors.surface,
-                    valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      AppColors.primary,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -336,7 +343,10 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
                       _errorMessage = 'Đã hủy tải bản cập nhật.';
                     });
                   },
-                  child: const Text('Hủy tải', style: TextStyle(color: AppColors.secondary)),
+                  child: const Text(
+                    'Hủy tải',
+                    style: TextStyle(color: AppColors.secondary),
+                  ),
                 ),
               ],
             ],

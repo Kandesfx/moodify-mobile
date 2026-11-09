@@ -405,15 +405,23 @@ class AccountScreen extends ConsumerWidget {
                                 final messenger = ScaffoldMessenger.of(context);
                                 messenger.showSnackBar(
                                   const SnackBar(
-                                    content: Text('Đang kiểm tra bản cập nhật...'),
+                                    content: Text(
+                                      'Đang kiểm tra bản cập nhật...',
+                                    ),
                                     duration: Duration(seconds: 1),
                                   ),
                                 );
-                                final service = ref.read(appUpdateServiceProvider);
+                                final service = ref.read(
+                                  appUpdateServiceProvider,
+                                );
                                 final info = await service.checkForUpdate();
                                 if (info != null) {
                                   if (context.mounted) {
-                                    AppUpdateDialog.show(context, info, service: service);
+                                    AppUpdateDialog.show(
+                                      context,
+                                      info,
+                                      service: service,
+                                    );
                                   }
                                 } else {
                                   messenger.hideCurrentSnackBar();
