@@ -28,6 +28,8 @@ class AccountScreen extends ConsumerWidget {
     }
     final premium = ref.watch(premiumProvider);
     final isPremium = premium.isPremium;
+    final installedVersion =
+        ref.watch(appVersionProvider).valueOrNull?.versionName ?? '0.1.1';
     return Scaffold(
       appBar: AppBar(title: const Text('Tài khoản')),
       body: SafeArea(
@@ -391,9 +393,9 @@ class AccountScreen extends ConsumerWidget {
                                 'Kiểm tra bản cập nhật',
                                 style: TextStyle(fontWeight: FontWeight.w600),
                               ),
-                              subtitle: const Text(
-                                'Phiên bản hiện tại: v${AppUpdateService.currentVersion}',
-                                style: TextStyle(
+                              subtitle: Text(
+                                'Phiên bản hiện tại: v$installedVersion',
+                                style: const TextStyle(
                                   fontSize: 12.5,
                                   color: AppColors.secondary,
                                 ),
@@ -418,7 +420,7 @@ class AccountScreen extends ConsumerWidget {
                                   messenger.showSnackBar(
                                     SnackBar(
                                       content: Text(
-                                        'Ứng dụng đang ở phiên bản mới nhất (v${AppUpdateService.currentVersion})',
+                                        'Ứng dụng đang ở phiên bản mới nhất (v$installedVersion)',
                                       ),
                                     ),
                                   );

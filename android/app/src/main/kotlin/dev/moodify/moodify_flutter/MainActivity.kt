@@ -90,6 +90,29 @@ class MainActivity : AudioServiceActivity() {
             APP_UPDATE_CHANNEL_NAME,
         ).setMethodCallHandler { call, result ->
             when (call.method) {
+                "getAppVersion" -> {
+                    try {
+                        val pInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            packageManager.getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(0))
+                        } else {
+                            @Suppress("DEPRECATION")
+                            packageManager.getPackageInfo(packageName, 0)
+                        }
+                        val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                            pInfo.longVersionCode.toInt()
+                        } else {
+                            @Suppress("DEPRECATION")
+                            pInfo.versionCode
+                        }
+                        val versionName = pInfo.versionName ?: "0.1.0"
+                        result.success(mapOf(
+                            "versionName" to versionName,
+                            "versionCode" to versionCode
+                        ))
+                    } catch (e: Exception) {
+                        result.error("VERSION_ERROR", e.message, null)
+                    }
+                }
                 "canInstallPackage" -> {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                         result.success(packageManager.canRequestPackageInstalls())

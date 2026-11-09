@@ -13,25 +13,52 @@ final appUpdateServiceProvider = Provider<AppUpdateService>((ref) {
   return AppUpdateService();
 });
 
+final appVersionProvider =
+    FutureProvider<({String versionName, int versionCode})>((ref) {
+  return ref.watch(appUpdateServiceProvider).getCurrentVersion();
+});
+
 class AppUpdateService {
   static const MethodChannel _channel =
       MethodChannel('dev.moodify.moodify_flutter/app_update');
 
-  /// Phiên bản hiện tại của app (khớp với pubspec.yaml: version: 0.1.0+1)
-  static const String currentVersion = '0.1.0';
-  static const int currentBuildNumber = 1;
-
   final Dio _dio;
+  ({String versionName, int versionCode})? _cachedVersion;
 
   AppUpdateService({Dio? dio}) : _dio = dio ?? Dio();
+
+  /// Lấy thông tin phiên bản thật sự đang cài đặt trên thiết bị từ Android PackageManager
+  Future<({String versionName, int versionCode})> getCurrentVersion() async {
+    if (_cachedVersion != null) return _cachedVersion!;
+    if (kIsWeb || !Platform.isAndroid) {
+      return (versionName: '0.1.0', versionCode: 1);
+    }
+    try {
+      final res =
+          await _channel.invokeMapMethod<String, dynamic>('getAppVersion');
+      if (res != null) {
+        final versionName = res['versionName'] as String? ?? '0.1.0';
+        final versionCode = (res['versionCode'] as num?)?.toInt() ?? 1;
+        _cachedVersion = (versionName: versionName, versionCode: versionCode);
+        return _cachedVersion!;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Lỗi lấy phiên bản app từ PackageManager: $e');
+      }
+    }
+    return (versionName: '0.1.0', versionCode: 1);
+  }
 
   /// Kiểm tra có bản cập nhật mới hay không
   Future<AppVersionInfo?> checkForUpdate() async {
     if (kIsWeb || !Platform.isAndroid) return null;
 
     try {
+      final current = await getCurrentVersion();
       final config = AppConfig.fromEnvironment();
-      final url = '${config.apiBaseUri.toString()}/app/version';
+      final base = config.apiBaseUri.toString().replaceAll(RegExp(r'/+$'), '');
+      final url = '$base/app/version';
 
       final response = await _dio.get(
         url,
@@ -44,7 +71,7 @@ class AppUpdateService {
       if (response.statusCode == 200 && response.data is Map<String, dynamic>) {
         final info =
             AppVersionInfo.fromJson(response.data as Map<String, dynamic>);
-        if (info.latestBuildNumber > currentBuildNumber &&
+        if (info.latestBuildNumber > current.versionCode &&
             info.downloadUrl.isNotEmpty) {
           return info;
         }
