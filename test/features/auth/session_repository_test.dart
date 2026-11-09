@@ -19,33 +19,25 @@ void main() {
     expect(failure.message, contains('Xác minh'));
   });
 
-  for (final provider in ['google', 'facebook']) {
-    test(
-      'social login sends $provider token and establishes a session',
-      () async {
-        final h = AuthHarness(
-          handler: (request) {
-            if (request.uri.path == '/api/auth/$provider') {
-              return jsonResponse(authResponse());
-            }
-            return AuthHarness.defaultResponse(request);
-          },
-        );
-        addTearDown(h.close);
-        await h.repository.restore();
-        await h.repository.socialLogin(provider, () async => 'provider-token');
-        final request = h.requests.first;
-        expect(request.uri.path, '/api/auth/$provider');
-        expect(
-          request.data[provider == 'google' ? 'idToken' : 'accessToken'],
-          'provider-token',
-        );
-        expect(request.data['deviceUuid'], isNotEmpty);
-        expect(h.repository.state.phase, SessionPhase.signedIn);
-        expect(await h.storage.read(), isNotNull);
+  test('Google login sends ID token and establishes a session', () async {
+    final h = AuthHarness(
+      handler: (request) {
+        if (request.uri.path == '/api/auth/google') {
+          return jsonResponse(authResponse());
+        }
+        return AuthHarness.defaultResponse(request);
       },
     );
-  }
+    addTearDown(h.close);
+    await h.repository.restore();
+    await h.repository.googleLogin(() async => 'provider-token');
+    final request = h.requests.first;
+    expect(request.uri.path, '/api/auth/google');
+    expect(request.data['idToken'], 'provider-token');
+    expect(request.data['deviceUuid'], isNotEmpty);
+    expect(h.repository.state.phase, SessionPhase.signedIn);
+    expect(await h.storage.read(), isNotNull);
+  });
 
   test(
     'canceling while provider login is open does not send a token',
@@ -54,7 +46,7 @@ void main() {
       addTearDown(h.close);
       await h.repository.restore();
       final pending = Completer<String>();
-      final login = h.repository.socialLogin('google', () => pending.future);
+      final login = h.repository.googleLogin(() => pending.future);
       await Future<void>.delayed(Duration.zero);
       await h.repository.logout();
       pending.complete('provider-token');

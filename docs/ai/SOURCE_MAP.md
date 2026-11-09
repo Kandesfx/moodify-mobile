@@ -52,7 +52,7 @@ Các API mobile còn tập trung trong `Mobile/src/services/api.ts`, web trong `
 | Motion/reduced motion, nền artwork thật | `lib/core/widgets/app_motion.dart`, `lib/features/catalog/presentation/artwork_backdrop.dart`; route slide trong router |
 | Token refresh, request theo session | `lib/core/network/session_interceptor.dart` |
 | Session lifecycle và secure storage | `lib/features/auth/data/session_repository.dart`, `session_storage.dart`, `device_identity.dart` trong cùng thư mục |
-| Auth contract | `lib/features/auth/data/auth_remote_service.dart`, `lib/features/auth/domain/` |
+| Auth contract (password + Google) | `lib/features/auth/data/auth_remote_service.dart` (`googleLogin` → `/api/auth/google`), `lib/features/auth/domain/`; Facebook đã gỡ 09/11/2026 |
 | Form, profile, controller | `lib/features/auth/presentation/` |
 | Test phiên và UI | `test/core/`, `test/features/auth/`; fixture chỉ ở `test/support/` |
 | Shell 5 tab, route public/return sau auth và karaoke session scope | `lib/app/main_shell.dart`, `lib/app/router/app_router.dart` |

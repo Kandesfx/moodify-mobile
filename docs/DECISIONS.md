@@ -109,6 +109,8 @@ Theo yêu cầu người dùng, hiển thị lời có timestamp cho mọi ngư�
   Info.plist. Facebook cấu hình iOS qua Info.plist (AppID/ClientToken/scheme
   `fb<id>`); key hash vẫn chỉ áp dụng Android. Không thêm package mới.
 
+- D43 (09/11):- D43 (09/11): Theo yêu cầu người dùng, gỡ toàn bộ luồng đăng nhập Facebook ở web, Flutter Android/iOS và backend. OAuth Flutter chỉ còn Google với endpoint/payload cố định; gỡ SDK Facebook và cấu hình native/build. Giữ phiên và tài khoản đã lưu, không đổi schema hay xóa dữ liệu người dùng. Quyết định này thay thế phần Facebook của D42.
+
 # 08/11/2026 — Giao diện Đề xuất theo Hành vi (Behavioral Recommendation UI)
 
 - D47 (08/11): Thiết kế và bao phủ toàn bộ 5 kịch bản UI cho chức năng Đề xuất nhạc dựa trên hành vi (`RecommendationSectionWidget`, `PersonalizedMixDetailSheet`, `recommendation_models.dart`, `recommendation_repository.dart`):
