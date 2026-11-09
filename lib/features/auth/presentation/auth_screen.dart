@@ -115,7 +115,19 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       if (isIos && googleIosClientId.isEmpty) {
         throw const AppFailure('Đăng nhập Google chưa được cấu hình cho iOS.');
       }
-
+      final google = GoogleSignIn.instance;
+      if (!_googleInitialized) {
+        await google.initialize(
+          clientId: isIos ? googleIosClientId : null,
+          serverClientId: googleServerClientId,
+        );
+        _googleInitialized = true;
+      }
+      final account = await google.authenticate();
+      final token = account.authentication.idToken;
+      if (token == null || token.isEmpty) {
+        throw const AppFailure(
+          'Không thể nhận thông tin đăng nhập Google. Vui lòng thử lại.',
         );
       }
       return token;

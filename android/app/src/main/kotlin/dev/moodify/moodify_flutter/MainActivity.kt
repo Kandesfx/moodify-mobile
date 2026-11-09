@@ -17,6 +17,9 @@ import android.media.AudioAttributes
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
+import androidx.core.content.FileProvider
+import java.io.File
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.ViewGroup
@@ -36,6 +39,7 @@ class MainActivity : AudioServiceActivity() {
         private const val NOTIFICATION_CHANNEL_NAME = "dev.moodify.moodify_flutter/notifications"
         private const val BRAND_CHANNEL_ID = "moodify_brand_alerts_v1"
         private const val REQUEST_POST_NOTIFICATIONS = 4102
+        private const val APP_UPDATE_CHANNEL_NAME = "dev.moodify.moodify_flutter/app_update"
     }
 
     private var preSplashOverlay: FrameLayout? = null
@@ -76,6 +80,66 @@ class MainActivity : AudioServiceActivity() {
                     val silent = call.argument<Boolean>("silent") ?: false
                     val shown = showBrandNotification(id, title, message, silent)
                     result.success(shown)
+                }
+                else -> result.notImplemented()
+            }
+        }
+
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            APP_UPDATE_CHANNEL_NAME,
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "canInstallPackage" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        result.success(packageManager.canRequestPackageInstalls())
+                    } else {
+                        result.success(true)
+                    }
+                }
+                "openInstallPermissionSettings" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        try {
+                            val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                                data = Uri.parse("package:$packageName")
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            }
+                            startActivity(intent)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.error("SETTINGS_ERROR", e.message, null)
+                        }
+                    } else {
+                        result.success(true)
+                    }
+                }
+                "installApk" -> {
+                    val filePath = call.argument<String>("filePath")
+                    if (filePath.isNullOrBlank()) {
+                        result.error("INVALID_PATH", "Đường dẫn file APK không hợp lệ", null)
+                        return@setMethodCallHandler
+                    }
+                    val file = File(filePath)
+                    if (!file.exists()) {
+                        result.error("FILE_NOT_FOUND", "Không tìm thấy file APK", null)
+                        return@setMethodCallHandler
+                    }
+                    try {
+                        val apkUri = FileProvider.getUriForFile(
+                            this,
+                            "$packageName.fileprovider",
+                            file
+                        )
+                        val intent = Intent(Intent.ACTION_VIEW).apply {
+                            setDataAndType(apkUri, "application/vnd.android.package-archive")
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        startActivity(intent)
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("INSTALL_ERROR", e.message, null)
+                    }
                 }
                 else -> result.notImplemented()
             }

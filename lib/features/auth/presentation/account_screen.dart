@@ -9,6 +9,8 @@ import '../../../core/widgets/studio_banners.dart';
 import 'session_controller.dart';
 import '../../catalog/presentation/catalog_widgets.dart';
 import '../../subscriptions/application/premium_controller.dart';
+import '../../app_update/data/app_update_service.dart';
+import '../../app_update/presentation/app_update_dialog.dart';
 
 class AccountScreen extends ConsumerWidget {
   const AccountScreen({super.key});
@@ -362,6 +364,66 @@ class AccountScreen extends ConsumerWidget {
                               ),
                               trailing: const Icon(Icons.chevron_right_rounded),
                               onTap: () => context.push('/history'),
+                            ),
+                            const Divider(height: 1, indent: 68),
+                            ListTile(
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 4,
+                              ),
+                              leading: Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: AppColors.surfaceGlass,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: AppColors.borderSoft,
+                                  ),
+                                ),
+                                child: const Icon(
+                                  Icons.system_update_rounded,
+                                  color: Colors.white,
+                                  size: 21,
+                                ),
+                              ),
+                              title: const Text(
+                                'Kiểm tra bản cập nhật',
+                                style: TextStyle(fontWeight: FontWeight.w600),
+                              ),
+                              subtitle: const Text(
+                                'Phiên bản hiện tại: v${AppUpdateService.currentVersion}',
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  color: AppColors.secondary,
+                                ),
+                              ),
+                              trailing: const Icon(Icons.chevron_right_rounded),
+                              onTap: () async {
+                                final messenger = ScaffoldMessenger.of(context);
+                                messenger.showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Đang kiểm tra bản cập nhật...'),
+                                    duration: Duration(seconds: 1),
+                                  ),
+                                );
+                                final service = ref.read(appUpdateServiceProvider);
+                                final info = await service.checkForUpdate();
+                                if (info != null) {
+                                  if (context.mounted) {
+                                    AppUpdateDialog.show(context, info, service: service);
+                                  }
+                                } else {
+                                  messenger.hideCurrentSnackBar();
+                                  messenger.showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'Ứng dụng đang ở phiên bản mới nhất (v${AppUpdateService.currentVersion})',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              },
                             ),
                           ],
                         ),

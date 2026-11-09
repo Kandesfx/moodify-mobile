@@ -18,6 +18,8 @@ import '../../offline/presentation/offline_controller.dart';
 import '../../offline/presentation/offline_screen.dart' show offlineSize;
 import '../../player/presentation/player_controller.dart';
 import '../../subscriptions/application/premium_controller.dart';
+import '../../app_update/data/app_update_service.dart';
+import '../../app_update/presentation/app_update_dialog.dart';
 import 'recommendation_controller.dart';
 import 'widgets/recommendation_section_widget.dart';
 
@@ -30,6 +32,27 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   String? _genre;
   bool _isRefreshing = false;
+  static bool _updateChecked = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!_updateChecked) {
+      _updateChecked = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _checkForUpdate();
+      });
+    }
+  }
+
+  Future<void> _checkForUpdate() async {
+    final service = ref.read(appUpdateServiceProvider);
+    final info = await service.checkForUpdate();
+    if (info != null && mounted) {
+      AppUpdateDialog.show(context, info, service: service);
+    }
+  }
+
   static const _filters = <String?, String>{
     null: 'Tất cả',
     'v-pop,vietnamese pop': 'V-Pop',
