@@ -2007,6 +2007,23 @@ class _KaraokeRoomsScreenState extends ConsumerState<KaraokeRoomsScreen> {
                   if (mounted) _message(karaokeError(error));
                 }
               },
+              onMoveQueue: (itemId, direction) async {
+                try {
+                  final id = (joined['id'] as num).toInt();
+                  await ref
+                      .read(karaokeRepositoryProvider)
+                      .moveQueue(id, itemId, direction);
+                  final updated = await ref
+                      .read(karaokeRepositoryProvider)
+                      .room(id);
+                  if (mounted) {
+                    setState(() => _joined = updated);
+                    unawaited(_syncRoomAudio(updated));
+                  }
+                } catch (error) {
+                  if (mounted) _message(karaokeError(error));
+                }
+              },
               onRefresh: () async {
                 final next = await ref
                     .read(karaokeRepositoryProvider)
@@ -2212,6 +2229,28 @@ class _VoiceIssueBanner extends StatelessWidget {
   }
 }
 
+/// Nút icon nhỏ gọn (vùng chạm 40dp) dùng cho thao tác trong hàng đợi.
+class _QueueMoveButton extends StatelessWidget {
+  const _QueueMoveButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+  });
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) => IconButton(
+    tooltip: tooltip,
+    onPressed: onPressed,
+    icon: Icon(icon, size: 22),
+    visualDensity: VisualDensity.compact,
+    constraints: const BoxConstraints.tightFor(width: 40, height: 40),
+    padding: EdgeInsets.zero,
+  );
+}
+
 class _RoomDetailView extends StatelessWidget {
   const _RoomDetailView({
     required this.room,
@@ -2220,6 +2259,7 @@ class _RoomDetailView extends StatelessWidget {
     required this.onAddTrack,
     required this.onCommand,
     required this.onRemoveQueue,
+    required this.onMoveQueue,
     required this.onMemberTap,
     required this.onCopyInviteCode,
     this.voice,
@@ -2233,6 +2273,7 @@ class _RoomDetailView extends StatelessWidget {
   final VoidCallback? onAddTrack;
   final ValueChanged<String> onCommand;
   final ValueChanged<int> onRemoveQueue;
+  final void Function(int itemId, String direction) onMoveQueue;
   final ValueChanged<Map<String, dynamic>> onMemberTap;
   final ValueChanged<String> onCopyInviteCode;
   @override
@@ -2477,10 +2518,11 @@ class _RoomDetailView extends StatelessWidget {
                   )
                 : Column(
                     children: [
-                      for (final raw in queue)
+                      for (final (index, raw) in queue.indexed)
                         Builder(
                           builder: (context) {
                             final item = raw as Map<String, dynamic>;
+                            final itemId = (item['id'] as num).toInt();
                             return Padding(
                               padding: const EdgeInsets.symmetric(vertical: 6),
                               child: Row(
@@ -2511,14 +2553,32 @@ class _RoomDetailView extends StatelessWidget {
                                       ],
                                     ),
                                   ),
+                                  if (canManage) ...[
+                                    _QueueMoveButton(
+                                      tooltip: 'Chuyển lên trên',
+                                      icon: Icons.keyboard_arrow_up_rounded,
+                                      onPressed: index == 0
+                                          ? null
+                                          : () => onMoveQueue(itemId, 'UP'),
+                                    ),
+                                    _QueueMoveButton(
+                                      tooltip: 'Chuyển xuống dưới',
+                                      icon: Icons.keyboard_arrow_down_rounded,
+                                      onPressed: index == queue.length - 1
+                                          ? null
+                                          : () => onMoveQueue(itemId, 'DOWN'),
+                                    ),
+                                    const SizedBox(
+                                      height: 20,
+                                      child: VerticalDivider(width: 12),
+                                    ),
+                                  ],
                                   if (canManage ||
                                       item['requestedByMe'] == true)
-                                    IconButton(
+                                    _QueueMoveButton(
                                       tooltip: 'Xóa khỏi hàng đợi',
-                                      onPressed: () => onRemoveQueue(
-                                        (item['id'] as num).toInt(),
-                                      ),
-                                      icon: const Icon(Icons.close_rounded),
+                                      icon: Icons.delete_outline_rounded,
+                                      onPressed: () => onRemoveQueue(itemId),
                                     ),
                                 ],
                               ),
