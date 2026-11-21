@@ -1,5 +1,17 @@
 # Trạng thái hiện tại
 
+## Tự động đồng bộ cập nhật trực tiếp từ GitHub Releases — 21/11/2026
+
+- **Backend (`Moodify-Backend` / `AppVersionApi.java`)**:
+  - Cập nhật `GET /api/app/version` tự động lấy bản phát hành mới nhất (không phải draft/prerelease) từ `https://api.github.com/repos/Kandesfx/moodify-mobile/releases/latest`, ưu tiên asset `moodify-release.apk` (fallback `app-release.apk` / `.apk` đầu tiên), loại bỏ tiền tố `#` markdown ở `releaseNotes` và đọc `pubspec.yaml` theo tag để lấy chính xác `latestBuildNumber`.
+  - Cache TTL `300s` trong RAM (`pubspec.yaml` cache theo tag) để tránh rate-limit GitHub từ nhiều client; trả về `"source": "github"`, giữ cache cũ nếu GitHub lỗi tạm thời hoặc fallback (`0.1.4+5`, `"source": "fallback"`). Khi deploy lên server, cả các máy đang cài `v0.1.2` / `v0.1.3` đều tự nhận bản mới nhất từ GitHub mà không cần chỉnh tay.
+- **Flutter App (`Moodify-Flutter`)**:
+  - `lib/features/app_update/domain/app_version_info.dart`: bổ sung `normalizeVersion()`, `parseSemver()`, `compareSemver()`, `cleanReleaseNotes()`, `fromGitHubRelease()` và `isNewerThan()` (so sánh theo semver trước rồi mới tới build number, chống lặp cập nhật khi `latestBuildNumber == 0`).
+  - `lib/features/app_update/data/app_update_service.dart`: `checkForUpdate()` ưu tiên dùng response `"source": "github"` từ backend; nếu backend lỗi hoặc vẫn trả cấu hình tĩnh cũ thì tự gọi fallback `https://api.github.com/repos/Kandesfx/moodify-mobile/releases/latest` và chọn phiên bản mới hơn.
+- **Kiểm thử & trạng thái Git (chưa commit/push/deploy)**:
+  - Flutter: `dart format --output=none --set-exit-if-changed lib test` (129 files, 0 changed), `flutter analyze --no-pub` (`No issues found!`), `flutter test --no-pub` (`+190: All tests passed!`, gồm 8 test mới trong `test/features/app_update/app_update_service_test.dart`).
+  - Backend: `.\mvnw.cmd test -Dtest=AppVersionApiTest` (`Tests run: 3, Failures: 0, Errors: 0, Skipped: 0`, `BUILD SUCCESS`).
+
 ## Đóng gói và Phát hành Bản Android Release (v0.1.4) — 21/11/2026
 
 - **Nâng phiên bản lên `0.1.4+5`**:
