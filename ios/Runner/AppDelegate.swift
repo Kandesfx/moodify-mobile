@@ -51,9 +51,9 @@ import UserNotifications
       switch call.method {
       case "getAppVersion":
         let info = Bundle.main.infoDictionary
-        let versionName = (info?["CFBundleShortVersionString"] as? String) ?? "0.1.3"
-        let versionCodeStr = (info?["CFBundleVersion"] as? String) ?? "4"
-        let versionCode = Int(versionCodeStr) ?? 4
+        let versionName = (info?["CFBundleShortVersionString"] as? String) ?? "0.1.4"
+        let versionCodeStr = (info?["CFBundleVersion"] as? String) ?? "5"
+        let versionCode = Int(versionCodeStr) ?? 5
         result([
           "versionName": versionName,
           "versionCode": versionCode

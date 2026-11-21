@@ -1,5 +1,19 @@
 # Trạng thái hiện tại
 
+## Đóng gói và Phát hành Bản Android Release (v0.1.4) — 21/11/2026
+
+- **Nâng phiên bản lên `0.1.4+5`**:
+  - Cập nhật đồng bộ số hiệu `0.1.4+5` tại `pubspec.yaml`, `lib/features/app_update/data/app_update_service.dart`, `lib/features/auth/presentation/account_screen.dart` và `ios/Runner/AppDelegate.swift`.
+- **Kiểm tra sau nâng phiên bản**:
+  - `dart format --output=none --set-exit-if-changed lib test`: 128 files (0 changed), exit code `0`.
+  - `flutter analyze --no-pub`: `No issues found!`.
+  - `flutter test --no-pub`: `+182: All tests passed!`.
+- **Biên dịch Android Release APK Production**:
+  - Biên dịch bằng `flutter build apk --release --dart-define-from-file=config/production.json` (kèm `android/app/google-services.json`).
+  - Đóng gói `build/app/outputs/flutter-apk/app-release.apk` và `build/app/outputs/flutter-apk/moodify-release.apk` (`115050416` bytes / `109.7 MB`).
+- **Phát hành lên Git & GitHub Release `v0.1.4`**:
+  - Đẩy nhánh `main`, tag `v0.1.4` và xuất bản [v0.1.4](https://github.com/Kandesfx/moodify-mobile/releases/tag/v0.1.4) kèm asset `moodify-release.apk` và `app-release.apk`.
+
 ## Đồng bộ nhánh remote, sửa lỗi Trang chủ ở chế độ Khách và rà soát toàn app — 21/11/2026
 
 - **Đồng bộ mã nguồn từ các nhánh (`git fetch --all --prune`)**:

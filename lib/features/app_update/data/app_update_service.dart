@@ -32,15 +32,15 @@ class AppUpdateService {
   Future<({String versionName, int versionCode})> getCurrentVersion() async {
     if (_cachedVersion != null) return _cachedVersion!;
     if (kIsWeb) {
-      return (versionName: '0.1.3', versionCode: 4);
+      return (versionName: '0.1.4', versionCode: 5);
     }
     try {
       final res = await _channel.invokeMapMethod<String, dynamic>(
         'getAppVersion',
       );
       if (res != null) {
-        final versionName = res['versionName'] as String? ?? '0.1.3';
-        final versionCode = (res['versionCode'] as num?)?.toInt() ?? 4;
+        final versionName = res['versionName'] as String? ?? '0.1.4';
+        final versionCode = (res['versionCode'] as num?)?.toInt() ?? 5;
         _cachedVersion = (versionName: versionName, versionCode: versionCode);
         return _cachedVersion!;
       }
@@ -49,7 +49,7 @@ class AppUpdateService {
         debugPrint('Lỗi lấy phiên bản app từ PackageManager: $e');
       }
     }
-    return (versionName: '0.1.3', versionCode: 4);
+    return (versionName: '0.1.4', versionCode: 5);
   }
 
   /// Kiểm tra có bản cập nhật mới hay không
