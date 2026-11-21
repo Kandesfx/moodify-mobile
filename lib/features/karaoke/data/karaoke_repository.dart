@@ -129,6 +129,13 @@ class KaraokeRepository {
   Future<void> removeQueue(int id, int itemId) async =>
       _dio.delete<void>('karaoke/rooms/$id/queue/$itemId');
 
+  /// [direction] là `UP` hoặc `DOWN`; chỉ chủ phòng/người quản lý được phép.
+  Future<void> moveQueue(int id, int itemId, String direction) async =>
+      _dio.put<void>(
+        'karaoke/rooms/$id/queue/$itemId/position',
+        data: {'direction': direction},
+      );
+
   Future<void> closeRoom(int id) async =>
       _dio.post<void>('karaoke/rooms/$id/close');
 
