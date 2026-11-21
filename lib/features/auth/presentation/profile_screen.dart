@@ -7,6 +7,7 @@ import '../../../core/widgets/feedback_panel.dart';
 import '../../../core/widgets/app_motion.dart';
 import '../../../core/widgets/studio_banners.dart';
 import '../data/profile_repository.dart';
+import '../../catalog/presentation/catalog_widgets.dart';
 import 'session_controller.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -124,11 +125,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Widget build(BuildContext context) {
     final user = ref.watch(sessionControllerProvider).session?.user;
     if (user == null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Quản lý tài khoản')),
-        body: const Center(
-          child: Text('Đăng nhập để quản lý thông tin cá nhân.'),
-        ),
+      return const GuestPrompt(
+        title: 'Quản lý tài khoản',
+        message: 'Đăng nhập để quản lý thông tin cá nhân.',
+        returnTo: '/profile',
       );
     }
     if (_userId != user.id) {

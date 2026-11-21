@@ -1,5 +1,30 @@
 # Trạng thái hiện tại
 
+## Đồng bộ nhánh remote, sửa lỗi Trang chủ ở chế độ Khách và rà soát toàn app — 21/11/2026
+
+- **Đồng bộ mã nguồn từ các nhánh (`git fetch --all --prune`)**:
+  - Fast-forward `main` theo `origin/main` tới `4dec65f` (cập nhật iOS release `v0.1.3`, `AppDelegate.swift`, `Podfile`).
+  - Merge `origin/Thuan_Branch` (`3e7d967`, merge commit `1fd9e4a`) vào `main`: bổ sung nút chuyển lên/xuống hàng đợi phòng chung Karaoke và cổng API local `8080`.
+  - Xác nhận `origin/Duy_Branch` (`da7b2be`) và nhánh cục bộ `Duy_Branch` (`b8db66b`) đã là ancestor của `main`.
+- **Khắc phục lỗi Trang chủ (`HomeScreen`) khi chưa đăng nhập (chế độ Khách)**:
+  - `lib/features/home/presentation/recommendation_controller.dart`: `recommendationHomeProvider` theo dõi `userId` và trả về `null` ngay khi chưa đăng nhập (không gọi `recommendations/home` qua `apiDioProvider` gây lỗi 401); `HiddenItemsNotifier` theo dõi `userId` để reset danh sách ẩn theo từng phiên người dùng.
+  - `lib/features/home/presentation/home_screen.dart`: chỉ theo dõi `recommendationHomeProvider(...).select((s) => s.isLoading)` cho `recLoading` và chỉ `invalidate(recommendationHomeProvider)` trong `reconnect()` khi đã đăng nhập (`signedIn`).
+  - `lib/features/home/presentation/widgets/recommendation_section_widget.dart`: sửa CTA thẻ nhắc đăng nhập (`_GuestRecommendationPromptCard`) từ route không tồn tại `/login` (gây màn hình 404 GoRouter) sang `/sign-in?from=%2Fhome`; mã hóa `segment(item.entityId)` cho đường dẫn `/playlist/:id`.
+- **Rà soát và sửa các lỗi phát sinh khác trong toàn codebase**:
+  - `lib/features/catalog/data/catalog_repository.dart`: truyền lazy `authorizedDio: () => ref.read(apiDioProvider)` cho `CatalogRemoteService.recommend()` để `POST emotions/recommend` gửi kèm JWT thay vì 401; bổ sung `CatalogRepository.playlist(id)` cho playlist công khai.
+  - `lib/features/library/presentation/collection_actions.dart`: `collectionProvider` gọi `catalogRepositoryProvider.playlist(key.id)` khi chưa đăng nhập để xem playlist công khai không bị lỗi 401.
+  - `lib/features/home/presentation/widgets/recommendation_section_widget.dart`: tách `_submitRecommendationFeedback(...)` theo `ScaffoldMessengerState` (`messenger.mounted`) thay cho `sheetContext`/`hostContext` (tránh mất SnackBar Undo hoặc lỗi context đã unmount sau khi ẩn item), bổ sung rollback khi `sendFeedback` thất bại và chỉ gọi `context.push(...)` trên `context` ngoài bên trong handler `"Xem chi tiết playlist"`.
+  - `lib/features/home/presentation/widgets/personalized_mix_detail_sheet.dart`: đưa `ref.watch(playerControllerProvider...)` ra ngoài `SliverChildBuilderDelegate` lên `build()` và `invalidate(libraryControllerProvider)` sau `_handleCopy()`.
+  - `lib/app/router/app_router.dart` & `lib/features/auth/presentation/profile_screen.dart`: thêm `/profile` vào whitelist `_destination(...)` và thay màn hình khách tĩnh bằng `GuestPrompt(..., returnTo: '/profile')`.
+  - `lib/features/offline/presentation/offline_screen.dart`: kiểm tra thêm `update.fraction == null` trước khi dùng `update.fraction!` khi `total == 0`.
+  - `lib/features/karaoke/presentation/karaoke_screen.dart`: bổ sung `if (!mounted) return;` trước `ref.read(...)` sau `await` trong `onRemoveQueue` và `onMoveQueue`.
+  - `lib/features/auth/presentation/account_screen.dart`: cập nhật fallback `installedVersion` từ `'0.1.1'` lên `'0.1.3'`.
+- **Kiểm thử & xác minh (chưa commit/push theo `AGENTS.md`, `pubspec.lock` giữ nguyên sạch)**:
+  - Bổ sung/cập nhật test tại `test/features/home/recommendation_test.dart`, `test/features/catalog/main_shell_test.dart`, `test/features/catalog/catalog_test.dart`, `test/features/karaoke/karaoke_rooms_test.dart`.
+  - `dart format --output=none --set-exit-if-changed lib test`: 128 files, 0 changed (`exit code 0`).
+  - `flutter analyze --no-pub`: `No issues found!`.
+  - `flutter test --no-pub`: `+182: All tests passed!` (`exit code 0`).
+
 ## Đóng gói và Phát hành Bản iOS Release (Moodify.ipa) cho Phiên bản v0.1.3 — 10/11/2026
 
 - **Sửa lỗi biên dịch Swift và hoàn thiện native iOS (`AppDelegate.swift`, `Podfile`)**:

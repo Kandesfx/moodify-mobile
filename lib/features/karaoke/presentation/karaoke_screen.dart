@@ -2149,6 +2149,7 @@ class _KaraokeRoomsScreenState extends ConsumerState<KaraokeRoomsScreen> {
                   await ref
                       .read(karaokeRepositoryProvider)
                       .removeQueue(id, itemId);
+                  if (!mounted) return;
                   final updated = await ref
                       .read(karaokeRepositoryProvider)
                       .room(id);
@@ -2166,6 +2167,7 @@ class _KaraokeRoomsScreenState extends ConsumerState<KaraokeRoomsScreen> {
                   await ref
                       .read(karaokeRepositoryProvider)
                       .moveQueue(id, itemId, direction);
+                  if (!mounted) return;
                   final updated = await ref
                       .read(karaokeRepositoryProvider)
                       .room(id);

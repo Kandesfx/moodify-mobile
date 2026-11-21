@@ -29,7 +29,7 @@ class AccountScreen extends ConsumerWidget {
     final premium = ref.watch(premiumProvider);
     final isPremium = premium.isPremium;
     final installedVersion =
-        ref.watch(appVersionProvider).valueOrNull?.versionName ?? '0.1.1';
+        ref.watch(appVersionProvider).valueOrNull?.versionName ?? '0.1.3';
     return Scaffold(
       appBar: AppBar(title: const Text('Tài khoản')),
       body: SafeArea(

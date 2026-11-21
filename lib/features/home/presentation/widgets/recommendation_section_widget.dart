@@ -6,6 +6,7 @@ import '../../../../app/theme/app_theme.dart';
 import '../../../../core/widgets/app_motion.dart';
 import '../../../../core/widgets/studio_banners.dart';
 import '../../../auth/presentation/session_controller.dart';
+import '../../../catalog/domain/catalog_models.dart' show segment;
 import '../../../catalog/presentation/catalog_widgets.dart';
 import '../../../library/data/library_repository.dart';
 import '../../../player/presentation/player_controller.dart';
@@ -264,7 +265,12 @@ class _GuestRecommendationPromptCard extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           ElevatedButton.icon(
-            onPressed: () => context.push('/login'),
+            onPressed: () => context.push(
+              Uri(
+                path: '/sign-in',
+                queryParameters: const {'from': '/home'},
+              ).toString(),
+            ),
             icon: const Icon(Icons.login_rounded, size: 18),
             label: const Text('Đăng nhập để trải nghiệm danh sách riêng'),
             style: ElevatedButton.styleFrom(
@@ -915,7 +921,7 @@ class _RecommendedPlaylistCard extends ConsumerWidget {
             eventType: 'OPEN',
             attributionToken: item.attributionToken,
           );
-      context.push('/playlist/${item.entityId}');
+      context.push('/playlist/${segment(item.entityId)}');
     }
 
     final subtitleText = item.trackCount > 0
@@ -1068,14 +1074,88 @@ class _RecommendedPlaylistCard extends ConsumerWidget {
   }
 }
 
+Future<void> _submitRecommendationFeedback({
+  required ProviderContainer container,
+  required ScaffoldMessengerState messenger,
+  required String hideKey,
+  required String entityType,
+  required String entityId,
+  required String feedbackType,
+  required String hiddenNotice,
+}) async {
+  container.read(hiddenItemsProvider.notifier).hide(hideKey);
+  try {
+    await container
+        .read(recommendationRepositoryProvider)
+        .sendFeedback(
+          entityType: entityType,
+          entityId: entityId,
+          feedbackType: feedbackType,
+          enabled: true,
+        );
+  } catch (_) {
+    if (messenger.mounted) {
+      container.read(hiddenItemsProvider.notifier).unhide(hideKey);
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Chưa thể cập nhật phản hồi. Vui lòng thử lại.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+    return;
+  }
+
+  if (messenger.mounted) {
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(hiddenNotice),
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: 'Hoàn tác',
+          textColor: AppColors.lavender,
+          onPressed: () async {
+            if (!messenger.mounted) return;
+            container.read(hiddenItemsProvider.notifier).unhide(hideKey);
+            try {
+              await container
+                  .read(recommendationRepositoryProvider)
+                  .sendFeedback(
+                    entityType: entityType,
+                    entityId: entityId,
+                    feedbackType: feedbackType,
+                    enabled: false,
+                  );
+            } catch (_) {
+              if (messenger.mounted) {
+                container.read(hiddenItemsProvider.notifier).hide(hideKey);
+                messenger.showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Chưa thể hoàn tác phản hồi. Vui lòng thử lại.',
+                    ),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
+            }
+          },
+        ),
+      ),
+    );
+  }
+}
+
 void _showItemOptions(
   BuildContext context,
   WidgetRef ref,
   RecommendationItem item,
 ) {
   final container = ProviderScope.containerOf(context);
+  final messenger = ScaffoldMessenger.of(context);
   final isPlaylist = item.isPlaylist || item.entityType == 'PLAYLIST';
   final feedbackType = isPlaylist ? 'HIDE' : 'NOT_INTERESTED';
+  final key = '${item.entityType}:${item.entityId}';
 
   showModalBottomSheet<void>(
     context: context,
@@ -1083,7 +1163,7 @@ void _showItemOptions(
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
-    builder: (context) {
+    builder: (sheetContext) {
       return SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
@@ -1110,8 +1190,10 @@ void _showItemOptions(
                     style: TextStyle(fontSize: 14, color: Colors.white),
                   ),
                   onTap: () {
-                    Navigator.pop(context);
-                    context.push('/playlist/${item.entityId}');
+                    Navigator.pop(sheetContext);
+                    if (context.mounted) {
+                      context.push('/playlist/${segment(item.entityId)}');
+                    }
                   },
                 ),
               ListTile(
@@ -1125,45 +1207,17 @@ void _showItemOptions(
                       : 'Không quan tâm nội dung này',
                   style: const TextStyle(fontSize: 14, color: Colors.white),
                 ),
-                onTap: () async {
-                  Navigator.pop(context);
-                  final key = '${item.entityType}:${item.entityId}';
-                  container.read(hiddenItemsProvider.notifier).hide(key);
-
-                  await container
-                      .read(recommendationRepositoryProvider)
-                      .sendFeedback(
-                        entityType: item.entityType,
-                        entityId: item.entityId,
-                        feedbackType: feedbackType,
-                        enabled: true,
-                      );
-
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Đã ẩn "${item.title}"'),
-                        behavior: SnackBarBehavior.floating,
-                        action: SnackBarAction(
-                          label: 'Hoàn tác',
-                          textColor: AppColors.lavender,
-                          onPressed: () async {
-                            container
-                                .read(hiddenItemsProvider.notifier)
-                                .unhide(key);
-                            await container
-                                .read(recommendationRepositoryProvider)
-                                .sendFeedback(
-                                  entityType: item.entityType,
-                                  entityId: item.entityId,
-                                  feedbackType: feedbackType,
-                                  enabled: false,
-                                );
-                          },
-                        ),
-                      ),
-                    );
-                  }
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _submitRecommendationFeedback(
+                    container: container,
+                    messenger: messenger,
+                    hideKey: key,
+                    entityType: item.entityType,
+                    entityId: item.entityId,
+                    feedbackType: feedbackType,
+                    hiddenNotice: 'Đã ẩn "${item.title}"',
+                  );
                 },
               ),
               if (item.track?.artistId != null)
@@ -1179,47 +1233,17 @@ void _showItemOptions(
                       color: Color(0xFFFF6B6B),
                     ),
                   ),
-                  onTap: () async {
-                    Navigator.pop(context);
-                    final key = '${item.entityType}:${item.entityId}';
-                    container.read(hiddenItemsProvider.notifier).hide(key);
-
-                    await container
-                        .read(recommendationRepositoryProvider)
-                        .sendFeedback(
-                          entityType: 'ARTIST',
-                          entityId: item.track!.artistId!,
-                          feedbackType: 'HIDE',
-                          enabled: true,
-                        );
-
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            'Đã ẩn nghệ sĩ ${item.track?.artist ?? ""}',
-                          ),
-                          behavior: SnackBarBehavior.floating,
-                          action: SnackBarAction(
-                            label: 'Hoàn tác',
-                            textColor: AppColors.lavender,
-                            onPressed: () async {
-                              container
-                                  .read(hiddenItemsProvider.notifier)
-                                  .unhide(key);
-                              await container
-                                  .read(recommendationRepositoryProvider)
-                                  .sendFeedback(
-                                    entityType: 'ARTIST',
-                                    entityId: item.track!.artistId!,
-                                    feedbackType: 'HIDE',
-                                    enabled: false,
-                                  );
-                            },
-                          ),
-                        ),
-                      );
-                    }
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _submitRecommendationFeedback(
+                      container: container,
+                      messenger: messenger,
+                      hideKey: key,
+                      entityType: 'ARTIST',
+                      entityId: item.track!.artistId!,
+                      feedbackType: 'HIDE',
+                      hiddenNotice: 'Đã ẩn nghệ sĩ ${item.track?.artist ?? ""}',
+                    );
                   },
                 ),
             ],

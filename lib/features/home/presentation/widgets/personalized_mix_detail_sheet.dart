@@ -5,6 +5,7 @@ import '../../../../app/theme/app_theme.dart';
 import '../../../../core/widgets/app_motion.dart';
 import '../../../catalog/domain/catalog_models.dart';
 import '../../../catalog/presentation/catalog_widgets.dart';
+import '../../../library/presentation/library_controller.dart';
 import '../../../player/presentation/player_controller.dart';
 import '../../data/recommendation_repository.dart';
 import '../../domain/recommendation_models.dart';
@@ -121,6 +122,9 @@ class _PersonalizedMixDetailSheetState
         versionId: versionId,
         requestId: requestId,
       );
+      try {
+        ref.invalidate(libraryControllerProvider);
+      } catch (_) {}
       if (mounted) {
         setState(() => _isCopying = false);
         final messenger = ScaffoldMessenger.of(context);
@@ -192,6 +196,13 @@ class _PersonalizedMixDetailSheetState
     final media = MediaQuery.of(context);
     final maxHeight = media.size.height * 0.88;
     final gradient = _getGradient(_mix?.name ?? widget.item.title);
+    final currentPlayingId = () {
+      try {
+        return ref.watch(playerControllerProvider.select((s) => s.track?.id));
+      } catch (_) {
+        return null;
+      }
+    }();
 
     return Container(
       constraints: BoxConstraints(maxHeight: maxHeight),
@@ -535,17 +546,6 @@ class _PersonalizedMixDetailSheetState
                             index,
                           ) {
                             final track = _mix!.tracks[index];
-                            final currentPlayingId = () {
-                              try {
-                                return ref.watch(
-                                  playerControllerProvider.select(
-                                    (s) => s.track?.id,
-                                  ),
-                                );
-                              } catch (_) {
-                                return null;
-                              }
-                            }();
                             final isCurrentPlaying =
                                 currentPlayingId == track.id;
 

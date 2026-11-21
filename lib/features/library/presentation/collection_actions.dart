@@ -11,7 +11,12 @@ typedef CollectionKey = ({String id, bool album});
 final collectionProvider = FutureProvider.autoDispose
     .family<MusicCollection, CollectionKey>((ref, key) {
       if (key.album) return ref.watch(catalogRepositoryProvider).album(key.id);
-      ref.watch(sessionControllerProvider.select((s) => s.session?.user.id));
+      final user = ref.watch(
+        sessionControllerProvider.select((s) => s.session?.user.id),
+      );
+      if (user == null) {
+        return ref.watch(catalogRepositoryProvider).playlist(key.id);
+      }
       return ref.watch(libraryRepositoryProvider).playlist(key.id);
     });
 

@@ -58,6 +58,7 @@ class TestKaraokeRepository extends KaraokeRepository {
   Map<String, dynamic>? detail;
   final queueRequests = <String>[];
   final removals = <int>[];
+  final moves = <(int, String)>[];
   @override
   Future<Map<String, dynamic>> room(int id) async => detail!;
   @override
@@ -91,6 +92,20 @@ class TestKaraokeRepository extends KaraokeRepository {
           .where((item) => item['id'] != itemId)
           .toList(),
     };
+  }
+
+  @override
+  Future<void> moveQueue(int id, int itemId, String direction) async {
+    moves.add((itemId, direction));
+    final items = List<Map<String, dynamic>>.from(detail!['queue'] as List);
+    final index = items.indexWhere((item) => item['id'] == itemId);
+    final swapIndex = direction == 'UP' ? index - 1 : index + 1;
+    if (index >= 0 && swapIndex >= 0 && swapIndex < items.length) {
+      final tmp = items[index];
+      items[index] = items[swapIndex];
+      items[swapIndex] = tmp;
+    }
+    detail = {...detail!, 'queue': items};
   }
 
   @override
@@ -685,6 +700,38 @@ void main() {
     expect(failed.disposed, isTrue);
     expect(recovered.connected, isTrue);
     expect(recovered.microphoneOn, isFalse);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  });
+
+  testWidgets('queue reorder buttons call moveQueue and update order', (
+    tester,
+  ) async {
+    final repository = TestKaraokeRepository();
+    await openRoom(tester, repository, TestKaraokeVoice.new);
+    for (final title in ['Bài thứ nhất', 'Bài thứ hai']) {
+      await tester.scrollUntilVisible(
+        find.text('Thêm bài'),
+        250,
+        scrollable: find.byType(Scrollable).last,
+      );
+      await tester.tap(find.text('Thêm bài'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ListTile, title));
+      await tester.pumpAndSettle();
+    }
+    await tester.scrollUntilVisible(
+      find.byTooltip('Chuyển lên trên').last,
+      200,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(find.byTooltip('Chuyển lên trên').last);
+    await tester.pumpAndSettle();
+    expect(repository.moves, [(2, 'UP')]);
+    final reordered = (repository.detail!['queue'] as List)
+        .map((e) => (e as Map)['id'])
+        .toList();
+    expect(reordered, [2, 1]);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
   });

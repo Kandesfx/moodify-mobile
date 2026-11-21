@@ -1,11 +1,16 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../auth/presentation/session_controller.dart';
 import '../data/recommendation_repository.dart';
 import '../domain/recommendation_models.dart';
 
 final recommendationHomeProvider = FutureProvider.autoDispose
     .family<RecommendationHome?, String?>((ref, genre) async {
+      final userId = ref.watch(
+        sessionControllerProvider.select((s) => s.session?.user.id),
+      );
+      if (userId == null) return null;
       final cancel = CancelToken();
       ref.onDispose(cancel.cancel);
       final repo = ref.watch(recommendationRepositoryProvider);
@@ -14,7 +19,10 @@ final recommendationHomeProvider = FutureProvider.autoDispose
 
 class HiddenItemsNotifier extends Notifier<Set<String>> {
   @override
-  Set<String> build() => const {};
+  Set<String> build() {
+    ref.watch(sessionControllerProvider.select((s) => s.session?.user.id));
+    return const {};
+  }
 
   void hide(String key) {
     state = {...state, key};

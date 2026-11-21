@@ -322,6 +322,7 @@ String _destination(Uri uri) {
         '/karaoke/rooms',
         '/library',
         '/account',
+        '/profile',
         '/player',
         '/lyrics',
         '/notifications',

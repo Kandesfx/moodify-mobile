@@ -158,4 +158,60 @@ void main() {
       dio.close();
     },
   );
+
+  test(
+    'CatalogRemoteService.recommend uses authorizedDio when provided and playlist uses public dio',
+    () async {
+      final publicCalls = <RequestOptions>[];
+      final authCalls = <RequestOptions>[];
+      final publicDio = Dio(
+        BaseOptions(baseUrl: 'https://api.example.test/api/'),
+      );
+      publicDio.httpClientAdapter = TestAdapter((options) {
+        publicCalls.add(options);
+        if (options.path.startsWith('playlists/')) {
+          return jsonResponse({
+            'id': 'pl-1',
+            'name': 'Public Mix',
+            'isPublic': true,
+            'tracks': [],
+          });
+        }
+        return jsonResponse({'tracks': []});
+      });
+      final authDio = Dio(
+        BaseOptions(baseUrl: 'https://api.example.test/api/'),
+      );
+      authDio.httpClientAdapter = TestAdapter((options) {
+        authCalls.add(options);
+        return jsonResponse({'tracks': []});
+      });
+
+      final serviceWithAuth = CatalogRemoteService(
+        publicDio,
+        authorizedDio: () => authDio,
+      );
+      final repoWithAuth = CatalogRepository(
+        serviceWithAuth,
+        AppConfig(apiBaseUrl: 'https://api.example.test/api'),
+      );
+      await repoWithAuth.mood('vui', CancelToken());
+      expect(authCalls.single.path, 'emotions/recommend');
+      expect(publicCalls, isEmpty);
+
+      final playlist = await repoWithAuth.playlist('pl/1');
+      expect(playlist.title, 'Public Mix');
+      expect(publicCalls.single.path, 'playlists/pl%2F1');
+
+      final fallbackRepo = CatalogRepository(
+        CatalogRemoteService(publicDio),
+        AppConfig(apiBaseUrl: 'https://api.example.test/api'),
+      );
+      await fallbackRepo.mood('buồn', CancelToken());
+      expect(publicCalls.last.path, 'emotions/recommend');
+
+      publicDio.close();
+      authDio.close();
+    },
+  );
 }

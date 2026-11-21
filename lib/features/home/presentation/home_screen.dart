@@ -95,14 +95,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
     final albums = ref.watch(albumsProvider);
     final artists = ref.watch(artistsProvider(''));
-    final recAsync = ref.watch(
-      recommendationHomeProvider(_genre?.split(',').first),
-    );
+    final recLoading =
+        signedIn &&
+        !isOfflineMode &&
+        ref.watch(
+          recommendationHomeProvider(
+            _genre?.split(',').first,
+          ).select((s) => s.isLoading),
+        );
     final isScreenLoading =
         state.loading ||
         albums.isLoading ||
         artists.isLoading ||
-        recAsync.isLoading ||
+        recLoading ||
         _isRefreshing;
     final quick = displayTracks
         .where((t) => (showingOfflineCatalog || t.hasAudio) && t.hasTitle)
@@ -130,7 +135,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         }
         ref.invalidate(albumsProvider);
         ref.invalidate(artistsProvider(''));
-        ref.invalidate(recommendationHomeProvider);
+        if (signedIn) {
+          ref.invalidate(recommendationHomeProvider);
+        }
         await ref
             .read(catalogControllerProvider(query).notifier)
             .load(reset: true);

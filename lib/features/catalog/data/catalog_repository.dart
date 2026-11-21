@@ -8,14 +8,19 @@ import '../domain/catalog_models.dart';
 
 final catalogRepositoryProvider = Provider<CatalogRepository>(
   (ref) => CatalogRepository(
-    CatalogRemoteService(ref.watch(authDioProvider)),
+    CatalogRemoteService(
+      ref.watch(authDioProvider),
+      authorizedDio: () => ref.read(apiDioProvider),
+    ),
     ref.watch(appConfigProvider),
   ),
 );
 
 class CatalogRemoteService {
-  CatalogRemoteService(this.dio);
+  CatalogRemoteService(this.dio, {Dio Function()? authorizedDio})
+    : _authorizedDio = authorizedDio;
   final Dio dio;
+  final Dio Function()? _authorizedDio;
   Future<Object?> get(
     String path, {
     Map<String, dynamic>? query,
@@ -26,7 +31,7 @@ class CatalogRemoteService {
     cancelToken: cancel,
   )).data;
   Future<Object?> recommend(String text, CancelToken cancel) async =>
-      (await dio.post<Object?>(
+      (await (_authorizedDio?.call() ?? dio).post<Object?>(
         'emotions/recommend',
         data: {'text': text, 'strategy': 'empathy', 'limit': 30},
         cancelToken: cancel,
@@ -67,6 +72,9 @@ class CatalogRepository {
   Future<MusicCollection> album(String id) async => MusicCollection.fromJson(
     objectJson(await remote.get('albums/${segment(id)}')),
     album: true,
+  );
+  Future<MusicCollection> playlist(String id) async => MusicCollection.fromJson(
+    objectJson(await remote.get('playlists/${segment(id)}')),
   );
   Future<List<Artist>> artists(String query) async {
     final json = await remote.get('artists', query: {'query': query});

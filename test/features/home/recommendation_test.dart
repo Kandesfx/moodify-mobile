@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:moodify_flutter/app/bootstrap.dart';
 import 'package:moodify_flutter/core/config/app_config.dart';
 import 'package:moodify_flutter/features/auth/domain/auth_session.dart';
@@ -37,17 +40,21 @@ class _FakeSessionController extends SessionController {
 }
 
 class _FakeRecommendationRepository implements RecommendationRepository {
-  _FakeRecommendationRepository({this.mixData});
+  _FakeRecommendationRepository({this.mixData, this.sendFeedbackError});
 
   final PersonalizedMix? mixData;
+  final Object? sendFeedbackError;
   final List<String> recordedEvents = [];
   final List<Map<String, dynamic>> feedbackLog = [];
+  int fetchHomeCount = 0;
+  Completer<void>? nextFeedbackCompleter;
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 
   @override
   Future<RecommendationHome> fetchHome({String? genre, dynamic cancel}) async {
+    fetchHomeCount++;
     return const RecommendationHome(
       requestId: 'test-req',
       coldStart: false,
@@ -122,6 +129,13 @@ class _FakeRecommendationRepository implements RecommendationRepository {
     required String feedbackType,
     required bool enabled,
   }) async {
+    final completer = nextFeedbackCompleter;
+    if (completer != null) {
+      await completer.future;
+    }
+    if (sendFeedbackError != null) {
+      throw sendFeedbackError!;
+    }
     feedbackLog.add({
       'entityType': entityType,
       'entityId': entityId,
@@ -241,7 +255,15 @@ void main() {
   });
 
   test('HiddenItemsNotifier adds and removes hidden items', () {
-    final container = ProviderContainer();
+    final container = ProviderContainer(
+      overrides: [
+        sessionControllerProvider.overrideWith(
+          () => _FakeSessionController(
+            const SessionState(phase: SessionPhase.signedOut, session: null),
+          ),
+        ),
+      ],
+    );
     addTearDown(container.dispose);
 
     expect(container.read(hiddenItemsProvider), isEmpty);
@@ -251,6 +273,52 @@ void main() {
     container.read(hiddenItemsProvider.notifier).unhide('TRACK:trk-1');
     expect(container.read(hiddenItemsProvider).contains('TRACK:trk-1'), false);
   });
+
+  test(
+    'recommendationHomeProvider returns null without API call when signed out, and fetches when signed in',
+    () async {
+      final guestRepo = _FakeRecommendationRepository();
+      final guestContainer = ProviderContainer(
+        overrides: [
+          recommendationRepositoryProvider.overrideWithValue(guestRepo),
+          sessionControllerProvider.overrideWith(
+            () => _FakeSessionController(
+              const SessionState(phase: SessionPhase.signedOut, session: null),
+            ),
+          ),
+        ],
+      );
+      addTearDown(guestContainer.dispose);
+
+      final guestResult = await guestContainer.read(
+        recommendationHomeProvider(null).future,
+      );
+      expect(guestResult, isNull);
+      expect(guestRepo.fetchHomeCount, 0);
+
+      final userRepo = _FakeRecommendationRepository();
+      final userContainer = ProviderContainer(
+        overrides: [
+          recommendationRepositoryProvider.overrideWithValue(userRepo),
+          sessionControllerProvider.overrideWith(
+            () => _FakeSessionController(
+              SessionState(
+                phase: SessionPhase.signedIn,
+                session: _buildTestSession(),
+              ),
+            ),
+          ),
+        ],
+      );
+      addTearDown(userContainer.dispose);
+
+      final userResult = await userContainer.read(
+        recommendationHomeProvider(null).future,
+      );
+      expect(userResult, isNotNull);
+      expect(userRepo.fetchHomeCount, 1);
+    },
+  );
 
   testWidgets(
     'Scenario 1: Guest sees recommendation prompt card with login action',
@@ -660,6 +728,185 @@ void main() {
       expect(find.text('12 bài hát'), findsOneWidget);
       expect(
         find.text('Nội dung gần với những bài bạn quan tâm'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'Guest prompt navigates to /sign-in?from=/home instead of /login',
+    (tester) async {
+      String? navigatedUri;
+      final router = GoRouter(
+        initialLocation: '/home',
+        routes: [
+          GoRoute(
+            path: '/home',
+            builder: (_, _) => const Scaffold(
+              body: CustomScrollView(slivers: [RecommendationSectionWidget()]),
+            ),
+          ),
+          GoRoute(
+            path: '/sign-in',
+            builder: (_, state) {
+              navigatedUri = state.uri.toString();
+              return const Scaffold(body: Text('Sign-In Target'));
+            },
+          ),
+        ],
+        errorBuilder: (_, _) => const Scaffold(body: Text('404 Not Found')),
+      );
+      addTearDown(router.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            sessionControllerProvider.overrideWith(
+              () => _FakeSessionController(
+                const SessionState(
+                  phase: SessionPhase.signedOut,
+                  session: null,
+                ),
+              ),
+            ),
+          ],
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Đăng nhập để trải nghiệm danh sách riêng'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('404 Not Found'), findsNothing);
+      expect(find.text('Sign-In Target'), findsOneWidget);
+      expect(navigatedUri, '/sign-in?from=%2Fhome');
+    },
+  );
+
+  testWidgets(
+    '_showItemOptions shows Undo snackbar after async feedback completion and reverts hidden state on error',
+    (tester) async {
+      final delayedRepo = _FakeRecommendationRepository()
+        ..nextFeedbackCompleter = Completer<void>();
+      final fakeHome = RecommendationHome(
+        requestId: 'async-fb',
+        coldStart: false,
+        availabilityStatus: 'READY',
+        sections: [
+          RecommendationSection(
+            id: 'for_you',
+            title: 'Dành cho bạn',
+            description: 'Gợi ý',
+            items: [
+              RecommendationItem(
+                itemId: 'trk-item-1',
+                entityType: 'TRACK',
+                entityId: 'trk-10',
+                title: 'Nơi này có anh',
+                subtitle: 'Sơn Tùng M-TP',
+                trackCount: 1,
+                reason: 'Gợi ý từ thói quen nghe',
+                reasonCode: 'FOR_YOU',
+                attributionToken: 'tok-1',
+                track: const Track(
+                  id: 'trk-10',
+                  spotifyId: 'trk-10',
+                  name: 'Nơi này có anh',
+                  artist: 'Sơn Tùng M-TP',
+                  artistId: 'art-1',
+                  durationMs: 210000,
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWithValue(
+              AppConfig(apiBaseUrl: 'https://api.example.test'),
+            ),
+            recommendationRepositoryProvider.overrideWithValue(delayedRepo),
+            sessionControllerProvider.overrideWith(
+              () => _FakeSessionController(
+                SessionState(
+                  phase: SessionPhase.signedIn,
+                  session: _buildTestSession(),
+                ),
+              ),
+            ),
+            recommendationHomeProvider(null).overrideWith((ref) => fakeHome),
+          ],
+          child: const MaterialApp(
+            home: Scaffold(
+              body: CustomScrollView(slivers: [RecommendationSectionWidget()]),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.more_vert_rounded));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Không quan tâm nội dung này'));
+      await tester.pumpAndSettle();
+
+      // Optimistically hidden while async feedback is in flight.
+      expect(find.text('Nơi này có anh'), findsNothing);
+
+      delayedRepo.nextFeedbackCompleter!.complete();
+      await tester.pumpAndSettle();
+
+      // Even after sheetContext & card context were disposed, ScaffoldMessenger still shows Undo snackbar.
+      expect(find.text('Đã ẩn "Nơi này có anh"'), findsOneWidget);
+      expect(find.text('Hoàn tác'), findsOneWidget);
+
+      await tester.tap(find.text('Hoàn tác'));
+      await tester.pumpAndSettle();
+      expect(find.text('Nơi này có anh'), findsOneWidget);
+
+      // Now verify error path reverts hiddenItemsProvider and displays failure message.
+      final failingRepo = _FakeRecommendationRepository(
+        sendFeedbackError: Exception('network down'),
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          key: const ValueKey('error-scope'),
+          overrides: [
+            appConfigProvider.overrideWithValue(
+              AppConfig(apiBaseUrl: 'https://api.example.test'),
+            ),
+            recommendationRepositoryProvider.overrideWithValue(failingRepo),
+            sessionControllerProvider.overrideWith(
+              () => _FakeSessionController(
+                SessionState(
+                  phase: SessionPhase.signedIn,
+                  session: _buildTestSession(),
+                ),
+              ),
+            ),
+            recommendationHomeProvider(null).overrideWith((ref) => fakeHome),
+          ],
+          child: const MaterialApp(
+            home: Scaffold(
+              body: CustomScrollView(slivers: [RecommendationSectionWidget()]),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.more_vert_rounded));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Không quan tâm nội dung này'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Nơi này có anh'), findsOneWidget);
+      expect(
+        find.text('Chưa thể cập nhật phản hồi. Vui lòng thử lại.'),
         findsOneWidget,
       );
     },

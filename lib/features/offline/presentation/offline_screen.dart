@@ -663,7 +663,7 @@ class _TaskCard extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
-                  '${offlineSize(update!.received)}${update.total == null ? ' đã nhận' : ' / ${offlineSize(update.total!)} · ${(update.fraction! * 100).floor()}%'}',
+                  '${offlineSize(update!.received)}${update.total == null || update.fraction == null ? ' đã nhận' : ' / ${offlineSize(update.total!)} · ${(update.fraction! * 100).floor()}%'}',
                   style: const TextStyle(
                     color: AppColors.secondary,
                     fontSize: 12.5,

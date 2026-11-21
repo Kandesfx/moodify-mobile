@@ -9,6 +9,8 @@ import 'package:moodify_flutter/features/auth/presentation/session_controller.da
 import 'package:moodify_flutter/features/catalog/data/catalog_repository.dart';
 import 'package:moodify_flutter/features/catalog/presentation/catalog_controller.dart';
 import 'package:moodify_flutter/features/catalog/presentation/catalog_widgets.dart';
+import 'package:moodify_flutter/features/home/data/recommendation_repository.dart';
+import 'package:moodify_flutter/features/home/domain/recommendation_models.dart';
 import 'package:moodify_flutter/features/player/presentation/player_controller.dart';
 import 'package:moodify_flutter/features/player/presentation/player_screen.dart';
 import 'package:moodify_flutter/features/karaoke/presentation/karaoke_screen.dart';
@@ -153,4 +155,76 @@ void main() {
       },
     );
   }
+
+  testWidgets(
+    'guest HomeScreen skips recommendation API and CTA routes to /sign-in instead of 404',
+    (tester) async {
+      final auth = AuthHarness();
+      final music = MusicRepositoryFake();
+      final engine = PlaybackEngineFake();
+      final throwingRecRepo = _GuestForbiddenRecRepository();
+      addTearDown(() async {
+        await tester.pumpWidget(const SizedBox.shrink());
+        final closed = auth.close();
+        await tester.pump();
+        await closed;
+        music.remote.dio.close();
+      });
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            appConfigProvider.overrideWithValue(auth.config),
+            keyValueStoreProvider.overrideWithValue(auth.store),
+            adPolicyProvider.overrideWithValue(TestAdPolicy(false)),
+            sessionRepositoryProvider.overrideWithValue(auth.repository),
+            catalogRepositoryProvider.overrideWithValue(music),
+            recommendationRepositoryProvider.overrideWithValue(throwingRecRepo),
+            playbackEngineFactoryProvider.overrideWithValue(() async => engine),
+            albumsProvider.overrideWith((ref) async => []),
+            artistsProvider.overrideWith((ref, query) async => []),
+          ],
+          child: const MoodifyApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(throwingRecRepo.fetchCalls, 0);
+      expect(auth.requests, isEmpty);
+      expect(tester.takeException(), isNull);
+
+      final cta = find.text('Đăng nhập để trải nghiệm danh sách riêng');
+      await tester.scrollUntilVisible(
+        cta,
+        180,
+        scrollable: find
+            .descendant(
+              of: find.byType(CustomScrollView),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      await tester.ensureVisible(cta);
+      await tester.pumpAndSettle();
+      await tester.tap(cta);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Không tìm thấy trang này.'), findsNothing);
+      expect(find.byType(TextFormField), findsWidgets);
+      expect(tester.takeException(), isNull);
+    },
+  );
+}
+
+class _GuestForbiddenRecRepository implements RecommendationRepository {
+  int fetchCalls = 0;
+
+  @override
+  Future<RecommendationHome> fetchHome({String? genre, CancelToken? cancel}) {
+    fetchCalls++;
+    throw StateError('fetchHome must not be called for guests');
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
