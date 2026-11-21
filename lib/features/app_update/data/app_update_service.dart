@@ -19,14 +19,42 @@ final appVersionProvider =
     });
 
 class AppUpdateService {
+  static const defaultGithubRepo = 'Kandesfx/moodify-mobile';
   static const MethodChannel _channel = MethodChannel(
     'dev.moodify.moodify_flutter/app_update',
   );
 
   final Dio _dio;
+  final String? _apiBaseUrlOverride;
+  final String _githubRepo;
+  final Future<({String versionName, int versionCode})> Function()?
+  _currentVersionReader;
+  final bool? _isAndroidOverride;
   ({String versionName, int versionCode})? _cachedVersion;
 
-  AppUpdateService({Dio? dio}) : _dio = dio ?? Dio();
+  AppUpdateService({
+    Dio? dio,
+    String? apiBaseUrl,
+    String? githubRepo,
+    Future<({String versionName, int versionCode})> Function()?
+    currentVersionReader,
+    bool? isAndroidOverride,
+  }) : _dio = dio ?? Dio(),
+       _apiBaseUrlOverride = apiBaseUrl,
+       _githubRepo = _resolveGithubRepo(githubRepo),
+       _currentVersionReader = currentVersionReader,
+       _isAndroidOverride = isAndroidOverride;
+
+  static String _resolveGithubRepo(String? override) {
+    final trimmed = (override ?? '').trim();
+    if (trimmed.isNotEmpty) return trimmed;
+    const fromEnv = String.fromEnvironment(
+      'APP_UPDATE_GITHUB_REPO',
+      defaultValue: defaultGithubRepo,
+    );
+    final envTrimmed = fromEnv.trim();
+    return envTrimmed.isNotEmpty ? envTrimmed : defaultGithubRepo;
+  }
 
   /// Lấy thông tin phiên bản thật sự đang cài đặt trên thiết bị từ Android PackageManager hoặc iOS Bundle
   Future<({String versionName, int versionCode})> getCurrentVersion() async {
@@ -52,17 +80,15 @@ class AppUpdateService {
     return (versionName: '0.1.4', versionCode: 5);
   }
 
-  /// Kiểm tra có bản cập nhật mới hay không
-  Future<AppVersionInfo?> checkForUpdate() async {
-    if (kIsWeb || !Platform.isAndroid) return null;
-
+  Future<({AppVersionInfo info, bool fromGitHub})?> _fetchFromBackend() async {
     try {
-      final current = await getCurrentVersion();
-      final config = AppConfig.fromEnvironment();
-      final base = config.apiBaseUri.toString().replaceAll(RegExp(r'/+$'), '');
+      final base =
+          (_apiBaseUrlOverride ??
+                  AppConfig.fromEnvironment().apiBaseUri.toString())
+              .replaceAll(RegExp(r'/+$'), '');
       final url = '$base/app/version';
 
-      final response = await _dio.get(
+      final response = await _dio.get<Object?>(
         url,
         options: Options(
           sendTimeout: const Duration(seconds: 6),
@@ -70,14 +96,83 @@ class AppUpdateService {
         ),
       );
 
-      if (response.statusCode == 200 && response.data is Map<String, dynamic>) {
-        final info = AppVersionInfo.fromJson(
-          response.data as Map<String, dynamic>,
-        );
-        if (info.latestBuildNumber > current.versionCode &&
-            info.downloadUrl.isNotEmpty) {
-          return info;
+      if (response.statusCode == 200 && response.data is Map) {
+        final data = Map<String, dynamic>.from(response.data as Map);
+        final fromGitHub =
+            (data['source'] as String?)?.trim().toLowerCase() == 'github';
+        return (info: AppVersionInfo.fromJson(data), fromGitHub: fromGitHub);
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Lỗi kiểm tra bản cập nhật từ backend: $e');
+      }
+    }
+    return null;
+  }
+
+  Future<AppVersionInfo?> _fetchFromGitHub() async {
+    try {
+      final url = 'https://api.github.com/repos/$_githubRepo/releases/latest';
+      final response = await _dio.get<Object?>(
+        url,
+        options: Options(
+          headers: const {
+            'Accept': 'application/vnd.github+json',
+            'User-Agent': 'Moodify-Flutter',
+          },
+          sendTimeout: const Duration(seconds: 6),
+          receiveTimeout: const Duration(seconds: 6),
+        ),
+      );
+
+      if (response.statusCode == 200 && response.data is Map) {
+        final data = Map<String, dynamic>.from(response.data as Map);
+        return AppVersionInfo.fromGitHubRelease(data);
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('Lỗi kiểm tra bản cập nhật từ GitHub: $e');
+      }
+    }
+    return null;
+  }
+
+  AppVersionInfo _pickNewer(AppVersionInfo a, AppVersionInfo b) {
+    final cmp = AppVersionInfo.compareSemver(a.latestVersion, b.latestVersion);
+    if (cmp != null) {
+      if (cmp > 0) return a;
+      if (cmp < 0) return b;
+    }
+    return b.latestBuildNumber > a.latestBuildNumber ? b : a;
+  }
+
+  /// Kiểm tra có bản cập nhật mới hay không (ưu tiên backend đồng bộ Git, fallback trực tiếp GitHub Releases)
+  Future<AppVersionInfo?> checkForUpdate() async {
+    if (kIsWeb || !(_isAndroidOverride ?? Platform.isAndroid)) return null;
+
+    try {
+      final current = _currentVersionReader != null
+          ? await _currentVersionReader()
+          : await getCurrentVersion();
+
+      final backend = await _fetchFromBackend();
+      AppVersionInfo? candidate = backend?.info;
+
+      if (backend == null || !backend.fromGitHub) {
+        final github = await _fetchFromGitHub();
+        if (github != null) {
+          candidate = candidate == null
+              ? github
+              : _pickNewer(candidate, github);
         }
+      }
+
+      if (candidate != null &&
+          candidate.isNewerThan(
+            currentVersion: current.versionName,
+            currentBuildNumber: current.versionCode,
+          )) {
+        return candidate;
       }
     } catch (e) {
       if (kDebugMode) {
